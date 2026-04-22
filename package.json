@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "pdf-parse": "^2.4.5"
+  },
+  "dependencies": {
+    "canvas": "^3.2.3",
+    "tesseract.js": "^7.0.0"
+  }
+}
