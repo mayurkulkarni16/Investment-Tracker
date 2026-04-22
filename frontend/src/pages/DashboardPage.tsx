@@ -11,6 +11,7 @@ const LABELS: Record<string, string> = {
   corporate_bonds: 'Corporate Bonds',
   fixed_deposits: 'Fixed Deposits',
   provident_fund: 'Provident Fund',
+  stocks: 'Stocks',
 };
 
 export default function DashboardPage() {
@@ -52,6 +53,7 @@ export default function DashboardPage() {
     { name: 'Mutual Funds', invested: data.mutual_fund_summary.total_invested, value: data.mutual_fund_summary.current_value },
     { name: 'Bonds', invested: data.corporate_bond_summary.total_invested, value: data.corporate_bond_summary.current_value },
     { name: 'FDs', invested: data.fixed_deposit_summary.total_invested, value: data.fixed_deposit_summary.current_value },
+    { name: 'Stocks', invested: data.stock_summary.total_invested, value: data.stock_summary.current_value },
     { name: 'PF', invested: data.provident_fund_summary.total_invested, value: data.provident_fund_summary.current_value },
   ].filter(d => d.invested > 0 || d.value > 0);
 
@@ -170,6 +172,7 @@ export default function DashboardPage() {
           { label: 'Mutual Funds', s: data.mutual_fund_summary },
           { label: 'Corporate Bonds', s: data.corporate_bond_summary },
           { label: 'Fixed Deposits', s: data.fixed_deposit_summary },
+          { label: 'Stocks', s: data.stock_summary },
           { label: 'Provident Fund', s: data.provident_fund_summary },
         ].map(({ label, s }) => (
           <div key={label} className="card">

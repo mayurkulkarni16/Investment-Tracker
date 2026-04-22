@@ -228,6 +228,7 @@ export interface DashboardSummary {
   corporate_bond_summary: InvestmentSummary;
   fixed_deposit_summary: InvestmentSummary;
   provident_fund_summary: InvestmentSummary;
+  stock_summary: InvestmentSummary;
 }
 
 // CAS Import types
@@ -266,4 +267,60 @@ export interface UpdateMutualFundRequest {
   folio_number?: string;
   is_elss: boolean;
   notes?: string;
+}
+
+// Stock types
+export type StockExchange = 'NSE' | 'BSE';
+export type StockTransactionType = 'buy' | 'sell';
+
+export interface StockTransaction {
+  transaction_id: string;
+  date: string;
+  type: StockTransactionType;
+  quantity: number;
+  price_per_share: number;
+  amount: number;
+}
+
+export interface Stock {
+  id: string;
+  stock_name: string;
+  symbol: string;
+  exchange: StockExchange;
+  transactions: StockTransaction[];
+  total_quantity: number;
+  total_invested: number;
+  avg_buy_price: number;
+  current_price: number;
+  current_value: number;
+  day_change: number;
+  day_change_percent: number;
+  gain_loss: number;
+  gain_loss_percent: number;
+  price_last_updated?: string;
+  is_market_open: boolean;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateStockRequest {
+  stock_name: string;
+  symbol: string;
+  exchange: StockExchange;
+  notes?: string;
+}
+
+export interface UpdateStockRequest {
+  stock_name?: string;
+  symbol?: string;
+  exchange?: StockExchange;
+  notes?: string;
+}
+
+export interface AddStockTransactionRequest {
+  date: string;
+  type: StockTransactionType;
+  quantity: number;
+  price_per_share: number;
 }

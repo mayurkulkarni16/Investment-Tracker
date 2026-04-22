@@ -26,20 +26,24 @@ func main() {
 	bondRepo := repository.NewCorporateBondRepo(db)
 	fdRepo := repository.NewFixedDepositRepo(db)
 	pfRepo := repository.NewProvidentFundRepo(db)
+	stockRepo := repository.NewStockRepo(db)
 
 	// Services
 	navFetcher := services.NewNAVFetcher()
+	priceFetcher := services.NewStockPriceFetcher()
 	mfService := services.NewMutualFundService(mfRepo, navFetcher)
 	bondService := services.NewCorporateBondService(bondRepo)
 	fdService := services.NewFixedDepositService(fdRepo)
 	pfService := services.NewProvidentFundService(pfRepo)
-	dashboardService := services.NewDashboardService(mfRepo, bondRepo, fdRepo, pfRepo)
+	stockService := services.NewStockService(stockRepo, priceFetcher)
+	dashboardService := services.NewDashboardService(mfRepo, bondRepo, fdRepo, pfRepo, stockRepo)
 
 	// Handlers
 	mfHandler := handlers.NewMutualFundHandler(mfService)
 	bondHandler := handlers.NewCorporateBondHandler(bondService)
 	fdHandler := handlers.NewFixedDepositHandler(fdService)
 	pfHandler := handlers.NewProvidentFundHandler(pfService)
+	stockHandler := handlers.NewStockHandler(stockService)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
 
 	// Router
@@ -103,6 +107,20 @@ func main() {
 			pf.DELETE("/:id", pfHandler.Delete)
 			pf.POST("/:id/entries", pfHandler.AddContribution)
 			pf.POST("/:id/import", pfHandler.ImportFromPDF)
+		}
+
+		// Stocks
+		stocks := api.Group("/stocks")
+		{
+			stocks.GET("", stockHandler.GetAll)
+			stocks.POST("", stockHandler.Create)
+			stocks.GET("/market-status", stockHandler.MarketStatus)
+			stocks.POST("/refresh-prices", stockHandler.RefreshPrice)
+			stocks.GET("/:id", stockHandler.GetByID)
+			stocks.PUT("/:id", stockHandler.Update)
+			stocks.DELETE("/:id", stockHandler.Delete)
+			stocks.POST("/:id/transactions", stockHandler.AddTransaction)
+			stocks.POST("/:id/refresh-price", stockHandler.RefreshPrice)
 		}
 	}
 

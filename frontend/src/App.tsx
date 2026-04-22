@@ -5,6 +5,7 @@ import MutualFundsPage from './pages/MutualFundsPage';
 import CorporateBondsPage from './pages/CorporateBondsPage';
 import FixedDepositsPage from './pages/FixedDepositsPage';
 import ProvidentFundPage from './pages/ProvidentFundPage';
+import StocksPage from './pages/StocksPage';
 import './index.css';
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
             <Route path="/mutual-funds" element={<MutualFundsPage />} />
             <Route path="/corporate-bonds" element={<CorporateBondsPage />} />
             <Route path="/fixed-deposits" element={<FixedDepositsPage />} />
+            <Route path="/stocks" element={<StocksPage />} />
             <Route path="/provident-fund" element={<ProvidentFundPage />} />
           </Routes>
         </main>

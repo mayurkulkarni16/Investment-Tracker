@@ -9,6 +9,7 @@ export default function Sidebar() {
         <NavLink to="/mutual-funds">Mutual Funds</NavLink>
         <NavLink to="/corporate-bonds">Corporate Bonds</NavLink>
         <NavLink to="/fixed-deposits">Fixed Deposits</NavLink>
+        <NavLink to="/stocks">Stocks</NavLink>
         <NavLink to="/provident-fund">Provident Fund</NavLink>
       </nav>
     </aside>

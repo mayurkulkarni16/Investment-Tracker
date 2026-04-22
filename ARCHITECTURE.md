@@ -2,53 +2,55 @@
 
 ## Tech Stack
 
-| Layer      | Technology     | Purpose                        |
-|------------|---------------|--------------------------------|
-| Frontend   | React (Vite)  | SPA with dashboard & forms     |
-| Backend    | Go (Gin)      | REST API, NAV auto-fetch, bond schedule calculator |
-| Database   | MongoDB       | Document store for all investments |
-| NAV Source | AMFI API      | Auto-fetch mutual fund NAVs    |
+| Layer        | Technology        | Purpose                                    |
+|--------------|-------------------|--------------------------------------------|
+| Frontend     | React 19 (Vite)   | SPA with dashboard & forms                 |
+| Backend      | Go (Gin)          | REST API, NAV auto-fetch, bond schedule calculator |
+| Database     | MongoDB           | Document store for all investments         |
+| NAV Source   | AMFI API          | Auto-fetch mutual fund NAVs               |
+| Stock Source | Yahoo Finance API | Live stock prices during market hours      |
 
 ---
 
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   React Frontend                     │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────┐ │
-│  │Dashboard │ │ MF/ELSS  │ │  Bonds   │ │ FD/PF  │ │
-│  │(Summary) │ │  Module  │ │  Module  │ │ Module │ │
-│  └──────────┘ └──────────┘ └──────────┘ └────────┘ │
-└───────────────────┬─────────────────────────────────┘
-                    │ HTTP (localhost:8080)
-┌───────────────────▼─────────────────────────────────┐
-│                  Go Backend (Gin)                     │
-│  ┌────────────────────────────────────────────────┐  │
-│  │               REST API Layer                    │  │
-│  │  /api/v1/mutual-funds                          │  │
-│  │  /api/v1/corporate-bonds                       │  │
-│  │  /api/v1/fixed-deposits                        │  │
-│  │  /api/v1/provident-fund                        │  │
-│  │  /api/v1/dashboard                             │  │
-│  └────────────────────────────────────────────────┘  │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ │
-│  │  NAV Fetcher │ │ Bond Schedule│ │   Interest   │ │
-│  │  (AMFI API)  │ │  Calculator  │ │  Calculator  │ │
-│  └──────────────┘ └──────────────┘ └──────────────┘ │
-└───────────────────┬─────────────────────────────────┘
-                    │
-┌───────────────────▼─────────────────────────────────┐
-│              MongoDB (localhost:27017)                │
-│  Database: investment_tracker                        │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ │
-│  │ mutual_funds │ │corporate_    │ │fixed_deposits│ │
-│  │              │ │bonds         │ │              │ │
-│  ├──────────────┤ ├──────────────┤ ├──────────────┤ │
-│  │provident_    │ │bond_payouts  │ │  categories  │ │
-│  │fund_entries  │ │              │ │              │ │
-│  └──────────────┘ └──────────────┘ └──────────────┘ │
-└─────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│                        React Frontend                         │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────┐ ┌───────┐ │
+│  │Dashboard │ │ MF/ELSS  │ │  Bonds   │ │ FD/PF  │ │Stocks │ │
+│  │(Summary) │ │  Module  │ │  Module  │ │ Module │ │Module │ │
+│  └──────────┘ └──────────┘ └──────────┘ └────────┘ └───────┘ │
+└───────────────────────┬───────────────────────────────────────┘
+                        │ HTTP (localhost:8080)
+┌───────────────────────▼───────────────────────────────────────┐
+│                      Go Backend (Gin)                          │
+│  ┌────────────────────────────────────────────────────────┐    │
+│  │                   REST API Layer                        │    │
+│  │  /api/v1/dashboard                                     │    │
+│  │  /api/v1/mutual-funds                                  │    │
+│  │  /api/v1/corporate-bonds                               │    │
+│  │  /api/v1/fixed-deposits                                │    │
+│  │  /api/v1/provident-fund                                │    │
+│  │  /api/v1/stocks                                        │    │
+│  └────────────────────────────────────────────────────────┘    │
+│  ┌──────────────┐ ┌──────────────┐ ┌───────────────────────┐  │
+│  │  NAV Fetcher │ │ Bond Schedule│ │  Stock Price Fetcher  │  │
+│  │  (AMFI API)  │ │  Calculator  │ │  (Yahoo Finance API)  │  │
+│  └──────────────┘ └──────────────┘ └───────────────────────┘  │
+└───────────────────────┬───────────────────────────────────────┘
+                        │
+┌───────────────────────▼───────────────────────────────────────┐
+│                  MongoDB (localhost:27017)                      │
+│  Database: investment_tracker                                  │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐       │
+│  │ mutual_funds │ │corporate_    │ │ fixed_deposits   │       │
+│  │              │ │bonds         │ │                  │       │
+│  ├──────────────┤ ├──────────────┤ ├──────────────────┤       │
+│  │provident_    │ │   stocks     │ │                  │       │
+│  │fund_entries  │ │              │ │                  │       │
+│  └──────────────┘ └──────────────┘ └──────────────────┘       │
+└───────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -60,27 +62,42 @@
 |--------|------------------------|---------------------------------|
 | GET    | /api/v1/dashboard      | Portfolio summary across all types |
 
+### Stocks
+| Method | Endpoint                                  | Description                         |
+|--------|-------------------------------------------|-------------------------------------|
+| GET    | /api/v1/stocks                            | List all stocks                     |
+| POST   | /api/v1/stocks                            | Add new stock                       |
+| GET    | /api/v1/stocks/market-status              | Check if Indian market is open      |
+| POST   | /api/v1/stocks/refresh-prices             | Refresh prices for all stocks       |
+| GET    | /api/v1/stocks/:id                        | Get single stock details            |
+| PUT    | /api/v1/stocks/:id                        | Update stock                        |
+| DELETE | /api/v1/stocks/:id                        | Delete stock                        |
+| POST   | /api/v1/stocks/:id/transactions           | Add buy/sell transaction            |
+| POST   | /api/v1/stocks/:id/refresh-price          | Refresh price for single stock      |
+
 ### Mutual Funds (incl. ELSS)
-| Method | Endpoint                          | Description                      |
-|--------|-----------------------------------|----------------------------------|
-| GET    | /api/v1/mutual-funds              | List all MF investments          |
-| POST   | /api/v1/mutual-funds              | Add new MF investment            |
-| GET    | /api/v1/mutual-funds/:id          | Get single MF details            |
-| PUT    | /api/v1/mutual-funds/:id          | Update MF investment             |
-| DELETE | /api/v1/mutual-funds/:id          | Delete MF investment             |
-| POST   | /api/v1/mutual-funds/:id/transactions | Add SIP/additional purchase  |
-| GET    | /api/v1/mutual-funds/refresh-nav  | Trigger NAV refresh for all funds|
+| Method | Endpoint                                  | Description                         |
+|--------|-------------------------------------------|-------------------------------------|
+| GET    | /api/v1/mutual-funds                      | List all MF investments             |
+| POST   | /api/v1/mutual-funds                      | Add new MF investment               |
+| POST   | /api/v1/mutual-funds/import               | Bulk import from CAS data           |
+| POST   | /api/v1/mutual-funds/recalculate          | Recalculate all fund totals         |
+| POST   | /api/v1/mutual-funds/refresh-nav          | Refresh NAV for all funds           |
+| GET    | /api/v1/mutual-funds/:id                  | Get single MF details               |
+| PUT    | /api/v1/mutual-funds/:id                  | Update MF investment                |
+| DELETE | /api/v1/mutual-funds/:id                  | Delete MF investment                |
+| POST   | /api/v1/mutual-funds/:id/transactions     | Add SIP/purchase/redemption         |
+| POST   | /api/v1/mutual-funds/:id/refresh-nav      | Refresh NAV for single fund         |
 
 ### Corporate Bonds
 | Method | Endpoint                              | Description                      |
 |--------|---------------------------------------|----------------------------------|
 | GET    | /api/v1/corporate-bonds               | List all bonds                   |
 | POST   | /api/v1/corporate-bonds               | Add new bond                     |
-| GET    | /api/v1/corporate-bonds/:id           | Get single bond with schedules   |
-| PUT    | /api/v1/corporate-bonds/:id           | Update bond                      |
-| DELETE | /api/v1/corporate-bonds/:id           | Delete bond                      |
-| PUT    | /api/v1/corporate-bonds/:id/payouts/:payoutId | Mark a payout as received |
-| GET    | /api/v1/corporate-bonds/:id/schedule  | Get full payout schedule         |
+| GET    | /api/v1/corporate-bonds/:id                   | Get single bond with schedules   |
+| PUT    | /api/v1/corporate-bonds/:id                   | Update bond                      |
+| DELETE | /api/v1/corporate-bonds/:id                   | Delete bond                      |
+| PUT    | /api/v1/corporate-bonds/:id/payouts/:payoutId | Mark a payout as received        |
 
 ### Fixed Deposits
 | Method | Endpoint                     | Description                      |
@@ -94,11 +111,13 @@
 ### Provident Fund
 | Method | Endpoint                          | Description                      |
 |--------|-----------------------------------|----------------------------------|
-| GET    | /api/v1/provident-fund            | Get PF summary                   |
-| POST   | /api/v1/provident-fund            | Add/Create PF account            |
-| POST   | /api/v1/provident-fund/:id/entries| Add monthly contribution entry   |
-| GET    | /api/v1/provident-fund/:id/entries| Get all contribution entries     |
-| PUT    | /api/v1/provident-fund/:id        | Update PF details                |
+| GET    | /api/v1/provident-fund              | List PF accounts                   |
+| POST   | /api/v1/provident-fund              | Create PF account                  |
+| GET    | /api/v1/provident-fund/:id          | Get PF account by ID               |
+| PUT    | /api/v1/provident-fund/:id          | Update PF account                  |
+| DELETE | /api/v1/provident-fund/:id          | Delete PF account                  |
+| POST   | /api/v1/provident-fund/:id/entries  | Add monthly contribution entry     |
+| POST   | /api/v1/provident-fund/:id/import   | Bulk import from PF passbook PDF   |
 
 ---
 
@@ -314,70 +333,123 @@ Year 2:
 
 ---
 
+### 5. Collection: `stocks`
+
+Tracks individual stock holdings with buy/sell transactions and live price data.
+
+```json
+{
+  "_id": "ObjectId",
+  "stock_name": "Reliance Industries Ltd",
+  "symbol": "RELIANCE",
+  "exchange": "NSE",                    // enum: NSE, BSE
+  "transactions": [
+    {
+      "transaction_id": "UUID",
+      "date": "2026-01-10",
+      "type": "buy",                    // enum: buy, sell
+      "quantity": 10,
+      "price_per_share": 2450.00,
+      "amount": 24500.00
+    }
+  ],
+  "total_quantity": 10,
+  "total_invested": 24500.00,
+  "avg_buy_price": 2450.00,
+  "current_price": 2580.00,            // fetched from Yahoo Finance
+  "current_value": 25800.00,           // total_quantity * current_price
+  "day_change": 30.00,                 // current - previous close
+  "day_change_percent": 1.18,
+  "gain_loss": 1300.00,
+  "gain_loss_percent": 5.31,
+  "price_last_updated": "2026-04-22T14:30:00Z",
+  "notes": "",
+  "created_at": "2026-01-10T10:00:00Z",
+  "updated_at": "2026-04-22T14:30:00Z"
+}
+```
+
+**Live Price Fetch**: Uses Yahoo Finance chart API (`https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}.NS`). Symbols are suffixed with `.NS` for NSE and `.BO` for BSE. Frontend auto-refreshes every 60 seconds during market hours.
+
+**Market Hours Detection**: Indian stock market open = Mon–Fri, 9:15 AM – 3:30 PM IST. The `is_market_open` field is computed at request time (not stored).
+
+---
+
 ## Project Structure
 
 ```
-my-investments/
+investment-tracker/
 ├── backend/                         # Go backend
-│   ├── main.go                      # Entry point, server setup
+│   ├── main.go                      # Entry point, router setup
 │   ├── go.mod
-│   ├── go.sum
 │   ├── config/
-│   │   └── config.go                # MongoDB URI, port, AMFI API config
+│   │   └── config.go                # MongoDB URI, port config
+│   ├── database/
+│   │   └── mongodb.go               # Connection setup
 │   ├── models/
 │   │   ├── mutual_fund.go
 │   │   ├── corporate_bond.go
 │   │   ├── fixed_deposit.go
-│   │   └── provident_fund.go
+│   │   ├── provident_fund.go
+│   │   ├── stock.go
+│   │   └── dashboard.go
 │   ├── handlers/
 │   │   ├── mutual_fund_handler.go
 │   │   ├── corporate_bond_handler.go
 │   │   ├── fixed_deposit_handler.go
 │   │   ├── provident_fund_handler.go
+│   │   ├── stock_handler.go
 │   │   └── dashboard_handler.go
 │   ├── services/
 │   │   ├── mutual_fund_service.go
-│   │   ├── corporate_bond_service.go # schedule generator, interest calc
+│   │   ├── corporate_bond_service.go
 │   │   ├── fixed_deposit_service.go
 │   │   ├── provident_fund_service.go
-│   │   └── nav_fetcher.go           # AMFI NAV auto-fetch
-│   ├── repository/
-│   │   ├── mutual_fund_repo.go
-│   │   ├── corporate_bond_repo.go
-│   │   ├── fixed_deposit_repo.go
-│   │   └── provident_fund_repo.go
-│   └── database/
-│       └── mongodb.go               # Connection setup
+│   │   ├── stock_service.go
+│   │   ├── dashboard_service.go
+│   │   ├── nav_fetcher.go           # AMFI NAV auto-fetch
+│   │   ├── stock_price_fetcher.go   # Yahoo Finance live prices
+│   │   └── helpers.go               # Shared utilities
+│   └── repository/
+│       ├── mutual_fund_repo.go
+│       ├── corporate_bond_repo.go
+│       ├── fixed_deposit_repo.go
+│       ├── provident_fund_repo.go
+│       └── stock_repo.go
 │
 ├── frontend/                        # React frontend (Vite)
 │   ├── package.json
 │   ├── vite.config.ts
-│   ├── src/
-│   │   ├── App.tsx
-│   │   ├── main.tsx
-│   │   ├── api/                     # API client functions
-│   │   │   ├── mutualFunds.ts
-│   │   │   ├── corporateBonds.ts
-│   │   │   ├── fixedDeposits.ts
-│   │   │   └── providentFund.ts
-│   │   ├── components/
-│   │   │   ├── Dashboard/
-│   │   │   ├── MutualFunds/
-│   │   │   ├── CorporateBonds/
-│   │   │   ├── FixedDeposits/
-│   │   │   ├── ProvidentFund/
-│   │   │   └── common/              # Shared UI components
-│   │   ├── pages/
-│   │   │   ├── DashboardPage.tsx
-│   │   │   ├── MutualFundsPage.tsx
-│   │   │   ├── CorporateBondsPage.tsx
-│   │   │   ├── FixedDepositsPage.tsx
-│   │   │   └── ProvidentFundPage.tsx
-│   │   └── types/                   # TypeScript interfaces
-│   │       └── index.ts
-│   └── index.html
+│   └── src/
+│       ├── App.tsx
+│       ├── main.tsx
+│       ├── api/                     # API client functions
+│       │   ├── client.ts
+│       │   ├── dashboard.ts
+│       │   ├── mutualFunds.ts
+│       │   ├── corporateBonds.ts
+│       │   ├── fixedDeposits.ts
+│       │   ├── providentFund.ts
+│       │   └── stocks.ts
+│       ├── components/
+│       │   └── Sidebar.tsx
+│       ├── pages/
+│       │   ├── DashboardPage.tsx
+│       │   ├── MutualFundsPage.tsx
+│       │   ├── CorporateBondsPage.tsx
+│       │   ├── FixedDepositsPage.tsx
+│       │   ├── StocksPage.tsx
+│       │   └── ProvidentFundPage.tsx
+│       ├── types/
+│       │   └── index.ts
+│       └── utils/
+│           ├── format.ts
+│           ├── casParser.ts
+│           └── pfParser.ts
 │
-└── ARCHITECTURE.md                  # This file
+├── package.json                     # Root scripts (start both servers)
+├── ARCHITECTURE.md                  # This file
+└── README.md
 ```
 
 ---
@@ -400,16 +472,30 @@ When a principal repayment is marked as received:
 - Updates `current_nav`, `current_value`, `gain_loss`, `gain_loss_percent`
 - At data entry time: user manually enters `nav_at_purchase` for existing holdings
 
-### 3. ELSS Lock-in Tracking
+### 3. Stock Live Price Fetch
+- Uses Yahoo Finance chart API: `https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}.NS`
+- Symbols suffixed with `.NS` (NSE) or `.BO` (BSE)
+- Returns current price, previous close, day change, and day change %
+- Frontend auto-refreshes every 60 seconds when market is open
+- Market hours: Mon–Fri 9:15 AM – 3:30 PM IST
+- `IsMarketOpen()` helper checks current IST time for market status
+
+### 4. Stock Average Cost Calculation
+- Uses running average cost method
+- Buy: adds to total quantity and total invested
+- Sell: deducts quantity and proportional cost at current average price
+- `avg_buy_price = total_invested / total_quantity`
+
+### 5. ELSS Lock-in Tracking
 - Each ELSS transaction has its own `lock_in_end` (purchase_date + 3 years)
 - Dashboard shows which units are locked vs unlocked
 - Filter view for ELSS-only investments
 
-### 4. FD Maturity Calculation
+### 6. FD Maturity Calculation
 - Cumulative: compound interest calculation for maturity amount
 - Non-cumulative: simple interest per payout period
 
-### 5. PF Interest Calculation
+### 7. PF Interest Calculation
 - Monthly running balance method (as per EPFO rules)
 - Interest calculated on monthly closing balances
 - Credited annually
@@ -423,13 +509,12 @@ The dashboard aggregates across all investment types:
 | Metric                     | Source                                    |
 |----------------------------|-------------------------------------------|
 | Total Invested             | Sum across all types                      |
-| Current Value              | MF (units×NAV) + FD (principal/maturity) + Bonds (remaining principal) + PF (balance) |
+| Current Value              | MF (units×NAV) + Stocks (qty×price) + FD (principal/maturity) + Bonds (remaining principal) + PF (balance) |
 | Total Gains                | Current Value - Total Invested            |
 | Overall Return %           | (Gains / Invested) × 100                  |
-| Monthly Interest Income    | Bonds interest + FD interest (non-cumulative) |
 | Upcoming Payouts           | Next 30 days: bond interest, FD maturity, bond principal |
 | ELSS Tax Saving (80C)      | Sum of ELSS investments in current FY (max ₹1.5L) |
-| Asset Allocation Pie Chart | % in MF, Bonds, FD, PF                   |
+| Asset Allocation Pie Chart | % in MF, Stocks, Bonds, FD, PF            |
 
 ---
 

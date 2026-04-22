@@ -8,10 +8,11 @@ import (
 )
 
 type DashboardService struct {
-	mfRepo   *repository.MutualFundRepo
-	bondRepo *repository.CorporateBondRepo
-	fdRepo   *repository.FixedDepositRepo
-	pfRepo   *repository.ProvidentFundRepo
+	mfRepo    *repository.MutualFundRepo
+	bondRepo  *repository.CorporateBondRepo
+	fdRepo    *repository.FixedDepositRepo
+	pfRepo    *repository.ProvidentFundRepo
+	stockRepo *repository.StockRepo
 }
 
 func NewDashboardService(
@@ -19,12 +20,14 @@ func NewDashboardService(
 	bondRepo *repository.CorporateBondRepo,
 	fdRepo *repository.FixedDepositRepo,
 	pfRepo *repository.ProvidentFundRepo,
+	stockRepo *repository.StockRepo,
 ) *DashboardService {
 	return &DashboardService{
-		mfRepo:   mfRepo,
-		bondRepo: bondRepo,
-		fdRepo:   fdRepo,
-		pfRepo:   pfRepo,
+		mfRepo:    mfRepo,
+		bondRepo:  bondRepo,
+		fdRepo:    fdRepo,
+		pfRepo:    pfRepo,
+		stockRepo: stockRepo,
 	}
 }
 
@@ -40,6 +43,7 @@ type DashboardData struct {
 	BondSummary      CategorySummary    `json:"corporate_bond_summary"`
 	FDSummary        CategorySummary    `json:"fixed_deposit_summary"`
 	PFSummary        CategorySummary    `json:"provident_fund_summary"`
+	StockSummary     CategorySummary    `json:"stock_summary"`
 }
 
 type CategorySummary struct {
@@ -152,16 +156,28 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 		}
 	}
 
+	// Stocks
+	stocks, err := s.stockRepo.GetAll(ctx)
+	if err == nil {
+		for _, stock := range stocks {
+			dashboard.StockSummary.TotalInvested += stock.TotalInvested
+			dashboard.StockSummary.CurrentValue += stock.CurrentValue
+			dashboard.StockSummary.Count++
+		}
+	}
+
 	// Totals
 	dashboard.TotalInvested = dashboard.MFSummary.TotalInvested +
 		dashboard.BondSummary.TotalInvested +
 		dashboard.FDSummary.TotalInvested +
-		dashboard.PFSummary.TotalInvested
+		dashboard.PFSummary.TotalInvested +
+		dashboard.StockSummary.TotalInvested
 
 	dashboard.CurrentValue = dashboard.MFSummary.CurrentValue +
 		dashboard.BondSummary.CurrentValue +
 		dashboard.FDSummary.CurrentValue +
-		dashboard.PFSummary.CurrentValue
+		dashboard.PFSummary.CurrentValue +
+		dashboard.StockSummary.CurrentValue
 
 	dashboard.TotalGains = dashboard.CurrentValue - dashboard.TotalInvested
 	if dashboard.TotalInvested > 0 {
@@ -179,6 +195,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 		dashboard.AssetAllocation["Corporate Bonds"] = dashboard.BondSummary.CurrentValue
 		dashboard.AssetAllocation["Fixed Deposits"] = dashboard.FDSummary.CurrentValue
 		dashboard.AssetAllocation["Provident Fund"] = dashboard.PFSummary.CurrentValue
+		dashboard.AssetAllocation["Stocks"] = dashboard.StockSummary.CurrentValue
 	}
 
 	return dashboard, nil
