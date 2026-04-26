@@ -6,6 +6,9 @@ import CorporateBondsPage from './pages/CorporateBondsPage';
 import FixedDepositsPage from './pages/FixedDepositsPage';
 import ProvidentFundPage from './pages/ProvidentFundPage';
 import StocksPage from './pages/StocksPage';
+import HomeLoansPage from './pages/HomeLoansPage';
+import PersonalLoansPage from './pages/PersonalLoansPage';
+import ProjectionsPage from './pages/ProjectionsPage';
 import './index.css';
 
 export default function App() {
@@ -20,7 +23,10 @@ export default function App() {
             <Route path="/corporate-bonds" element={<CorporateBondsPage />} />
             <Route path="/fixed-deposits" element={<FixedDepositsPage />} />
             <Route path="/stocks" element={<StocksPage />} />
+            <Route path="/home-loans" element={<HomeLoansPage />} />
+            <Route path="/personal-loans" element={<PersonalLoansPage />} />
             <Route path="/provident-fund" element={<ProvidentFundPage />} />
+            <Route path="/projections" element={<ProjectionsPage />} />
           </Routes>
         </main>
       </div>

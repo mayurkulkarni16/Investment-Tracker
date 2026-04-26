@@ -41,8 +41,8 @@
 └───────────────────────┬───────────────────────────────────────┘
                         │
 ┌───────────────────────▼───────────────────────────────────────┐
-│                  MongoDB (localhost:27017)                      │
-│  Database: investment_tracker                                  │
+│                  MongoDB (localhost:27017)                    │
+│  Database: investment_tracker                                 │
 │  ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐       │
 │  │ mutual_funds │ │corporate_    │ │ fixed_deposits   │       │
 │  │              │ │bonds         │ │                  │       │
@@ -58,8 +58,8 @@
 ## API Endpoints
 
 ### Dashboard
-| Method | Endpoint               | Description                     |
-|--------|------------------------|---------------------------------|
+| Method | Endpoint               | Description                        |
+|--------|------------------------|------------------------------------|
 | GET    | /api/v1/dashboard      | Portfolio summary across all types |
 
 ### Stocks

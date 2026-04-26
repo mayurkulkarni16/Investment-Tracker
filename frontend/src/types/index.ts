@@ -229,6 +229,17 @@ export interface DashboardSummary {
   fixed_deposit_summary: InvestmentSummary;
   provident_fund_summary: InvestmentSummary;
   stock_summary: InvestmentSummary;
+  home_loan_summary: LoanSummary;
+  personal_loan_summary: LoanSummary;
+}
+
+export interface LoanSummary {
+  total_disbursed: number;
+  total_outstanding: number;
+  total_interest_paid: number;
+  total_prepayments: number;
+  monthly_emi: number;
+  count: number;
 }
 
 // CAS Import types
@@ -323,4 +334,241 @@ export interface AddStockTransactionRequest {
   type: StockTransactionType;
   quantity: number;
   price_per_share: number;
+}
+
+// Home Loan types
+export type LoanRateType = 'fixed' | 'floating';
+export type LoanStatus = 'active' | 'closed' | 'foreclosed';
+export type PrepaymentType = 'part_payment' | 'foreclosure';
+
+export interface RateChangeEntry {
+  effective_date: string;
+  old_rate: number;
+  new_rate: number;
+  new_emi: number;
+}
+
+export interface DisbursementEntry {
+  disbursement_id: string;
+  date: string;
+  amount: number;
+  tranche: number;
+  pre_emi_amount: number;
+  pre_emi_days: number;
+  days_in_month: number;
+  notes: string;
+}
+
+export interface PreEMIEntry {
+  pre_emi_id: string;
+  month: string;
+  disbursed_at_time: number;
+  tranche_amount: number;
+  interest_rate: number;
+  interest_amount: number;
+  days_charged: number;
+  days_in_month: number;
+  paid: boolean;
+  paid_date?: string;
+}
+
+export interface EMIEntry {
+  emi_id: string;
+  month: string;
+  due_date: string;
+  emi_amount: number;
+  principal_portion: number;
+  interest_portion: number;
+  outstanding_after: number;
+  paid: boolean;
+  paid_date?: string;
+}
+
+export interface Prepayment {
+  prepayment_id: string;
+  date: string;
+  amount: number;
+  type: PrepaymentType;
+  new_emi?: number;
+  new_tenure?: number;
+  notes: string;
+}
+
+export interface HomeLoan {
+  id: string;
+  bank_name: string;
+  loan_account_number: string;
+  property_address: string;
+  loan_purpose: string;
+  sanctioned_amount: number;
+  disbursed_amount: number;
+  interest_rate: number;
+  rate_type: LoanRateType;
+  tenure_months: number;
+  emi_amount: number;
+  emi_start_date: string;
+  disbursement_date: string;
+  co_borrower: string;
+  is_under_construction: boolean;
+  full_emi_started: boolean;
+  disbursements: DisbursementEntry[];
+  pre_emis_paid: PreEMIEntry[];
+  total_pre_emi_paid: number;
+  rate_change_history: RateChangeEntry[];
+  emis_paid: EMIEntry[];
+  prepayments: Prepayment[];
+  outstanding_principal: number;
+  total_principal_paid: number;
+  total_interest_paid: number;
+  total_amount_paid: number;
+  total_prepayments: number;
+  remaining_tenure_months: number;
+  loan_end_date: string;
+  interest_paid_this_fy: number;
+  principal_paid_this_fy: number;
+  pre_emi_paid_this_fy: number;
+  status: LoanStatus;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateHomeLoanRequest {
+  bank_name: string;
+  loan_account_number?: string;
+  property_address?: string;
+  loan_purpose?: string;
+  sanctioned_amount: number;
+  disbursed_amount: number;
+  interest_rate: number;
+  rate_type: LoanRateType;
+  tenure_months: number;
+  emi_start_date: string;
+  disbursement_date: string;
+  is_under_construction?: boolean;
+  co_borrower?: string;
+  notes?: string;
+}
+
+export interface UpdateHomeLoanRequest {
+  bank_name?: string;
+  loan_account_number?: string;
+  property_address?: string;
+  loan_purpose?: string;
+  co_borrower?: string;
+  notes?: string;
+}
+
+export interface AddEMIPaymentRequest {
+  month: string;
+  paid_date: string;
+}
+
+export interface AddPrepaymentRequest {
+  date: string;
+  amount: number;
+  type: PrepaymentType;
+  notes?: string;
+}
+
+export interface ChangeRateRequest {
+  effective_date: string;
+  new_rate: number;
+}
+
+export interface AddDisbursementRequest {
+  date: string;
+  amount: number;
+  notes?: string;
+}
+
+export interface MarkConstructionCompleteRequest {
+  completion_date?: string;
+}
+
+export interface AmortizationEntry {
+  month: number;
+  emi: number;
+  principal_portion: number;
+  interest_portion: number;
+  outstanding_after: number;
+}
+
+// Personal Loan types
+export interface PersonalLoan {
+  id: string;
+  lender_name: string;
+  loan_account_number: string;
+  loan_purpose: string;
+  principal_amount: number;
+  disbursed_amount: number;
+  interest_rate: number;
+  rate_type: LoanRateType;
+  tenure_months: number;
+  emi_amount: number;
+  emi_start_date: string;
+  disbursement_date: string;
+  processing_fee: number;
+  foreclosure_charges: number;
+  rate_change_history: RateChangeEntry[];
+  emis_paid: EMIEntry[];
+  prepayments: Prepayment[];
+  outstanding_principal: number;
+  total_principal_paid: number;
+  total_interest_paid: number;
+  total_amount_paid: number;
+  total_prepayments: number;
+  remaining_tenure_months: number;
+  loan_end_date: string;
+  status: LoanStatus;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePersonalLoanRequest {
+  lender_name: string;
+  loan_account_number?: string;
+  loan_purpose?: string;
+  principal_amount: number;
+  disbursed_amount: number;
+  interest_rate: number;
+  rate_type: LoanRateType;
+  tenure_months: number;
+  emi_start_date: string;
+  disbursement_date: string;
+  processing_fee?: number;
+  foreclosure_charges?: number;
+  notes?: string;
+}
+
+export interface UpdatePersonalLoanRequest {
+  lender_name?: string;
+  loan_account_number?: string;
+  loan_purpose?: string;
+  notes?: string;
+}
+
+// Projection types
+export interface ProjectionPoint {
+  year: number;
+  month: number;
+  value: number;
+}
+
+export interface InvestmentProjection {
+  name: string;
+  category: string;
+  current_value: number;
+  assumed_rate_pct: number;
+  projections: ProjectionPoint[];
+}
+
+export interface ProjectionsResponse {
+  investments: InvestmentProjection[];
+  aggregate_monthly: ProjectionPoint[];
+  total_current: number;
+  total_projected_1y: number;
+  total_projected_3y: number;
+  total_projected_5y: number;
 }

@@ -12,6 +12,8 @@ const LABELS: Record<string, string> = {
   fixed_deposits: 'Fixed Deposits',
   provident_fund: 'Provident Fund',
   stocks: 'Stocks',
+  home_loans: 'Home Loans',
+  personal_loans: 'Personal Loans',
 };
 
 export default function DashboardPage() {
@@ -188,6 +190,34 @@ export default function DashboardPage() {
             </div>
           </div>
         ))}
+        {data.home_loan_summary && data.home_loan_summary.count > 0 && (
+          <div className="card">
+            <h3 style={{ marginBottom: 8 }}>Home Loans</h3>
+            <div className="text-muted" style={{ fontSize: 13 }}>{data.home_loan_summary.count} loan(s)</div>
+            <div style={{ marginTop: 8 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Outstanding: </span>
+              <strong>{formatCurrency(data.home_loan_summary.total_outstanding)}</strong>
+            </div>
+            <div>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Monthly EMI: </span>
+              <strong>{formatCurrency(data.home_loan_summary.monthly_emi)}</strong>
+            </div>
+          </div>
+        )}
+        {data.personal_loan_summary && data.personal_loan_summary.count > 0 && (
+          <div className="card">
+            <h3 style={{ marginBottom: 8 }}>Personal Loans</h3>
+            <div className="text-muted" style={{ fontSize: 13 }}>{data.personal_loan_summary.count} loan(s)</div>
+            <div style={{ marginTop: 8 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Outstanding: </span>
+              <strong>{formatCurrency(data.personal_loan_summary.total_outstanding)}</strong>
+            </div>
+            <div>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Monthly EMI: </span>
+              <strong>{formatCurrency(data.personal_loan_summary.monthly_emi)}</strong>
+            </div>
+          </div>
+        )}
       </div>
 
       {data.upcoming_payouts && data.upcoming_payouts.length > 0 && (

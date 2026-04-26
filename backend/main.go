@@ -27,6 +27,8 @@ func main() {
 	fdRepo := repository.NewFixedDepositRepo(db)
 	pfRepo := repository.NewProvidentFundRepo(db)
 	stockRepo := repository.NewStockRepo(db)
+	homeLoanRepo := repository.NewHomeLoanRepo(db)
+	personalLoanRepo := repository.NewPersonalLoanRepo(db)
 
 	// Services
 	navFetcher := services.NewNAVFetcher()
@@ -36,7 +38,10 @@ func main() {
 	fdService := services.NewFixedDepositService(fdRepo)
 	pfService := services.NewProvidentFundService(pfRepo)
 	stockService := services.NewStockService(stockRepo, priceFetcher)
-	dashboardService := services.NewDashboardService(mfRepo, bondRepo, fdRepo, pfRepo, stockRepo)
+	homeLoanService := services.NewHomeLoanService(homeLoanRepo)
+	personalLoanService := services.NewPersonalLoanService(personalLoanRepo)
+	projectionService := services.NewProjectionService(mfRepo, fdRepo, pfRepo, stockRepo, bondRepo)
+	dashboardService := services.NewDashboardService(mfRepo, bondRepo, fdRepo, pfRepo, stockRepo, homeLoanRepo, personalLoanRepo)
 
 	// Handlers
 	mfHandler := handlers.NewMutualFundHandler(mfService)
@@ -44,6 +49,9 @@ func main() {
 	fdHandler := handlers.NewFixedDepositHandler(fdService)
 	pfHandler := handlers.NewProvidentFundHandler(pfService)
 	stockHandler := handlers.NewStockHandler(stockService)
+	homeLoanHandler := handlers.NewHomeLoanHandler(homeLoanService)
+	personalLoanHandler := handlers.NewPersonalLoanHandler(personalLoanService)
+	projectionHandler := handlers.NewProjectionHandler(projectionService)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
 
 	// Router
@@ -58,8 +66,9 @@ func main() {
 
 	api := r.Group("/api/v1")
 	{
-		// Dashboard
+		// Dashboard & Projections
 		api.GET("/dashboard", dashboardHandler.GetDashboard)
+		api.GET("/projections", projectionHandler.GetProjections)
 
 		// Mutual Funds
 		mf := api.Group("/mutual-funds")
@@ -121,6 +130,37 @@ func main() {
 			stocks.DELETE("/:id", stockHandler.Delete)
 			stocks.POST("/:id/transactions", stockHandler.AddTransaction)
 			stocks.POST("/:id/refresh-price", stockHandler.RefreshPrice)
+		}
+
+		// Home Loans
+		hl := api.Group("/home-loans")
+		{
+			hl.GET("", homeLoanHandler.GetAll)
+			hl.POST("", homeLoanHandler.Create)
+			hl.GET("/:id", homeLoanHandler.GetByID)
+			hl.PUT("/:id", homeLoanHandler.Update)
+			hl.DELETE("/:id", homeLoanHandler.Delete)
+			hl.POST("/:id/emi", homeLoanHandler.RecordEMI)
+			hl.POST("/:id/prepayment", homeLoanHandler.AddPrepayment)
+			hl.POST("/:id/rate-change", homeLoanHandler.ChangeRate)
+			hl.GET("/:id/amortization", homeLoanHandler.GetAmortization)
+			hl.POST("/:id/disbursement", homeLoanHandler.AddDisbursement)
+			hl.POST("/:id/mark-complete", homeLoanHandler.MarkConstructionComplete)
+			hl.POST("/:id/recalculate", homeLoanHandler.Recalculate)
+		}
+
+		// Personal Loans
+		pl := api.Group("/personal-loans")
+		{
+			pl.GET("", personalLoanHandler.GetAll)
+			pl.POST("", personalLoanHandler.Create)
+			pl.GET("/:id", personalLoanHandler.GetByID)
+			pl.PUT("/:id", personalLoanHandler.Update)
+			pl.DELETE("/:id", personalLoanHandler.Delete)
+			pl.POST("/:id/emi", personalLoanHandler.RecordEMI)
+			pl.POST("/:id/prepayment", personalLoanHandler.AddPrepayment)
+			pl.POST("/:id/rate-change", personalLoanHandler.ChangeRate)
+			pl.GET("/:id/amortization", personalLoanHandler.GetAmortization)
 		}
 	}
 

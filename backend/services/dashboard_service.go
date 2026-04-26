@@ -8,11 +8,13 @@ import (
 )
 
 type DashboardService struct {
-	mfRepo    *repository.MutualFundRepo
-	bondRepo  *repository.CorporateBondRepo
-	fdRepo    *repository.FixedDepositRepo
-	pfRepo    *repository.ProvidentFundRepo
-	stockRepo *repository.StockRepo
+	mfRepo           *repository.MutualFundRepo
+	bondRepo         *repository.CorporateBondRepo
+	fdRepo           *repository.FixedDepositRepo
+	pfRepo           *repository.ProvidentFundRepo
+	stockRepo        *repository.StockRepo
+	homeLoanRepo     *repository.HomeLoanRepo
+	personalLoanRepo *repository.PersonalLoanRepo
 }
 
 func NewDashboardService(
@@ -21,35 +23,50 @@ func NewDashboardService(
 	fdRepo *repository.FixedDepositRepo,
 	pfRepo *repository.ProvidentFundRepo,
 	stockRepo *repository.StockRepo,
+	homeLoanRepo *repository.HomeLoanRepo,
+	personalLoanRepo *repository.PersonalLoanRepo,
 ) *DashboardService {
 	return &DashboardService{
-		mfRepo:    mfRepo,
-		bondRepo:  bondRepo,
-		fdRepo:    fdRepo,
-		pfRepo:    pfRepo,
-		stockRepo: stockRepo,
+		mfRepo:           mfRepo,
+		bondRepo:         bondRepo,
+		fdRepo:           fdRepo,
+		pfRepo:           pfRepo,
+		stockRepo:        stockRepo,
+		homeLoanRepo:     homeLoanRepo,
+		personalLoanRepo: personalLoanRepo,
 	}
 }
 
 type DashboardData struct {
-	TotalInvested    float64            `json:"total_invested"`
-	CurrentValue     float64            `json:"current_value"`
-	TotalGains       float64            `json:"total_gains"`
-	OverallReturnPct float64            `json:"overall_return_percent"`
-	ELSSTaxSaving    float64            `json:"elss_tax_saving"`
-	AssetAllocation  map[string]float64 `json:"asset_allocation"`
-	UpcomingPayouts  []UpcomingPayout   `json:"upcoming_payouts"`
-	MFSummary        CategorySummary    `json:"mutual_fund_summary"`
-	BondSummary      CategorySummary    `json:"corporate_bond_summary"`
-	FDSummary        CategorySummary    `json:"fixed_deposit_summary"`
-	PFSummary        CategorySummary    `json:"provident_fund_summary"`
-	StockSummary     CategorySummary    `json:"stock_summary"`
+	TotalInvested       float64            `json:"total_invested"`
+	CurrentValue        float64            `json:"current_value"`
+	TotalGains          float64            `json:"total_gains"`
+	OverallReturnPct    float64            `json:"overall_return_percent"`
+	ELSSTaxSaving       float64            `json:"elss_tax_saving"`
+	AssetAllocation     map[string]float64 `json:"asset_allocation"`
+	UpcomingPayouts     []UpcomingPayout   `json:"upcoming_payouts"`
+	MFSummary           CategorySummary    `json:"mutual_fund_summary"`
+	BondSummary         CategorySummary    `json:"corporate_bond_summary"`
+	FDSummary           CategorySummary    `json:"fixed_deposit_summary"`
+	PFSummary           CategorySummary    `json:"provident_fund_summary"`
+	StockSummary        CategorySummary    `json:"stock_summary"`
+	HomeLoanSummary     LoanSummary        `json:"home_loan_summary"`
+	PersonalLoanSummary LoanSummary        `json:"personal_loan_summary"`
 }
 
 type CategorySummary struct {
 	TotalInvested float64 `json:"total_invested"`
 	CurrentValue  float64 `json:"current_value"`
 	Count         int     `json:"count"`
+}
+
+type LoanSummary struct {
+	TotalDisbursed    float64 `json:"total_disbursed"`
+	TotalOutstanding  float64 `json:"total_outstanding"`
+	TotalInterestPaid float64 `json:"total_interest_paid"`
+	TotalPrepayments  float64 `json:"total_prepayments"`
+	MonthlyEMI        float64 `json:"monthly_emi"`
+	Count             int     `json:"count"`
 }
 
 type UpcomingPayout struct {
@@ -163,6 +180,71 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 			dashboard.StockSummary.TotalInvested += stock.TotalInvested
 			dashboard.StockSummary.CurrentValue += stock.CurrentValue
 			dashboard.StockSummary.Count++
+		}
+	}
+
+	// Home Loans
+	loans, err := s.homeLoanRepo.GetAll(ctx)
+	if err == nil {
+		for _, loan := range loans {
+			if loan.Status == "active" {
+				dashboard.HomeLoanSummary.TotalDisbursed += loan.DisbursedAmount
+				dashboard.HomeLoanSummary.TotalOutstanding += loan.OutstandingPrincipal
+				dashboard.HomeLoanSummary.TotalInterestPaid += loan.TotalInterestPaid
+				dashboard.HomeLoanSummary.TotalPrepayments += loan.TotalPrepayments
+				dashboard.HomeLoanSummary.MonthlyEMI += loan.EMIAmount
+				dashboard.HomeLoanSummary.Count++
+
+				// Add upcoming EMI as upcoming payout
+				nextEMIDate := loan.EMIStartDate
+				if len(loan.EMIsPaid) > 0 {
+					lastPaid := loan.EMIsPaid[len(loan.EMIsPaid)-1]
+					if lastPaid.PaidDate != nil {
+						nextEMIDate = lastPaid.DueDate.AddDate(0, 1, 0)
+					}
+				}
+				if !nextEMIDate.Before(now) && !nextEMIDate.After(thirtyDaysLater) {
+					dashboard.UpcomingPayouts = append(dashboard.UpcomingPayouts, UpcomingPayout{
+						Type:       "Home Loan",
+						Name:       loan.BankName + " - EMI",
+						Date:       nextEMIDate.Format("2006-01-02"),
+						Amount:     loan.EMIAmount,
+						PayoutType: "emi",
+					})
+				}
+			}
+		}
+	}
+
+	// Personal Loans
+	pLoans, err := s.personalLoanRepo.GetAll(ctx)
+	if err == nil {
+		for _, pl := range pLoans {
+			if pl.Status == "active" {
+				dashboard.PersonalLoanSummary.TotalDisbursed += pl.DisbursedAmount
+				dashboard.PersonalLoanSummary.TotalOutstanding += pl.OutstandingPrincipal
+				dashboard.PersonalLoanSummary.TotalInterestPaid += pl.TotalInterestPaid
+				dashboard.PersonalLoanSummary.TotalPrepayments += pl.TotalPrepayments
+				dashboard.PersonalLoanSummary.MonthlyEMI += pl.EMIAmount
+				dashboard.PersonalLoanSummary.Count++
+
+				nextEMIDate := pl.EMIStartDate
+				if len(pl.EMIsPaid) > 0 {
+					lastPaid := pl.EMIsPaid[len(pl.EMIsPaid)-1]
+					if lastPaid.PaidDate != nil {
+						nextEMIDate = lastPaid.DueDate.AddDate(0, 1, 0)
+					}
+				}
+				if !nextEMIDate.Before(now) && !nextEMIDate.After(thirtyDaysLater) {
+					dashboard.UpcomingPayouts = append(dashboard.UpcomingPayouts, UpcomingPayout{
+						Type:       "Personal Loan",
+						Name:       pl.LenderName + " - EMI",
+						Date:       nextEMIDate.Format("2006-01-02"),
+						Amount:     pl.EMIAmount,
+						PayoutType: "emi",
+					})
+				}
+			}
 		}
 	}
 
