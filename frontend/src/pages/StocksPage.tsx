@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { getStocks, createStock, deleteStock, addStockTransaction, refreshAllPrices, updateStock } from '../api/stocks';
 import type { Stock, CreateStockRequest, AddStockTransactionRequest, StockExchange, UpdateStockRequest } from '../types';
 import { formatCurrency, formatPercent, formatDate } from '../utils/format';
+import { useToast } from '../components/Toast';
 
 const EXCHANGES: StockExchange[] = ['NSE', 'BSE'];
 const REFRESH_INTERVAL_MS = 60_000; // Auto-refresh every 60s during market hours
@@ -31,10 +32,10 @@ export default function StocksPage() {
     setRefreshing(true);
     try {
       await refreshAllPrices();
+      toast('Prices refreshed');
       load();
-    } finally {
-      setRefreshing(false);
-    }
+    } catch { toast('Failed to refresh prices', 'error'); }
+    finally { setRefreshing(false); }
   };
 
   // Auto-refresh during market hours
@@ -55,27 +56,22 @@ export default function StocksPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createStock(form);
-    setShowAdd(false);
-    setForm({ stock_name: '', symbol: '', exchange: 'NSE' });
-    load();
+    try { await createStock(form); setShowAdd(false); setForm({ stock_name: '', symbol: '', exchange: 'NSE' }); toast('Stock added'); load(); }
+    catch { toast('Failed to add stock', 'error'); }
   };
 
   const handleAddTx = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showTx) return;
-    await addStockTransaction(showTx, txForm);
-    setShowTx(null);
-    setTxForm({ date: '', type: 'buy', quantity: 0, price_per_share: 0 });
-    load();
+    try { await addStockTransaction(showTx, txForm); setShowTx(null); setTxForm({ date: '', type: 'buy', quantity: 0, price_per_share: 0 }); toast('Transaction added'); load(); }
+    catch { toast('Failed to add transaction', 'error'); }
   };
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showEdit) return;
-    await updateStock(showEdit.id, editForm);
-    setShowEdit(null);
-    load();
+    try { await updateStock(showEdit.id, editForm); setShowEdit(null); toast('Stock updated'); load(); }
+    catch { toast('Failed to update stock', 'error'); }
   };
 
   const openEdit = (s: Stock) => {
@@ -85,8 +81,8 @@ export default function StocksPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this stock?')) return;
-    await deleteStock(id);
-    load();
+    try { await deleteStock(id); toast('Stock deleted'); load(); }
+    catch { toast('Failed to delete stock', 'error'); }
   };
 
   // Totals

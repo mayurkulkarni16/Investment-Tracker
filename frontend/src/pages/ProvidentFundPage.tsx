@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getProvidentFunds, createProvidentFund, addContribution, updateProvidentFund, deleteProvidentFund, importPFFromPDF } from '../api/providentFund';
 import type { ProvidentFund, CreateProvidentFundRequest, AddMonthlyContributionRequest, PFAccountType } from '../types';
 import { formatCurrency } from '../utils/format';
+import { useToast } from '../components/Toast';
 import { extractPFFromPDF } from '../utils/pfParser';
 import type { ParsedPFData } from '../utils/pfParser';
 
@@ -11,6 +12,7 @@ export default function ProvidentFundPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [showContrib, setShowContrib] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState<ProvidentFund | null>(null);
+  const { toast } = useToast();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [form, setForm] = useState<CreateProvidentFundRequest>({ account_type: 'EPF', account_number: '', interest_rate: 8.25 });
   const [editForm, setEditForm] = useState<CreateProvidentFundRequest>({ account_type: 'EPF', account_number: '', interest_rate: 8.25 });
@@ -33,19 +35,15 @@ export default function ProvidentFundPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createProvidentFund(form);
-    setShowAdd(false);
-    setForm({ account_type: 'EPF', account_number: '', interest_rate: 8.25 });
-    load();
+    try { await createProvidentFund(form); setShowAdd(false); setForm({ account_type: 'EPF', account_number: '', interest_rate: 8.25 }); toast('PF account added'); load(); }
+    catch { toast('Failed to add PF account', 'error'); }
   };
 
   const handleContrib = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showContrib) return;
-    await addContribution(showContrib, contribForm);
-    setShowContrib(null);
-    setContribForm({ financial_year: '2025-2026', month: '', employee_contribution: 0, employer_contribution: 0 });
-    load();
+    try { await addContribution(showContrib, contribForm); setShowContrib(null); setContribForm({ financial_year: '2025-2026', month: '', employee_contribution: 0, employer_contribution: 0 }); toast('Contribution added'); load(); }
+    catch { toast('Failed to add contribution', 'error'); }
   };
 
   const openEdit = (pf: ProvidentFund) => {
@@ -62,15 +60,14 @@ export default function ProvidentFundPage() {
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showEdit) return;
-    await updateProvidentFund(showEdit.id, editForm);
-    setShowEdit(null);
-    load();
+    try { await updateProvidentFund(showEdit.id, editForm); setShowEdit(null); toast('PF account updated'); load(); }
+    catch { toast('Failed to update PF account', 'error'); }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this PF account?')) return;
-    await deleteProvidentFund(id);
-    load();
+    try { await deleteProvidentFund(id); toast('PF account deleted'); load(); }
+    catch { toast('Failed to delete PF account', 'error'); }
   };
 
   const handleParsePF = async () => {
@@ -130,6 +127,33 @@ export default function ProvidentFundPage() {
         <h1>Provident Fund</h1>
         <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add PF Account</button>
       </div>
+
+      {funds.length > 0 && (() => {
+        const totalBalance = funds.reduce((s, f) => s + f.current_balance, 0);
+        const totalEmployee = funds.reduce((s, f) => s + f.total_employee_contribution, 0);
+        const totalEmployer = funds.reduce((s, f) => s + f.total_employer_contribution, 0);
+        const totalInterest = funds.reduce((s, f) => s + f.total_interest_earned, 0);
+        return (
+          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 20 }}>
+            <div className="stat-card">
+              <div className="label">Total Balance</div>
+              <div className="value">{formatCurrency(totalBalance)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Employee Contribution</div>
+              <div className="value">{formatCurrency(totalEmployee)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Employer Contribution</div>
+              <div className="value">{formatCurrency(totalEmployer)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Total Interest Earned</div>
+              <div className="value positive">{formatCurrency(totalInterest)}</div>
+            </div>
+          </div>
+        );
+      })()}
 
       {funds.length === 0 ? (
         <div className="empty-state">

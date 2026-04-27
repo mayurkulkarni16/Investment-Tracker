@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { getCorporateBonds, createCorporateBond, deleteCorporateBond, markPayoutReceived, updateCorporateBond } from '../api/corporateBonds';
 import type { CorporateBond, CreateCorporateBondRequest, PrincipalRepaymentInput, PayoutFrequency, MaturityType } from '../types';
 import { formatCurrency, formatDate, toInputDate } from '../utils/format';
+import { useToast } from '../components/Toast';
 
 export default function CorporateBondsPage() {
   const [bonds, setBonds] = useState<CorporateBond[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState<CorporateBond | null>(null);
+  const { toast } = useToast();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [form, setForm] = useState<CreateCorporateBondRequest>({
     bond_name: '', issuer: '', purchase_date: '', investment_amount: 0,
@@ -30,21 +32,24 @@ export default function CorporateBondsPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    const data = { ...form };
-    if (form.maturity_type === 'staggered') {
-      data.principal_repayments = repayments;
-    }
-    await createCorporateBond(data);
-    setShowAdd(false);
-    setForm({ bond_name: '', issuer: '', purchase_date: '', investment_amount: 0, coupon_rate: 0, interest_payout_frequency: 'quarterly', maturity_date: '', maturity_type: 'bullet', principal_repayments: [] });
-    setRepayments([]);
-    load();
+    try {
+      const data = { ...form };
+      if (form.maturity_type === 'staggered') {
+        data.principal_repayments = repayments;
+      }
+      await createCorporateBond(data);
+      setShowAdd(false);
+      setForm({ bond_name: '', issuer: '', purchase_date: '', investment_amount: 0, coupon_rate: 0, interest_payout_frequency: 'quarterly', maturity_date: '', maturity_type: 'bullet', principal_repayments: [] });
+      setRepayments([]);
+      toast('Bond added');
+      load();
+    } catch { toast('Failed to add bond', 'error'); }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this bond?')) return;
-    await deleteCorporateBond(id);
-    load();
+    try { await deleteCorporateBond(id); toast('Bond deleted'); load(); }
+    catch { toast('Failed to delete bond', 'error'); }
   };
 
   const openEdit = (bond: CorporateBond) => {
@@ -70,18 +75,21 @@ export default function CorporateBondsPage() {
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showEdit) return;
-    const data = { ...editForm };
-    if (editForm.maturity_type === 'staggered') {
-      data.principal_repayments = editRepayments;
-    }
-    await updateCorporateBond(showEdit.id, data);
-    setShowEdit(null);
-    load();
+    try {
+      const data = { ...editForm };
+      if (editForm.maturity_type === 'staggered') {
+        data.principal_repayments = editRepayments;
+      }
+      await updateCorporateBond(showEdit.id, data);
+      setShowEdit(null);
+      toast('Bond updated');
+      load();
+    } catch { toast('Failed to update bond', 'error'); }
   };
 
   const handleMarkReceived = async (bondId: string, payoutId: string) => {
-    await markPayoutReceived(bondId, payoutId);
-    load();
+    try { await markPayoutReceived(bondId, payoutId); toast('Payout marked received'); load(); }
+    catch { toast('Failed to mark payout', 'error'); }
   };
 
   const addRepayment = () => setRepayments([...repayments, { scheduled_date: '', amount: 0 }]);
@@ -95,6 +103,43 @@ export default function CorporateBondsPage() {
         <h1>Corporate Bonds</h1>
         <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Bond</button>
       </div>
+
+      {bonds.length > 0 && (() => {
+        const totalInvested = bonds.reduce((s, b) => s + b.investment_amount, 0);
+        const totalInterest = bonds.reduce((s, b) => s + b.total_interest_earned, 0);
+        const totalPrincipalReturned = bonds.reduce((s, b) => s + b.total_principal_returned, 0);
+        const remaining = bonds.reduce((s, b) => s + b.remaining_principal, 0);
+        const activeBonds = bonds.filter(b => b.status === 'active').length;
+        const avgCoupon = bonds.length > 0 ? bonds.reduce((s, b) => s + b.coupon_rate, 0) / bonds.length : 0;
+        const now = new Date();
+        const thisMonth = now.getMonth();
+        const thisYear = now.getFullYear();
+        const interestThisMonth = bonds.reduce((s, b) => s + (b.interest_payouts || []).filter(p => { const d = new Date(p.scheduled_date); return d.getMonth() === thisMonth && d.getFullYear() === thisYear; }).reduce((s2, p) => s2 + p.amount, 0), 0);
+        return (
+          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', marginBottom: 20 }}>
+            <div className="stat-card">
+              <div className="label">Active / Total Bonds</div>
+              <div className="value">{activeBonds} / {bonds.length}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Total Invested</div>
+              <div className="value">{formatCurrency(totalInvested)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Total Interest Earned</div>
+              <div className="value positive">{formatCurrency(totalInterest)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Interest This Month</div>
+              <div className="value positive">{formatCurrency(interestThisMonth)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Avg Coupon Rate</div>
+              <div className="value">{avgCoupon.toFixed(2)}%</div>
+            </div>
+          </div>
+        );
+      })()}
 
       {bonds.length === 0 ? (
         <div className="empty-state">

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getHomeLoans, createHomeLoan, deleteHomeLoan, updateHomeLoan, recordEMI, addPrepayment, changeRate, getAmortization, addDisbursement, markConstructionComplete, recalculateLoan } from '../api/homeLoans';
 import type { HomeLoan, CreateHomeLoanRequest, UpdateHomeLoanRequest, AddEMIPaymentRequest, AddPrepaymentRequest, ChangeRateRequest, LoanRateType, AmortizationEntry, AddDisbursementRequest } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
+import { useToast } from '../components/Toast';
 
 export default function HomeLoansPage() {
   const [loans, setLoans] = useState<HomeLoan[]>([]);
@@ -16,6 +17,7 @@ export default function HomeLoansPage() {
   const [showAmort, setShowAmort] = useState<string | null>(null);
   const [showDisb, setShowDisb] = useState<string | null>(null);
   const [showMarkComplete, setShowMarkComplete] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const [form, setForm] = useState<CreateHomeLoanRequest>({
     bank_name: '', sanctioned_amount: 0, disbursed_amount: 0,
@@ -36,18 +38,20 @@ export default function HomeLoansPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createHomeLoan(form);
-    setShowAdd(false);
-    setForm({ bank_name: '', sanctioned_amount: 0, disbursed_amount: 0, interest_rate: 0, rate_type: 'floating', tenure_months: 240, emi_start_date: '', disbursement_date: '' });
-    load();
+    try {
+      await createHomeLoan(form);
+      setShowAdd(false);
+      setForm({ bank_name: '', sanctioned_amount: 0, disbursed_amount: 0, interest_rate: 0, rate_type: 'floating', tenure_months: 240, emi_start_date: '', disbursement_date: '' });
+      toast('Home loan added');
+      load();
+    } catch { toast('Failed to add home loan', 'error'); }
   };
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showEdit) return;
-    await updateHomeLoan(showEdit.id, editForm);
-    setShowEdit(null);
-    load();
+    try { await updateHomeLoan(showEdit.id, editForm); setShowEdit(null); toast('Home loan updated'); load(); }
+    catch { toast('Failed to update home loan', 'error'); }
   };
 
   const openEdit = (l: HomeLoan) => {
@@ -57,64 +61,54 @@ export default function HomeLoansPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this home loan?')) return;
-    await deleteHomeLoan(id);
-    load();
+    try { await deleteHomeLoan(id); toast('Home loan deleted'); load(); }
+    catch { toast('Failed to delete home loan', 'error'); }
   };
 
   const handleRecordEMI = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showEMI) return;
-    await recordEMI(showEMI, emiForm);
-    setShowEMI(null);
-    setEmiForm({ month: '', paid_date: '' });
-    load();
+    try { await recordEMI(showEMI, emiForm); setShowEMI(null); setEmiForm({ month: '', paid_date: '' }); toast('EMI recorded'); load(); }
+    catch { toast('Failed to record EMI', 'error'); }
   };
 
   const handlePrepay = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showPrepay) return;
-    await addPrepayment(showPrepay, prepayForm);
-    setShowPrepay(null);
-    setPrepayForm({ date: '', amount: 0, type: 'part_payment' });
-    load();
+    try { await addPrepayment(showPrepay, prepayForm); setShowPrepay(null); setPrepayForm({ date: '', amount: 0, type: 'part_payment' }); toast('Prepayment added'); load(); }
+    catch { toast('Failed to add prepayment', 'error'); }
   };
 
   const handleRateChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showRate) return;
-    await changeRate(showRate, rateForm);
-    setShowRate(null);
-    setRateForm({ effective_date: '', new_rate: 0 });
-    load();
+    try { await changeRate(showRate, rateForm); setShowRate(null); setRateForm({ effective_date: '', new_rate: 0 }); toast('Rate updated'); load(); }
+    catch { toast('Failed to update rate', 'error'); }
   };
 
   const handleShowAmort = async (id: string) => {
     if (showAmort === id) { setShowAmort(null); setAmortization(null); return; }
-    const res = await getAmortization(id);
-    setAmortization(res.data);
-    setShowAmort(id);
+    try { const res = await getAmortization(id); setAmortization(res.data); setShowAmort(id); }
+    catch { toast('Failed to load amortization', 'error'); }
   };
 
   const handleAddDisbursement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showDisb) return;
-    await addDisbursement(showDisb, disbForm);
-    setShowDisb(null);
-    setDisbForm({ date: '', amount: 0 });
-    load();
+    try { await addDisbursement(showDisb, disbForm); setShowDisb(null); setDisbForm({ date: '', amount: 0 }); toast('Disbursement added'); load(); }
+    catch { toast('Failed to add disbursement', 'error'); }
   };
 
   const handleMarkComplete = async () => {
     if (!showMarkComplete) return;
-    await markConstructionComplete(showMarkComplete);
-    setShowMarkComplete(null);
-    load();
+    try { await markConstructionComplete(showMarkComplete); setShowMarkComplete(null); toast('Marked construction complete'); load(); }
+    catch { toast('Failed to mark complete', 'error'); }
   };
 
   const handleRecalculate = async (id: string) => {
     if (!confirm('Recalculate all EMIs and pre-EMIs using the correct interest rate at each point in time? This replays all transactions chronologically.')) return;
-    await recalculateLoan(id);
-    load();
+    try { await recalculateLoan(id); toast('Loan recalculated'); load(); }
+    catch { toast('Failed to recalculate', 'error'); }
   };
 
   // Totals

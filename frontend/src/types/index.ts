@@ -572,3 +572,483 @@ export interface ProjectionsResponse {
   total_projected_3y: number;
   total_projected_5y: number;
 }
+
+// NPS types
+export type NPSAccountType = 'tier_1' | 'tier_2';
+
+export interface NPSContribution {
+  contribution_id: string;
+  date: string;
+  amount: number;
+  type: string;
+  fy: string;
+}
+
+export interface NPSAccount {
+  id: string;
+  account_holder_name: string;
+  pran: string;
+  account_type: NPSAccountType;
+  fund_manager: string;
+  date_of_joining: string;
+  equity_pct: number;
+  corporate_bond_pct: number;
+  govt_sec_pct: number;
+  alternate_pct: number;
+  contributions: NPSContribution[];
+  total_self_contribution: number;
+  total_employer_contribution: number;
+  total_contribution: number;
+  current_value: number;
+  section_80ccd1: number;
+  section_80ccd1b: number;
+  section_80ccd2: number;
+  status: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateNPSAccountRequest {
+  account_holder_name: string;
+  pran: string;
+  account_type: NPSAccountType;
+  fund_manager: string;
+  date_of_joining: string;
+  equity_pct: number;
+  corporate_bond_pct: number;
+  govt_sec_pct: number;
+  alternate_pct: number;
+  current_value: number;
+  notes?: string;
+}
+
+export interface UpdateNPSAccountRequest {
+  account_holder_name?: string;
+  fund_manager?: string;
+  equity_pct?: number;
+  corporate_bond_pct?: number;
+  govt_sec_pct?: number;
+  alternate_pct?: number;
+  current_value?: number;
+  notes?: string;
+}
+
+export interface AddNPSContributionRequest {
+  date: string;
+  amount: number;
+  type: string;
+}
+
+// Credit Card types
+export interface CardTransaction {
+  transaction_id: string;
+  date: string;
+  description: string;
+  amount: number;
+  category: string;
+  is_emi: boolean;
+  emi_reference: string;
+}
+
+export interface CardStatement {
+  statement_id: string;
+  month: string;
+  statement_date: string;
+  due_date: string;
+  total_amount: number;
+  minimum_due: number;
+  amount_paid: number;
+  paid_date?: string;
+  transactions: CardTransaction[];
+  is_paid: boolean;
+  paid_full: boolean;
+}
+
+export interface CardEMI {
+  emi_id: string;
+  description: string;
+  merchant_name: string;
+  original_amount: number;
+  emi_amount: number;
+  tenure_months: number;
+  remaining_months: number;
+  interest_rate: number;
+  processing_fee: number;
+  start_date: string;
+  total_paid: number;
+  status: string;
+}
+
+export interface CreditScoreEntry {
+  score_id: string;
+  date: string;
+  score: number;
+  bureau: string;
+  notes: string;
+}
+
+export interface CreditCard {
+  id: string;
+  card_name: string;
+  bank_name: string;
+  card_network: string;
+  last_four_digits: string;
+  card_holder_name: string;
+  credit_limit: number;
+  billing_date: number;
+  due_date_offset: number;
+  annual_fee: number;
+  joining_date: string;
+  current_outstanding: number;
+  available_credit: number;
+  utilization_pct: number;
+  reward_points: number;
+  reward_point_value: number;
+  card_emis: CardEMI[];
+  statements: CardStatement[];
+  credit_scores: CreditScoreEntry[];
+  total_spent_this_month: number;
+  spend_by_category: Record<string, number>;
+  credit_score_tips: string[];
+  status: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCreditCardRequest {
+  card_name: string;
+  bank_name: string;
+  card_network: string;
+  last_four_digits: string;
+  card_holder_name: string;
+  credit_limit: number;
+  billing_date: number;
+  due_date_offset: number;
+  annual_fee?: number;
+  joining_date: string;
+  reward_point_value?: number;
+  notes?: string;
+}
+
+export interface UpdateCreditCardRequest {
+  card_name?: string;
+  credit_limit?: number;
+  billing_date?: number;
+  due_date_offset?: number;
+  annual_fee?: number;
+  reward_points?: number;
+  current_outstanding?: number;
+  notes?: string;
+}
+
+export interface AddCardStatementRequest {
+  month: string;
+  statement_date: string;
+  due_date: string;
+  total_amount: number;
+  minimum_due: number;
+}
+
+export interface PayStatementRequest {
+  statement_id: string;
+  amount_paid: number;
+  paid_date: string;
+}
+
+export interface AddCardTransactionRequest {
+  statement_id: string;
+  date: string;
+  description: string;
+  amount: number;
+  category: string;
+}
+
+export interface AddCardEMIRequest {
+  description: string;
+  merchant_name: string;
+  original_amount: number;
+  tenure_months: number;
+  interest_rate?: number;
+  processing_fee?: number;
+  start_date: string;
+}
+
+export interface AddCreditScoreRequest {
+  date: string;
+  score: number;
+  bureau: string;
+  notes?: string;
+}
+
+// Goal types
+export interface LinkedInvestment {
+  investment_type: string;
+  investment_id: string;
+  investment_name: string;
+  allocated_pct: number;
+}
+
+export interface Goal {
+  id: string;
+  name: string;
+  category: string;
+  icon: string;
+  priority: string;
+  target_amount: number;
+  target_date: string;
+  assumed_return_rate: number;
+  linked_investments: LinkedInvestment[];
+  current_value: number;
+  progress_pct: number;
+  monthly_needed: number;
+  months_remaining: number;
+  on_track: boolean;
+  status: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateGoalRequest {
+  name: string;
+  category: string;
+  icon?: string;
+  priority?: string;
+  target_amount: number;
+  target_date: string;
+  assumed_return_rate: number;
+  notes?: string;
+}
+
+export interface UpdateGoalRequest {
+  name?: string;
+  category?: string;
+  icon?: string;
+  priority?: string;
+  target_amount?: number;
+  target_date?: string;
+  assumed_return_rate?: number;
+  status?: string;
+  notes?: string;
+}
+
+export interface LinkInvestmentRequest {
+  investment_type: string;
+  investment_id: string;
+  investment_name: string;
+  allocated_pct: number;
+}
+
+// Net Worth types
+export interface NetWorthSnapshot {
+  id: string;
+  date: string;
+  month: string;
+  mutual_funds: number;
+  stocks: number;
+  fixed_deposits: number;
+  provident_fund: number;
+  nps: number;
+  corporate_bonds: number;
+  other_assets: number;
+  total_assets: number;
+  home_loans: number;
+  personal_loans: number;
+  credit_card_outstanding: number;
+  other_liabilities: number;
+  total_liabilities: number;
+  net_worth: number;
+  created_at: string;
+}
+
+export interface NetWorthCurrent {
+  assets: Record<string, number>;
+  liabilities: Record<string, number>;
+  total_assets: number;
+  total_liabilities: number;
+  net_worth: number;
+}
+
+// SIP types
+export interface SIPInstallment {
+  installment_id: string;
+  date: string;
+  amount: number;
+  nav: number;
+  units: number;
+  status: string;
+}
+
+export interface SIP {
+  id: string;
+  fund_name: string;
+  fund_id: string;
+  amc_code: string;
+  scheme_code: number;
+  amount: number;
+  frequency: string;
+  sip_date: number;
+  start_date: string;
+  end_date?: string;
+  total_installments: number;
+  completed_installments: number;
+  missed_installments: number;
+  total_invested: number;
+  installments: SIPInstallment[];
+  next_sip_date: string;
+  months_active: number;
+  status: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateSIPRequest {
+  fund_name: string;
+  fund_id?: string;
+  amc_code?: string;
+  scheme_code?: number;
+  amount: number;
+  frequency: string;
+  sip_date: number;
+  start_date: string;
+  end_date?: string;
+  notes?: string;
+}
+
+export interface UpdateSIPRequest {
+  amount?: number;
+  sip_date?: number;
+  end_date?: string;
+  status?: string;
+  notes?: string;
+}
+
+export interface RecordSIPInstallmentRequest {
+  date: string;
+  amount: number;
+  nav?: number;
+  units?: number;
+  status: string;
+}
+
+// Notification types
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  date: string;
+  reference_type: string;
+  reference_id: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+// Profile types
+export interface Profile {
+  id: string;
+  name: string;
+  relationship: string;
+  color: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateProfileRequest {
+  name: string;
+  relationship: string;
+  color: string;
+  is_default?: boolean;
+}
+
+export interface UpdateProfileRequest {
+  name?: string;
+  relationship?: string;
+  color?: string;
+}
+
+// Tax types
+export interface Section80CBreakdown {
+  epf_contribution: number;
+  ppf_contribution: number;
+  elss_investment: number;
+  home_loan_principal: number;
+  life_insurance: number;
+  total: number;
+  limit: number;
+  deduction: number;
+}
+
+export interface Section80CCDBreakdown {
+  nps_80ccd1: number;
+  nps_80ccd1b: number;
+  nps_80ccd2: number;
+}
+
+export interface Section24bBreakdown {
+  home_loan_interest: number;
+  pre_emi_interest: number;
+  total: number;
+  limit: number;
+  deduction: number;
+}
+
+export interface CapitalGainEntry {
+  investment_type: string;
+  investment_name: string;
+  buy_date: string;
+  sell_date: string;
+  buy_amount: number;
+  sell_amount: number;
+  gain: number;
+  holding_days: number;
+  is_long_term: boolean;
+  tax_rate: number;
+  tax_liability: number;
+}
+
+export interface CapitalGainsSummary {
+  stcg: number;
+  ltcg: number;
+  stcg_tax: number;
+  ltcg_tax: number;
+  total_tax: number;
+  entries: CapitalGainEntry[];
+  ltcg_exemption: number;
+}
+
+export interface TaxSummary {
+  fy: string;
+  section_80c: Section80CBreakdown;
+  section_80ccd: Section80CCDBreakdown;
+  section_24b: Section24bBreakdown;
+  capital_gains: CapitalGainsSummary;
+  interest_income: number;
+  dividend_income: number;
+  total_deductions: number;
+  total_taxable_gains: number;
+}
+
+// Benchmark types
+export interface BenchmarkPoint {
+  date: string;
+  value: number;
+}
+
+export interface BenchmarkData {
+  index_name: string;
+  symbol: string;
+  points: BenchmarkPoint[];
+  current: number;
+  change_1y: number;
+  change_3y: number;
+  change_5y: number;
+}
+
+export interface BenchmarkResponse {
+  indices: BenchmarkData[];
+}

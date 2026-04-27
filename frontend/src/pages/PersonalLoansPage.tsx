@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getPersonalLoans, createPersonalLoan, deletePersonalLoan, updatePersonalLoan, recordPersonalLoanEMI, addPersonalLoanPrepayment, changePersonalLoanRate, getPersonalLoanAmortization } from '../api/personalLoans';
 import type { PersonalLoan, CreatePersonalLoanRequest, UpdatePersonalLoanRequest, AddEMIPaymentRequest, AddPrepaymentRequest, ChangeRateRequest, LoanRateType, AmortizationEntry } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
+import { useToast } from '../components/Toast';
 
 const PURPOSES: Record<string, string> = {
   personal: 'Personal', education: 'Education', vehicle: 'Vehicle',
@@ -18,6 +19,7 @@ export default function PersonalLoansPage() {
   const [showRate, setShowRate] = useState<string | null>(null);
   const [expandedLoan, setExpandedLoan] = useState<string | null>(null);
   const [amortization, setAmortization] = useState<AmortizationEntry[] | null>(null);
+  const { toast } = useToast();
   const [showAmort, setShowAmort] = useState<string | null>(null);
 
   const [form, setForm] = useState<CreatePersonalLoanRequest>({
@@ -37,18 +39,20 @@ export default function PersonalLoansPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createPersonalLoan(form);
-    setShowAdd(false);
-    setForm({ lender_name: '', principal_amount: 0, disbursed_amount: 0, interest_rate: 0, rate_type: 'fixed', tenure_months: 36, emi_start_date: '', disbursement_date: '' });
-    load();
+    try {
+      await createPersonalLoan(form);
+      setShowAdd(false);
+      setForm({ lender_name: '', principal_amount: 0, disbursed_amount: 0, interest_rate: 0, rate_type: 'fixed', tenure_months: 36, emi_start_date: '', disbursement_date: '' });
+      toast('Personal loan added');
+      load();
+    } catch { toast('Failed to add loan', 'error'); }
   };
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showEdit) return;
-    await updatePersonalLoan(showEdit.id, editForm);
-    setShowEdit(null);
-    load();
+    try { await updatePersonalLoan(showEdit.id, editForm); setShowEdit(null); toast('Loan updated'); load(); }
+    catch { toast('Failed to update loan', 'error'); }
   };
 
   const openEdit = (l: PersonalLoan) => {
@@ -58,42 +62,35 @@ export default function PersonalLoansPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this personal loan?')) return;
-    await deletePersonalLoan(id);
-    load();
+    try { await deletePersonalLoan(id); toast('Loan deleted'); load(); }
+    catch { toast('Failed to delete loan', 'error'); }
   };
 
   const handleRecordEMI = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showEMI) return;
-    await recordPersonalLoanEMI(showEMI, emiForm);
-    setShowEMI(null);
-    setEmiForm({ month: '', paid_date: '' });
-    load();
+    try { await recordPersonalLoanEMI(showEMI, emiForm); setShowEMI(null); setEmiForm({ month: '', paid_date: '' }); toast('EMI recorded'); load(); }
+    catch { toast('Failed to record EMI', 'error'); }
   };
 
   const handlePrepay = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showPrepay) return;
-    await addPersonalLoanPrepayment(showPrepay, prepayForm);
-    setShowPrepay(null);
-    setPrepayForm({ date: '', amount: 0, type: 'part_payment' });
-    load();
+    try { await addPersonalLoanPrepayment(showPrepay, prepayForm); setShowPrepay(null); setPrepayForm({ date: '', amount: 0, type: 'part_payment' }); toast('Prepayment added'); load(); }
+    catch { toast('Failed to add prepayment', 'error'); }
   };
 
   const handleRateChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showRate) return;
-    await changePersonalLoanRate(showRate, rateForm);
-    setShowRate(null);
-    setRateForm({ effective_date: '', new_rate: 0 });
-    load();
+    try { await changePersonalLoanRate(showRate, rateForm); setShowRate(null); setRateForm({ effective_date: '', new_rate: 0 }); toast('Rate updated'); load(); }
+    catch { toast('Failed to update rate', 'error'); }
   };
 
   const handleShowAmort = async (id: string) => {
     if (showAmort === id) { setShowAmort(null); setAmortization(null); return; }
-    const res = await getPersonalLoanAmortization(id);
-    setAmortization(res.data);
-    setShowAmort(id);
+    try { const res = await getPersonalLoanAmortization(id); setAmortization(res.data); setShowAmort(id); }
+    catch { toast('Failed to load amortization', 'error'); }
   };
 
   const activeLoans = loans.filter(l => l.status === 'active');

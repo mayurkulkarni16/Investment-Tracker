@@ -29,6 +29,13 @@ func main() {
 	stockRepo := repository.NewStockRepo(db)
 	homeLoanRepo := repository.NewHomeLoanRepo(db)
 	personalLoanRepo := repository.NewPersonalLoanRepo(db)
+	npsRepo := repository.NewNPSRepo(db)
+	creditCardRepo := repository.NewCreditCardRepo(db)
+	goalRepo := repository.NewGoalRepo(db)
+	netWorthRepo := repository.NewNetWorthRepo(db)
+	sipRepo := repository.NewSIPRepo(db)
+	notificationRepo := repository.NewNotificationRepo(db)
+	profileRepo := repository.NewProfileRepo(db)
 
 	// Services
 	navFetcher := services.NewNAVFetcher()
@@ -42,6 +49,17 @@ func main() {
 	personalLoanService := services.NewPersonalLoanService(personalLoanRepo)
 	projectionService := services.NewProjectionService(mfRepo, fdRepo, pfRepo, stockRepo, bondRepo)
 	dashboardService := services.NewDashboardService(mfRepo, bondRepo, fdRepo, pfRepo, stockRepo, homeLoanRepo, personalLoanRepo)
+	npsService := services.NewNPSService(npsRepo)
+	creditCardService := services.NewCreditCardService(creditCardRepo)
+	goalService := services.NewGoalService(goalRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo)
+	netWorthService := services.NewNetWorthService(netWorthRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo, homeLoanRepo, personalLoanRepo, creditCardRepo)
+	sipService := services.NewSIPService(sipRepo)
+	notificationService := services.NewNotificationService(notificationRepo, homeLoanRepo, personalLoanRepo, fdRepo, bondRepo, sipRepo, creditCardRepo)
+	profileService := services.NewProfileService(profileRepo)
+	taxService := services.NewTaxService(mfRepo, fdRepo, pfRepo, npsRepo, bondRepo, homeLoanRepo, personalLoanRepo, stockRepo)
+	benchmarkService := services.NewBenchmarkService()
+	exportService := services.NewExportService(mfRepo, stockRepo, fdRepo, pfRepo, bondRepo, homeLoanRepo, personalLoanRepo, npsRepo)
+	backupService := services.NewBackupService(mfRepo, stockRepo, fdRepo, pfRepo, bondRepo, homeLoanRepo, personalLoanRepo, npsRepo, creditCardRepo, goalRepo, sipRepo, profileRepo)
 
 	// Handlers
 	mfHandler := handlers.NewMutualFundHandler(mfService)
@@ -53,6 +71,17 @@ func main() {
 	personalLoanHandler := handlers.NewPersonalLoanHandler(personalLoanService)
 	projectionHandler := handlers.NewProjectionHandler(projectionService)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
+	npsHandler := handlers.NewNPSHandler(npsService)
+	creditCardHandler := handlers.NewCreditCardHandler(creditCardService)
+	goalHandler := handlers.NewGoalHandler(goalService)
+	netWorthHandler := handlers.NewNetWorthHandler(netWorthService)
+	sipHandler := handlers.NewSIPHandler(sipService)
+	notificationHandler := handlers.NewNotificationHandler(notificationService)
+	profileHandler := handlers.NewProfileHandler(profileService)
+	taxHandler := handlers.NewTaxHandler(taxService)
+	benchmarkHandler := handlers.NewBenchmarkHandler(benchmarkService)
+	exportHandler := handlers.NewExportHandler(exportService)
+	backupHandler := handlers.NewBackupHandler(backupService)
 
 	// Router
 	r := gin.Default()
@@ -162,6 +191,98 @@ func main() {
 			pl.POST("/:id/rate-change", personalLoanHandler.ChangeRate)
 			pl.GET("/:id/amortization", personalLoanHandler.GetAmortization)
 		}
+
+		// NPS
+		nps := api.Group("/nps")
+		{
+			nps.GET("", npsHandler.GetAll)
+			nps.POST("", npsHandler.Create)
+			nps.GET("/:id", npsHandler.GetByID)
+			nps.PUT("/:id", npsHandler.Update)
+			nps.DELETE("/:id", npsHandler.Delete)
+			nps.POST("/:id/contributions", npsHandler.AddContribution)
+		}
+
+		// Credit Cards
+		cc := api.Group("/credit-cards")
+		{
+			cc.GET("", creditCardHandler.GetAll)
+			cc.POST("", creditCardHandler.Create)
+			cc.GET("/:id", creditCardHandler.GetByID)
+			cc.PUT("/:id", creditCardHandler.Update)
+			cc.DELETE("/:id", creditCardHandler.Delete)
+			cc.POST("/:id/statements", creditCardHandler.AddStatement)
+			cc.POST("/:id/pay-statement", creditCardHandler.PayStatement)
+			cc.POST("/:id/transactions", creditCardHandler.AddTransaction)
+			cc.POST("/:id/emis", creditCardHandler.AddEMI)
+			cc.POST("/:id/credit-score", creditCardHandler.AddCreditScore)
+		}
+
+		// Goals
+		goals := api.Group("/goals")
+		{
+			goals.GET("", goalHandler.GetAll)
+			goals.POST("", goalHandler.Create)
+			goals.GET("/:id", goalHandler.GetByID)
+			goals.PUT("/:id", goalHandler.Update)
+			goals.DELETE("/:id", goalHandler.Delete)
+			goals.POST("/:id/link", goalHandler.LinkInvestment)
+			goals.DELETE("/:id/link/:investmentId", goalHandler.UnlinkInvestment)
+		}
+
+		// Net Worth
+		nw := api.Group("/net-worth")
+		{
+			nw.GET("/current", netWorthHandler.GetCurrent)
+			nw.POST("/snapshot", netWorthHandler.TakeSnapshot)
+			nw.GET("/history", netWorthHandler.GetHistory)
+		}
+
+		// SIPs
+		sips := api.Group("/sips")
+		{
+			sips.GET("", sipHandler.GetAll)
+			sips.POST("", sipHandler.Create)
+			sips.GET("/:id", sipHandler.GetByID)
+			sips.PUT("/:id", sipHandler.Update)
+			sips.DELETE("/:id", sipHandler.Delete)
+			sips.POST("/:id/installments", sipHandler.RecordInstallment)
+		}
+
+		// Notifications
+		notif := api.Group("/notifications")
+		{
+			notif.GET("", notificationHandler.GetAll)
+			notif.GET("/unread", notificationHandler.GetUnread)
+			notif.POST("/generate", notificationHandler.Generate)
+			notif.PUT("/:id/read", notificationHandler.MarkRead)
+			notif.PUT("/read-all", notificationHandler.MarkAllRead)
+		}
+
+		// Profiles
+		profiles := api.Group("/profiles")
+		{
+			profiles.GET("", profileHandler.GetAll)
+			profiles.POST("", profileHandler.Create)
+			profiles.PUT("/:id", profileHandler.Update)
+			profiles.DELETE("/:id", profileHandler.Delete)
+		}
+
+		// Tax
+		tax := api.Group("/tax")
+		{
+			tax.GET("/summary", taxHandler.GetTaxSummary)
+			tax.GET("/capital-gains", taxHandler.GetCapitalGains)
+		}
+
+		// Benchmarks
+		api.GET("/benchmarks", benchmarkHandler.GetBenchmarks)
+
+		// Export
+		api.GET("/export/csv", exportHandler.ExportCSV)
+
+		// Backup
+		api.GET("/backup", backupHandler.Export)
 	}
 
 	log.Printf("Server starting on port %s", cfg.ServerPort)

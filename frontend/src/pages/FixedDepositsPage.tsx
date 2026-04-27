@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { getFixedDeposits, createFixedDeposit, deleteFixedDeposit, updateFixedDeposit } from '../api/fixedDeposits';
 import type { FixedDeposit, CreateFixedDepositRequest, InterestType, PayoutFrequency } from '../types';
 import { formatCurrency, formatDate, toInputDate } from '../utils/format';
+import { useToast } from '../components/Toast';
 
 export default function FixedDepositsPage() {
   const [fds, setFDs] = useState<FixedDeposit[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState<FixedDeposit | null>(null);
+  const { toast } = useToast();
   const [form, setForm] = useState<CreateFixedDepositRequest>({
     bank_name: '', principal_amount: 0, interest_rate: 0,
     start_date: '', maturity_date: '', tenure_months: 12,
@@ -27,16 +29,14 @@ export default function FixedDepositsPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createFixedDeposit(form);
-    setShowAdd(false);
-    setForm({ bank_name: '', principal_amount: 0, interest_rate: 0, start_date: '', maturity_date: '', tenure_months: 12, interest_type: 'cumulative', is_auto_renewed: false });
-    load();
+    try { await createFixedDeposit(form); setShowAdd(false); setForm({ bank_name: '', principal_amount: 0, interest_rate: 0, start_date: '', maturity_date: '', tenure_months: 12, interest_type: 'cumulative', is_auto_renewed: false }); toast('FD added'); load(); }
+    catch { toast('Failed to add FD', 'error'); }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this FD?')) return;
-    await deleteFixedDeposit(id);
-    load();
+    try { await deleteFixedDeposit(id); toast('FD deleted'); load(); }
+    catch { toast('Failed to delete FD', 'error'); }
   };
 
   const openEdit = (fd: FixedDeposit) => {
@@ -59,9 +59,8 @@ export default function FixedDepositsPage() {
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showEdit) return;
-    await updateFixedDeposit(showEdit.id, editForm);
-    setShowEdit(null);
-    load();
+    try { await updateFixedDeposit(showEdit.id, editForm); setShowEdit(null); toast('FD updated'); load(); }
+    catch { toast('Failed to update FD', 'error'); }
   };
 
   if (loading) return <div className="loading">Loading...</div>;
@@ -72,6 +71,34 @@ export default function FixedDepositsPage() {
         <h1>Fixed Deposits</h1>
         <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add FD</button>
       </div>
+
+      {fds.length > 0 && (() => {
+        const activeFDs = fds.filter(f => f.status === 'active');
+        const totalPrincipal = activeFDs.reduce((s, f) => s + f.principal_amount, 0);
+        const totalMaturity = activeFDs.reduce((s, f) => s + f.maturity_amount, 0);
+        const totalInterest = fds.reduce((s, f) => s + f.interest_earned, 0);
+        const avgRate = activeFDs.length > 0 ? activeFDs.reduce((s, f) => s + f.interest_rate, 0) / activeFDs.length : 0;
+        return (
+          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 20 }}>
+            <div className="stat-card">
+              <div className="label">Active / Total FDs</div>
+              <div className="value">{activeFDs.length} / {fds.length}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Total Principal</div>
+              <div className="value">{formatCurrency(totalPrincipal)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Total Interest Earned</div>
+              <div className="value positive">{formatCurrency(totalInterest)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Avg Interest Rate</div>
+              <div className="value">{avgRate.toFixed(2)}%</div>
+            </div>
+          </div>
+        );
+      })()}
 
       {fds.length === 0 ? (
         <div className="empty-state">

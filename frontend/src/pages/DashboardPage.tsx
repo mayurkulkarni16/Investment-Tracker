@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { getDashboard } from '../api/dashboard';
 import { getMutualFunds } from '../api/mutualFunds';
-import type { DashboardSummary, MutualFund } from '../types';
+import { getBenchmarks } from '../api/benchmarks';
+import type { DashboardSummary, MutualFund, BenchmarkData } from '../types';
 import { formatCurrency, formatPercent, formatDate } from '../utils/format';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, LineChart, Line } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 
 const COLORS = ['#1a73e8', '#0f9d58', '#f9ab00', '#ea4335', '#9c27b0', '#00bcd4', '#ff5722', '#607d8b'];
 const LABELS: Record<string, string> = {
@@ -19,12 +20,14 @@ const LABELS: Record<string, string> = {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [funds, setFunds] = useState<MutualFund[]>([]);
+  const [benchmarks, setBenchmarks] = useState<BenchmarkData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       getDashboard().then(r => setData(r.data)).catch(() => {}),
       getMutualFunds().then(r => setFunds(r.data || [])).catch(() => {}),
+      getBenchmarks().then(r => setBenchmarks(r.data?.indices || [])).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -92,6 +95,39 @@ export default function DashboardPage() {
           <div className="value">{formatCurrency(data.elss_tax_saving)}</div>
         </div>
       </div>
+
+      {benchmarks.length > 0 && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <h3 style={{ marginBottom: 16 }}>Market Benchmarks</h3>
+          <div className="table-container" style={{ boxShadow: 'none' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Index</th>
+                  <th className="text-right">Current</th>
+                  <th className="text-right">1Y Return</th>
+                  <th className="text-right">3Y Return</th>
+                  <th className="text-right">5Y Return</th>
+                </tr>
+              </thead>
+              <tbody>
+                {benchmarks.map(b => (
+                  <tr key={b.symbol}>
+                    <td>
+                      {b.index_name}
+                      <div className="text-muted" style={{ fontSize: 11 }}>{b.symbol}</div>
+                    </td>
+                    <td className="text-right" style={{ fontWeight: 600 }}>{b.current?.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                    <td className={`text-right ${b.change_1y >= 0 ? 'text-success' : 'text-danger'}`}>{b.change_1y?.toFixed(1)}%</td>
+                    <td className={`text-right ${b.change_3y >= 0 ? 'text-success' : 'text-danger'}`}>{b.change_3y?.toFixed(1)}%</td>
+                    <td className={`text-right ${b.change_5y >= 0 ? 'text-success' : 'text-danger'}`}>{b.change_5y?.toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Charts Row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
