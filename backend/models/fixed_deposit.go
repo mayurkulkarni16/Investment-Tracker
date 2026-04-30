@@ -34,6 +34,7 @@ type FixedDeposit struct {
 	PayoutFrequency *PayoutFrequency   `json:"payout_frequency,omitempty" bson:"payout_frequency,omitempty"`
 	MaturityAmount  float64            `json:"maturity_amount" bson:"maturity_amount"`
 	InterestEarned  float64            `json:"interest_earned" bson:"interest_earned"`
+	XIRR            float64            `json:"xirr" bson:"-"`
 	IsAutoRenewed   bool               `json:"is_auto_renewed" bson:"is_auto_renewed"`
 	Status          FDStatus           `json:"status" bson:"status"`
 	Notes           string             `json:"notes" bson:"notes"`

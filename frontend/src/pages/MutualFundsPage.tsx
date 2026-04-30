@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { getMutualFunds, createMutualFund, deleteMutualFund, addMFTransaction, refreshNAV, updateMutualFund, importFromCAS } from '../api/mutualFunds';
+import { getMutualFunds, createMutualFund, deleteMutualFund, addMFTransaction, deleteMFTransaction, refreshNAV, updateMutualFund, importFromCAS } from '../api/mutualFunds';
 import { getSIPs, createSIP, updateSIP, deleteSIP, recordSIPInstallment } from '../api/sips';
 import type { MutualFund, CreateMutualFundRequest, AddMFTransactionRequest, FundType, UpdateMutualFundRequest, SIP, CreateSIPRequest, UpdateSIPRequest, RecordSIPInstallmentRequest, TransactionType } from '../types';
 import { formatCurrency, formatPercent, formatDate } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
 import { extractTextFromPDF, parseCASText } from '../utils/casParser';
 import type { ParsedCASFund } from '../utils/casParser';
 
@@ -18,9 +19,13 @@ export default function MutualFundsPage() {
   const [showImport, setShowImport] = useState(false);
   const [expandedFund, setExpandedFund] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'elss'>('all');
+  const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'funds' | 'sips'>('funds');
   const [submitting, setSubmitting] = useState(false);
+  const [sortCol, setSortCol] = useState<string>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const { toast } = useToast();
+  const { confirm } = useConfirm();
 
   // SIP state
   const [sips, setSips] = useState<SIP[]>([]);
@@ -114,9 +119,15 @@ export default function MutualFundsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this mutual fund?')) return;
+    if (!await confirm({ message: 'Delete this mutual fund?', danger: true, confirmLabel: 'Delete' })) return;
     try { await deleteMutualFund(id); toast('Fund deleted'); load(); }
     catch { toast('Failed to delete fund', 'error'); }
+  };
+
+  const handleDeleteTxn = async (fundId: string, txnId: string) => {
+    if (!await confirm({ message: 'Delete this transaction? Fund totals will be recalculated.', danger: true, confirmLabel: 'Delete' })) return;
+    try { await deleteMFTransaction(fundId, txnId); toast('Transaction deleted'); load(); }
+    catch { toast('Failed to delete transaction', 'error'); }
   };
 
   const handleRefresh = async () => {
@@ -175,7 +186,7 @@ export default function MutualFundsPage() {
   };
 
   const handleDeleteSIP = async (id: string) => {
-    if (!confirm('Delete this SIP?')) return;
+    if (!await confirm({ message: 'Delete this SIP?', danger: true, confirmLabel: 'Delete' })) return;
     try { await deleteSIP(id); toast('SIP deleted'); load(); }
     catch { toast('Failed to delete SIP', 'error'); }
   };
@@ -298,7 +309,17 @@ export default function MutualFundsPage() {
     setImportMessage('');
   };
 
-  const filtered = filter === 'elss' ? funds.filter(f => f.is_elss) : funds;
+  const filtered = (filter === 'elss' ? funds.filter(f => f.is_elss) : funds)
+    .filter(f => !search || f.fund_name.toLowerCase().includes(search.toLowerCase()) || f.amc?.toLowerCase().includes(search.toLowerCase()) || f.folio_number?.toLowerCase().includes(search.toLowerCase()));
+
+  const toggleSort = (col: string) => { if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(col); setSortDir('asc'); } };
+  const sorted = [...filtered].sort((a, b) => {
+    if (!sortCol) return 0;
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const av = (a as any)[sortCol], bv = (b as any)[sortCol];
+    if (typeof av === 'string') return av.localeCompare(bv) * dir;
+    return ((av ?? 0) - (bv ?? 0)) * dir;
+  });
 
   if (loading) return <div className="loading">Loading...</div>;
 
@@ -336,6 +357,9 @@ export default function MutualFundsPage() {
       </div>
 
       {tab === 'funds' && (<>
+      <div className="search-bar">
+        <input type="search" placeholder="Search funds by name, AMC, or folio..." value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
       {filtered.length > 0 && (() => {
         const totalInvested = filtered.reduce((s, f) => s + f.total_invested, 0);
         const totalCurrent = filtered.reduce((s, f) => s + f.current_value, 0);
@@ -361,6 +385,12 @@ export default function MutualFundsPage() {
                 {formatCurrency(totalGain)} ({formatPercent(gainPct)})
               </div>
             </div>
+            <div className="stat-card">
+              <div className="label">Avg XIRR</div>
+              <div className={`value ${(() => { const w = filtered.filter(f => f.total_invested > 0); const t = w.reduce((s, f) => s + f.total_invested, 0); const x = t > 0 ? w.reduce((s, f) => s + f.xirr * f.total_invested, 0) / t : 0; return x >= 0 ? 'positive' : 'negative'; })()}`}>
+                {formatPercent((() => { const w = filtered.filter(f => f.total_invested > 0); const t = w.reduce((s, f) => s + f.total_invested, 0); return t > 0 ? w.reduce((s, f) => s + f.xirr * f.total_invested, 0) / t : 0; })())}
+              </div>
+            </div>
           </div>
         );
       })()}
@@ -378,18 +408,19 @@ export default function MutualFundsPage() {
           <table>
             <thead>
               <tr>
-                <th>Fund Name</th>
-                <th>Type</th>
-                <th>Invested</th>
-                <th>Current Value</th>
-                <th>NAV</th>
-                <th>Units</th>
-                <th>Gain/Loss</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('fund_name')}>Fund Name {sortCol === 'fund_name' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('fund_type')}>Type {sortCol === 'fund_type' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('total_invested')}>Invested {sortCol === 'total_invested' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('current_value')}>Current Value {sortCol === 'current_value' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('current_nav')}>NAV {sortCol === 'current_nav' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('total_units')}>Units {sortCol === 'total_units' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('gain_loss')}>Gain/Loss {sortCol === 'gain_loss' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('xirr')}>XIRR {sortCol === 'xirr' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(f => (
+              {sorted.map(f => (
                 <tr key={f.id} style={{ cursor: 'pointer' }} onClick={() => setExpandedFund(expandedFund === f.id ? null : f.id)}>
                   <td>
                     {f.fund_name}
@@ -408,6 +439,9 @@ export default function MutualFundsPage() {
                     {formatCurrency(f.gain_loss)}<br />
                     <span style={{ fontSize: 12 }}>{formatPercent(f.gain_loss_percent)}</span>
                   </td>
+                  <td className={f.xirr >= 0 ? 'text-success' : 'text-danger'}>
+                    {formatPercent(f.xirr)}
+                  </td>
                   <td>
                     <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
                       <button className="btn btn-sm btn-outline" onClick={() => setExpandedFund(expandedFund === f.id ? null : f.id)}>
@@ -420,9 +454,9 @@ export default function MutualFundsPage() {
                   </td>
                 </tr>
               ))}
-              {filtered.map(f => expandedFund === f.id && f.transactions?.length > 0 && (
+              {sorted.map(f => expandedFund === f.id && f.transactions?.length > 0 && (
                 <tr key={`${f.id}-txns`}>
-                  <td colSpan={8} style={{ padding: 0 }}>
+                  <td colSpan={9} style={{ padding: 0 }}>
                     <div style={{ background: '#f8f9fa', padding: '12px 16px', borderTop: '1px solid #e0e0e0' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                         <strong style={{ fontSize: 14 }}>Transactions — {f.fund_name}</strong>
@@ -437,6 +471,7 @@ export default function MutualFundsPage() {
                             <th>NAV</th>
                             <th>Units</th>
                             {f.is_elss && <th>Lock-in Ends</th>}
+                            <th>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -456,6 +491,7 @@ export default function MutualFundsPage() {
                               <td>₹{tx.nav_at_purchase.toFixed(4)}</td>
                               <td>{tx.units.toFixed(3)}</td>
                               {f.is_elss && <td>{tx.lock_in_end ? formatDate(tx.lock_in_end) : '-'}</td>}
+                              <td><button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); handleDeleteTxn(f.id, tx.transaction_id); }}>Del</button></td>
                             </tr>
                           ))}
                         </tbody>
@@ -468,6 +504,7 @@ export default function MutualFundsPage() {
           </table>
         </div>
       )}
+      {filtered.length > 0 && <p className="text-muted" style={{ fontSize: 11, marginTop: 6 }}>NAV data via mfapi.in • Prices may be delayed by 1 business day</p>}
       </>)}
 
       {tab === 'sips' && (

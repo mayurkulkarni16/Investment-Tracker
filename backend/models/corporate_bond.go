@@ -69,6 +69,7 @@ type CorporateBond struct {
 	RemainingPrincipal     float64              `json:"remaining_principal" bson:"remaining_principal"`
 	TotalInterestEarned    float64              `json:"total_interest_earned" bson:"total_interest_earned"`
 	TotalPrincipalReturned float64              `json:"total_principal_returned" bson:"total_principal_returned"`
+	XIRR                   float64              `json:"xirr" bson:"-"`
 	Status                 BondStatus           `json:"status" bson:"status"`
 	Notes                  string               `json:"notes" bson:"notes"`
 	CreatedAt              time.Time            `json:"created_at" bson:"created_at"`

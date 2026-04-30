@@ -50,6 +50,7 @@ type NPSAccount struct {
 	TotalEmployerContribution float64 `json:"total_employer_contribution" bson:"total_employer_contribution"`
 	TotalContribution         float64 `json:"total_contribution" bson:"total_contribution"`
 	CurrentValue              float64 `json:"current_value" bson:"current_value"`
+	XIRR                      float64 `json:"xirr" bson:"-"`
 
 	// Tax benefits (computed, not stored)
 	Section80CCD1  float64 `json:"section_80ccd1" bson:"-"`  // within 80C 1.5L

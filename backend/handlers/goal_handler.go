@@ -88,6 +88,20 @@ func (h *GoalHandler) LinkInvestment(c *gin.Context) {
 	c.JSON(http.StatusOK, goal)
 }
 
+func (h *GoalHandler) BatchLinkInvestments(c *gin.Context) {
+	var req models.BatchLinkInvestmentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	goal, err := h.service.BatchLinkInvestments(c.Request.Context(), c.Param("id"), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, goal)
+}
+
 func (h *GoalHandler) UnlinkInvestment(c *gin.Context) {
 	investmentID := c.Param("investmentId")
 	goal, err := h.service.UnlinkInvestment(c.Request.Context(), c.Param("id"), investmentID)

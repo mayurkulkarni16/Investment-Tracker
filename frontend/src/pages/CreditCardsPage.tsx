@@ -3,12 +3,14 @@ import { getCreditCards, createCreditCard, updateCreditCard, deleteCreditCard, a
 import type { CreditCard, CreateCreditCardRequest, UpdateCreditCardRequest, AddCardStatementRequest, PayStatementRequest, AddCardTransactionRequest, AddCardEMIRequest, AddCreditScoreRequest } from '../types';
 import { formatCurrency } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
 
 export default function CreditCardsPage() {
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const [showStatement, setShowStatement] = useState<string | null>(null);
   const [showPay, setShowPay] = useState<{ cardId: string; statementId: string } | null>(null);
   const [showEMI, setShowEMI] = useState<string | null>(null);
@@ -16,6 +18,7 @@ export default function CreditCardsPage() {
   const [showEdit, setShowEdit] = useState<CreditCard | null>(null);
   const [showTxn, setShowTxn] = useState<{ cardId: string; statementId: string } | null>(null);
   const { toast } = useToast();
+  const { confirm } = useConfirm();
 
   const [form, setForm] = useState<CreateCreditCardRequest>({
     card_name: '', bank_name: '', card_network: 'Visa', last_four_digits: '',
@@ -33,7 +36,7 @@ export default function CreditCardsPage() {
   useEffect(() => { load(); }, []);
 
   const handleAdd = async (e: React.FormEvent) => { e.preventDefault(); try { await createCreditCard(form); setShowAdd(false); toast('Card added'); load(); } catch { toast('Failed to add card', 'error'); } };
-  const handleDelete = async (id: string) => { if (!confirm('Delete this card?')) return; try { await deleteCreditCard(id); toast('Card deleted'); load(); } catch { toast('Failed to delete', 'error'); } };
+  const handleDelete = async (id: string) => { if (!await confirm({ message: 'Delete this card?', danger: true, confirmLabel: 'Delete' })) return; try { await deleteCreditCard(id); toast('Card deleted'); load(); } catch { toast('Failed to delete', 'error'); } };
   const handleStatement = async (e: React.FormEvent) => { e.preventDefault(); if (!showStatement) return; try { await addCardStatement(showStatement, stmtForm); setShowStatement(null); toast('Statement added'); load(); } catch { toast('Failed to add statement', 'error'); } };
   const handlePay = async (e: React.FormEvent) => { e.preventDefault(); if (!showPay) return; try { await payStatement(showPay.cardId, payForm); setShowPay(null); toast('Payment recorded'); load(); } catch { toast('Failed to record payment', 'error'); } };
   const handleEMI = async (e: React.FormEvent) => { e.preventDefault(); if (!showEMI) return; try { await addCardEMI(showEMI, emiForm); setShowEMI(null); toast('EMI added'); load(); } catch { toast('Failed to add EMI', 'error'); } };
@@ -89,7 +92,10 @@ export default function CreditCardsPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {cards.map(card => (
+          <div className="search-bar" style={{ marginBottom: 0 }}>
+            <input type="search" placeholder="Search by card name or bank..." value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          {cards.filter(card => !search || card.card_name.toLowerCase().includes(search.toLowerCase()) || card.bank_name.toLowerCase().includes(search.toLowerCase())).map(card => (
             <div key={card.id} className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer' }} onClick={() => setExpanded(expanded === card.id ? null : card.id)}>
                 <div>

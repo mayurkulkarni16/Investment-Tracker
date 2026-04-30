@@ -24,3 +24,19 @@ func (h *DashboardHandler) GetDashboard(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, dashboard)
 }
+
+func (h *DashboardHandler) GetRebalanceSuggestions(c *gin.Context) {
+	var req struct {
+		Targets map[string]float64 `json:"targets"` // category -> target percentage
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	suggestions, err := h.service.GetRebalanceSuggestions(c.Request.Context(), req.Targets)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, suggestions)
+}

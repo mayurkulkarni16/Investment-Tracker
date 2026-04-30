@@ -3,6 +3,8 @@ import { getPersonalLoans, createPersonalLoan, deletePersonalLoan, updatePersona
 import type { PersonalLoan, CreatePersonalLoanRequest, UpdatePersonalLoanRequest, AddEMIPaymentRequest, AddPrepaymentRequest, ChangeRateRequest, LoanRateType, AmortizationEntry } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line } from 'recharts';
 
 const PURPOSES: Record<string, string> = {
   personal: 'Personal', education: 'Education', vehicle: 'Vehicle',
@@ -17,9 +19,12 @@ export default function PersonalLoansPage() {
   const [showEMI, setShowEMI] = useState<string | null>(null);
   const [showPrepay, setShowPrepay] = useState<string | null>(null);
   const [showRate, setShowRate] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [expandedLoan, setExpandedLoan] = useState<string | null>(null);
   const [amortization, setAmortization] = useState<AmortizationEntry[] | null>(null);
   const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [showAmort, setShowAmort] = useState<string | null>(null);
 
   const [form, setForm] = useState<CreatePersonalLoanRequest>({
@@ -61,7 +66,7 @@ export default function PersonalLoansPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this personal loan?')) return;
+    if (!await confirm({ message: 'Delete this personal loan?', danger: true, confirmLabel: 'Delete' })) return;
     try { await deletePersonalLoan(id); toast('Loan deleted'); load(); }
     catch { toast('Failed to delete loan', 'error'); }
   };
@@ -123,7 +128,21 @@ export default function PersonalLoansPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {loans.map(l => (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div className="search-bar" style={{ flex: 1, marginBottom: 0 }}>
+              <input type="search" placeholder="Search by lender name..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {['all', 'active', 'closed'].map(s => (
+                <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-outline'}`} onClick={() => setStatusFilter(s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
+              ))}
+            </div>
+          </div>
+          {loans.filter(l => {
+            const matchSearch = !search || l.lender_name.toLowerCase().includes(search.toLowerCase()) || (l.loan_purpose || '').toLowerCase().includes(search.toLowerCase());
+            const matchStatus = statusFilter === 'all' || l.status === statusFilter;
+            return matchSearch && matchStatus;
+          }).map(l => (
             <div key={l.id} className="card" style={{ padding: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                 <div>
@@ -222,14 +241,30 @@ export default function PersonalLoansPage() {
               )}
 
               {showAmort === l.id && amortization && (
-                <div style={{ marginTop: 12, maxHeight: 400, overflowY: 'auto' }}>
+                <div style={{ marginTop: 12 }}>
                   <strong style={{ fontSize: 13 }}>Amortization Schedule (Remaining)</strong>
+                  <div style={{ marginTop: 12, marginBottom: 16 }}>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <AreaChart data={amortization}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" fontSize={11} />
+                        <YAxis tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}K`} fontSize={11} />
+                        <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                        <Legend />
+                        <Area type="monotone" dataKey="principal_portion" name="Principal" stackId="emi" stroke="#1a73e8" fill="#bbdefb" />
+                        <Area type="monotone" dataKey="interest_portion" name="Interest" stackId="emi" stroke="#ea4335" fill="#ffcdd2" />
+                        <Line type="monotone" dataKey="outstanding_after" name="Outstanding" stroke="#f57f17" strokeWidth={2} dot={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div style={{ maxHeight: 300, overflowY: 'auto' }}>
                   <table style={{ fontSize: 12, marginTop: 6 }}>
                     <thead><tr><th>#</th><th>EMI</th><th>Principal</th><th>Interest</th><th>Outstanding</th></tr></thead>
                     <tbody>{amortization.map(a => (
                       <tr key={a.month}><td>{a.month}</td><td>{formatCurrency(a.emi)}</td><td>{formatCurrency(a.principal_portion)}</td><td>{formatCurrency(a.interest_portion)}</td><td>{formatCurrency(a.outstanding_after)}</td></tr>
                     ))}</tbody>
                   </table>
+                  </div>
                 </div>
               )}
             </div>

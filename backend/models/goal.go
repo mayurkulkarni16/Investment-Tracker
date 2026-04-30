@@ -7,10 +7,15 @@ import (
 )
 
 type LinkedInvestment struct {
-	InvestmentType string  `json:"investment_type" bson:"investment_type"` // mutual_fund, stock, fd, pf, nps, bond
+	InvestmentType string  `json:"investment_type" bson:"investment_type"`
 	InvestmentID   string  `json:"investment_id" bson:"investment_id"`
 	InvestmentName string  `json:"investment_name" bson:"investment_name"`
-	AllocatedPct   float64 `json:"allocated_pct" bson:"allocated_pct"` // % of investment allocated to this goal
+	AllocatedPct   float64 `json:"allocated_pct" bson:"allocated_pct"`
+}
+
+type GoalProjection struct {
+	Month int     `json:"month"`
+	Value float64 `json:"value"`
 }
 
 type Goal struct {
@@ -27,11 +32,14 @@ type Goal struct {
 	LinkedInvestments []LinkedInvestment `json:"linked_investments" bson:"linked_investments"`
 
 	// Computed (not stored)
-	CurrentValue    float64 `json:"current_value" bson:"-"`
-	ProgressPct     float64 `json:"progress_pct" bson:"-"`
-	MonthlyNeeded   float64 `json:"monthly_needed" bson:"-"` // monthly SIP needed to reach goal
-	MonthsRemaining int     `json:"months_remaining" bson:"-"`
-	OnTrack         bool    `json:"on_track" bson:"-"`
+	CurrentValue     float64          `json:"current_value" bson:"-"`
+	ProgressPct      float64          `json:"progress_pct" bson:"-"`
+	MonthlyNeeded    float64          `json:"monthly_needed" bson:"-"`
+	MonthsRemaining  int              `json:"months_remaining" bson:"-"`
+	OnTrack          bool             `json:"on_track" bson:"-"`
+	ProjectedDate    *time.Time       `json:"projected_date,omitempty" bson:"-"`
+	Shortfall        float64          `json:"shortfall" bson:"-"`
+	ProjectionPoints []GoalProjection `json:"projection_points,omitempty" bson:"-"`
 
 	Status    string    `json:"status" bson:"status"` // active, achieved, abandoned
 	Notes     string    `json:"notes" bson:"notes"`
@@ -67,4 +75,8 @@ type LinkInvestmentRequest struct {
 	InvestmentID   string  `json:"investment_id" binding:"required"`
 	InvestmentName string  `json:"investment_name" binding:"required"`
 	AllocatedPct   float64 `json:"allocated_pct" binding:"required"`
+}
+
+type BatchLinkInvestmentRequest struct {
+	Investments []LinkInvestmentRequest `json:"investments" binding:"required"`
 }

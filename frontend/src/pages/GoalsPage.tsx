@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getGoals, createGoal, updateGoal, deleteGoal, linkInvestment, unlinkInvestment } from '../api/goals';
+import { getGoals, createGoal, updateGoal, deleteGoal, linkInvestment, batchLinkInvestments, unlinkInvestment } from '../api/goals';
 import { getMutualFunds } from '../api/mutualFunds';
 import { getStocks } from '../api/stocks';
 import { getFixedDeposits } from '../api/fixedDeposits';
@@ -7,8 +7,10 @@ import { getNPSAccounts } from '../api/nps';
 import { getProvidentFunds } from '../api/providentFund';
 import { getCorporateBonds } from '../api/corporateBonds';
 import type { Goal, CreateGoalRequest, UpdateGoalRequest, LinkInvestmentRequest } from '../types';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatDate } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const CATEGORIES = ['retirement', 'education', 'house', 'car', 'wedding', 'emergency', 'travel', 'other'];
 const ICONS: Record<string, string> = { retirement: '🏖️', education: '🎓', house: '🏠', car: '🚗', wedding: '💍', emergency: '🆘', travel: '✈️', other: '🎯' };
@@ -20,11 +22,15 @@ export default function GoalsPage() {
   const [showEdit, setShowEdit] = useState<Goal | null>(null);
   const [showLink, setShowLink] = useState<string | null>(null);
   const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [form, setForm] = useState<CreateGoalRequest>({ name: '', category: 'retirement', target_amount: 0, target_date: '', assumed_return_rate: 12 });
   const [editForm, setEditForm] = useState<UpdateGoalRequest>({});
   const [linkForm, setLinkForm] = useState<LinkInvestmentRequest>({ investment_type: 'mutual_fund', investment_id: '', investment_name: '', allocated_pct: 100 });
   const [availableInvestments, setAvailableInvestments] = useState<{ id: string; name: string }[]>([]);
+  const [selectedInvestments, setSelectedInvestments] = useState<{ id: string; name: string }[]>([]);
   const [loadingInv, setLoadingInv] = useState(false);
 
   const load = () => { getGoals().then(r => setGoals(r.data || [])).catch(() => {}).finally(() => setLoading(false)); };
@@ -49,8 +55,29 @@ export default function GoalsPage() {
 
   const handleAdd = async (e: React.FormEvent) => { e.preventDefault(); try { await createGoal({ ...form, icon: ICONS[form.category] || '🎯' }); setShowAdd(false); toast('Goal added'); load(); } catch { toast('Failed to add goal', 'error'); } };
   const handleEdit = async (e: React.FormEvent) => { e.preventDefault(); if (!showEdit) return; try { await updateGoal(showEdit.id, editForm); setShowEdit(null); toast('Goal updated'); load(); } catch { toast('Failed to update goal', 'error'); } };
-  const handleDelete = async (id: string) => { if (!confirm('Delete this goal?')) return; try { await deleteGoal(id); toast('Goal deleted'); load(); } catch { toast('Failed to delete goal', 'error'); } };
-  const handleLink = async (e: React.FormEvent) => { e.preventDefault(); if (!showLink) return; try { await linkInvestment(showLink, linkForm); setShowLink(null); toast('Investment linked'); load(); } catch { toast('Failed to link investment', 'error'); } };
+  const handleDelete = async (id: string) => { if (!await confirm({ message: 'Delete this goal?', danger: true, confirmLabel: 'Delete' })) return; try { await deleteGoal(id); toast('Goal deleted'); load(); } catch { toast('Failed to delete goal', 'error'); } };
+  const handleLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showLink) return;
+    try {
+      if (selectedInvestments.length > 0) {
+        const investments = selectedInvestments.map(inv => ({
+          investment_type: linkForm.investment_type,
+          investment_id: inv.id,
+          investment_name: inv.name,
+          allocated_pct: linkForm.allocated_pct,
+        }));
+        await batchLinkInvestments(showLink, investments);
+        toast(`${selectedInvestments.length} investment(s) linked`);
+      } else if (linkForm.investment_id) {
+        await linkInvestment(showLink, linkForm);
+        toast('Investment linked');
+      }
+      setShowLink(null);
+      setSelectedInvestments([]);
+      load();
+    } catch { toast('Failed to link investment', 'error'); }
+  };
   const handleUnlink = async (goalId: string, invId: string) => { try { await unlinkInvestment(goalId, invId); toast('Investment unlinked'); load(); } catch { toast('Failed to unlink', 'error'); } };
 
   if (loading) return <div className="loading">Loading...</div>;
@@ -97,7 +124,21 @@ export default function GoalsPage() {
         </div>
       ) : (
         <div className="card-grid">
-          {goals.map(g => (
+          <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div className="search-bar" style={{ flex: 1, marginBottom: 0 }}>
+              <input type="search" placeholder="Search goals..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {['all', 'on_track', 'behind', 'achieved'].map(s => (
+                <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-outline'}`} onClick={() => setStatusFilter(s)}>{s === 'on_track' ? 'On Track' : s.charAt(0).toUpperCase() + s.slice(1)}</button>
+              ))}
+            </div>
+          </div>
+          {goals.filter(g => {
+            const matchSearch = !search || g.name.toLowerCase().includes(search.toLowerCase()) || g.category.toLowerCase().includes(search.toLowerCase());
+            const matchStatus = statusFilter === 'all' || (statusFilter === 'on_track' && g.on_track) || (statusFilter === 'behind' && !g.on_track && g.progress_pct < 100) || (statusFilter === 'achieved' && g.progress_pct >= 100);
+            return matchSearch && matchStatus;
+          }).map(g => (
             <div key={g.id} className="card" style={{ cursor: 'pointer' }} onClick={() => setExpanded(expanded === g.id ? null : g.id)}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
@@ -122,8 +163,26 @@ export default function GoalsPage() {
                 </div>
                 <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
                   {g.progress_pct?.toFixed(1)}% complete | {g.months_remaining} months left | Need {formatCurrency(g.monthly_needed)}/mo
+                  {g.shortfall > 0 && <span style={{ color: 'var(--danger)' }}> | Shortfall: {formatCurrency(g.shortfall)}</span>}
+                  {g.projected_date && <span> | Est. completion: {formatDate(g.projected_date)}</span>}
                 </p>
               </div>
+
+              {expanded === g.id && g.projection_points && g.projection_points.length > 1 && (
+                <div style={{ marginTop: 16 }}>
+                  <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Goal Projection</h4>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={g.projection_points}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" fontSize={11} label={{ value: 'Months', position: 'insideBottom', offset: -3, fontSize: 11 }} />
+                      <YAxis tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}K`} fontSize={11} />
+                      <Tooltip formatter={(val: any) => formatCurrency(val)} labelFormatter={(l: any) => `Month ${l}`} />
+                      <ReferenceLine y={g.target_amount} stroke="#ea4335" strokeDasharray="5 5" label={{ value: 'Target', fill: '#ea4335', fontSize: 11 }} />
+                      <Line type="monotone" dataKey="value" name="Projected" stroke="#1a73e8" dot={false} strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
 
               <div style={{ marginTop: 12, display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
                 <button className="btn btn-sm btn-primary" onClick={() => { setShowLink(g.id); fetchInvestments(linkForm.investment_type); }}>Link Investment</button>
@@ -176,32 +235,53 @@ export default function GoalsPage() {
       )}
 
       {showLink && (
-        <div className="modal-overlay" onClick={() => setShowLink(null)}>
+        <div className="modal-overlay" onClick={() => { setShowLink(null); setSelectedInvestments([]); }}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
             <h2>Link Investment</h2>
             <form onSubmit={handleLink}>
               <div className="form-group">
                 <label>Investment Type</label>
-                <select value={linkForm.investment_type} onChange={e => { const type = e.target.value; setLinkForm({ ...linkForm, investment_type: type, investment_id: '', investment_name: '' }); fetchInvestments(type); }}>
+                <select value={linkForm.investment_type} onChange={e => { const type = e.target.value; setLinkForm({ ...linkForm, investment_type: type, investment_id: '', investment_name: '' }); setSelectedInvestments([]); fetchInvestments(type); }}>
                   <option value="mutual_fund">Mutual Fund</option><option value="stock">Stock</option><option value="fixed_deposit">Fixed Deposit</option>
                   <option value="nps">NPS</option><option value="provident_fund">Provident Fund</option><option value="corporate_bond">Corporate Bond</option>
                 </select>
               </div>
               <div className="form-group">
-                <label>Select Investment</label>
-                {loadingInv ? <p className="text-muted" style={{ fontSize: 13 }}>Loading...</p> : availableInvestments.length === 0 ? (
-                  <p className="text-muted" style={{ fontSize: 13 }}>No {linkForm.investment_type.replace(/_/g, ' ')}s found. Add one first.</p>
-                ) : (
-                  <select value={linkForm.investment_id} onChange={e => { const inv = availableInvestments.find(i => i.id === e.target.value); setLinkForm({ ...linkForm, investment_id: e.target.value, investment_name: inv?.name || '' }); }}>
-                    <option value="">-- Select --</option>
-                    {availableInvestments.map(inv => <option key={inv.id} value={inv.id}>{inv.name}</option>)}
-                  </select>
-                )}
+                <label>Select Investment(s)</label>
+                {loadingInv ? <p className="text-muted" style={{ fontSize: 13 }}>Loading...</p> : (() => {
+                  const goal = goals.find(g => g.id === showLink);
+                  const linkedIds = new Set((goal?.linked_investments || []).map(li => li.investment_id));
+                  const filtered = availableInvestments.filter(inv => !linkedIds.has(inv.id));
+                  if (filtered.length === 0) return <p className="text-muted" style={{ fontSize: 13 }}>No {linkForm.investment_type.replace(/_/g, ' ')}s available to link.</p>;
+                  return (
+                    <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 0' }}>
+                      <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600, margin: 0 }}>
+                          <input type="checkbox" style={{ width: 16, height: 16, flexShrink: 0 }} checked={selectedInvestments.length === filtered.length} onChange={e => {
+                            if (e.target.checked) { setSelectedInvestments(filtered); setLinkForm({ ...linkForm, investment_id: '', investment_name: '' }); }
+                            else setSelectedInvestments([]);
+                          }} />
+                          <span>Select All ({filtered.length})</span>
+                        </label>
+                      </div>
+                      {filtered.map(inv => (
+                        <label key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px', cursor: 'pointer', fontSize: 13, margin: 0 }}>
+                          <input type="checkbox" style={{ width: 16, height: 16, flexShrink: 0 }} checked={selectedInvestments.some(s => s.id === inv.id)} onChange={e => {
+                            if (e.target.checked) { setSelectedInvestments([...selectedInvestments, inv]); setLinkForm({ ...linkForm, investment_id: '', investment_name: '' }); }
+                            else setSelectedInvestments(selectedInvestments.filter(s => s.id !== inv.id));
+                          }} />
+                          <span>{inv.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  );
+                })()}
+                {selectedInvestments.length > 0 && <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>{selectedInvestments.length} selected</p>}
               </div>
-              <div className="form-group"><label>Allocation %</label><input type="number" min={1} max={100} value={linkForm.allocated_pct} onChange={e => setLinkForm({ ...linkForm, allocated_pct: +e.target.value })} /></div>
+              <div className="form-group"><label>Allocation % (each)</label><input type="number" min={1} max={100} value={linkForm.allocated_pct} onChange={e => setLinkForm({ ...linkForm, allocated_pct: +e.target.value })} /></div>
               <div className="modal-actions">
-                <button type="button" className="btn btn-outline" onClick={() => setShowLink(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={!linkForm.investment_id}>Link</button>
+                <button type="button" className="btn btn-outline" onClick={() => { setShowLink(null); setSelectedInvestments([]); }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={selectedInvestments.length === 0 && !linkForm.investment_id}>Link{selectedInvestments.length > 1 ? ` (${selectedInvestments.length})` : ''}</button>
               </div>
             </form>
           </div>

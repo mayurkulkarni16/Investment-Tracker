@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getProvidentFunds, createProvidentFund, addContribution, updateProvidentFund, deleteProvidentFund, importPFFromPDF } from '../api/providentFund';
 import type { ProvidentFund, CreateProvidentFundRequest, AddMonthlyContributionRequest, PFAccountType } from '../types';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatPercent } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
 import { extractPFFromPDF } from '../utils/pfParser';
 import type { ParsedPFData } from '../utils/pfParser';
 
@@ -13,7 +14,9 @@ export default function ProvidentFundPage() {
   const [showContrib, setShowContrib] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState<ProvidentFund | null>(null);
   const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const [form, setForm] = useState<CreateProvidentFundRequest>({ account_type: 'EPF', account_number: '', interest_rate: 8.25 });
   const [editForm, setEditForm] = useState<CreateProvidentFundRequest>({ account_type: 'EPF', account_number: '', interest_rate: 8.25 });
   const [contribForm, setContribForm] = useState<AddMonthlyContributionRequest>({ financial_year: '2025-2026', month: '', employee_contribution: 0, employer_contribution: 0 });
@@ -65,7 +68,7 @@ export default function ProvidentFundPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this PF account?')) return;
+    if (!await confirm({ message: 'Delete this PF account?', danger: true, confirmLabel: 'Delete' })) return;
     try { await deleteProvidentFund(id); toast('PF account deleted'); load(); }
     catch { toast('Failed to delete PF account', 'error'); }
   };
@@ -151,6 +154,12 @@ export default function ProvidentFundPage() {
               <div className="label">Total Interest Earned</div>
               <div className="value positive">{formatCurrency(totalInterest)}</div>
             </div>
+            <div className="stat-card">
+              <div className="label">Avg XIRR</div>
+              <div className={`value ${(() => { const w = funds.filter(p => p.current_balance > 0); const t = w.reduce((s, p) => s + p.current_balance, 0); const x = t > 0 ? w.reduce((s, p) => s + p.xirr * p.current_balance, 0) / t : 0; return x >= 0 ? 'positive' : 'negative'; })()}`}>
+                {formatPercent((() => { const w = funds.filter(p => p.current_balance > 0); const t = w.reduce((s, p) => s + p.current_balance, 0); return t > 0 ? w.reduce((s, p) => s + p.xirr * p.current_balance, 0) / t : 0; })())}
+              </div>
+            </div>
           </div>
         );
       })()}
@@ -162,7 +171,11 @@ export default function ProvidentFundPage() {
           <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add PF Account</button>
         </div>
       ) : (
-        funds.map(pf => (
+        <>
+        <div className="search-bar" style={{ marginBottom: 16 }}>
+          <input type="search" placeholder="Search by employer name or account number..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        {funds.filter(pf => !search || pf.employer_name?.toLowerCase().includes(search.toLowerCase()) || pf.account_number.toLowerCase().includes(search.toLowerCase())).map(pf => (
           <div key={pf.id} className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
@@ -189,6 +202,7 @@ export default function ProvidentFundPage() {
               <div><span className="text-muted" style={{ fontSize: 12 }}>Employee Contribution</span><div style={{ fontWeight: 600 }}>{formatCurrency(pf.total_employee_contribution)}</div></div>
               <div><span className="text-muted" style={{ fontSize: 12 }}>Employer Contribution</span><div style={{ fontWeight: 600 }}>{formatCurrency(pf.total_employer_contribution)}</div></div>
               <div><span className="text-muted" style={{ fontSize: 12 }}>Interest Earned</span><div style={{ fontWeight: 600, color: 'var(--success)' }}>{formatCurrency(pf.total_interest_earned)}</div></div>
+              <div><span className="text-muted" style={{ fontSize: 12 }}>XIRR</span><div style={{ fontWeight: 600, color: pf.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercent(pf.xirr)}</div></div>
             </div>
 
             {expanded === pf.id && pf.financial_year_entries && pf.financial_year_entries.length > 0 && (
@@ -221,7 +235,8 @@ export default function ProvidentFundPage() {
               </div>
             )}
           </div>
-        ))
+        ))}
+        </>
       )}
 
       {showAdd && (

@@ -25,7 +25,12 @@ func (h *ProjectionHandler) GetProjections(c *gin.Context) {
 		}
 	}
 
-	projections, err := h.service.GetProjections(c.Request.Context(), years)
+	scenario := c.DefaultQuery("scenario", "base")
+	if scenario != "bull" && scenario != "bear" && scenario != "base" {
+		scenario = "base"
+	}
+
+	projections, err := h.service.GetProjectionsWithScenario(c.Request.Context(), years, scenario)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

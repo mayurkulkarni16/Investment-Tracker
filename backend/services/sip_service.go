@@ -11,11 +11,12 @@ import (
 )
 
 type SIPService struct {
-	repo *repository.SIPRepo
+	repo   *repository.SIPRepo
+	mfRepo *repository.MutualFundRepo
 }
 
-func NewSIPService(repo *repository.SIPRepo) *SIPService {
-	return &SIPService{repo: repo}
+func NewSIPService(repo *repository.SIPRepo, mfRepo *repository.MutualFundRepo) *SIPService {
+	return &SIPService{repo: repo, mfRepo: mfRepo}
 }
 
 func (s *SIPService) Create(ctx context.Context, req models.CreateSIPRequest) (*models.SIP, error) {
@@ -155,6 +156,44 @@ func (s *SIPService) RecordInstallment(ctx context.Context, id string, req model
 	case "success":
 		sip.CompletedInstallments++
 		sip.TotalInvested += req.Amount
+
+		// Also create a transaction in the linked mutual fund
+		if sip.FundID != "" {
+			fundObjID, err := parseObjectID(sip.FundID)
+			if err == nil {
+				mf, err := s.mfRepo.GetByID(ctx, fundObjID)
+				if err == nil {
+					units := req.Units
+					if units == 0 && req.NAV > 0 {
+						units = req.Amount / req.NAV
+					}
+
+					txn := models.MFTransaction{
+						TransactionID: uuid.New().String(),
+						Date:          date,
+						Type:          models.TransactionSIP,
+						Amount:        req.Amount,
+						NAVAtPurchase: req.NAV,
+						Units:         units,
+					}
+
+					if mf.IsELSS {
+						lockIn := date.AddDate(3, 0, 0)
+						txn.LockInEnd = &lockIn
+					}
+
+					mf.Transactions = append(mf.Transactions, txn)
+					mf.TotalUnits += units
+					mf.TotalInvested += req.Amount
+					mf.CurrentValue = mf.TotalUnits * mf.CurrentNAV
+					mf.GainLoss = mf.CurrentValue - mf.TotalInvested
+					if mf.TotalInvested > 0 {
+						mf.GainLossPercent = (mf.GainLoss / mf.TotalInvested) * 100
+					}
+					_ = s.mfRepo.Update(ctx, mf)
+				}
+			}
+		}
 	case "failed", "skipped":
 		sip.MissedInstallments++
 	}

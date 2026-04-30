@@ -47,6 +47,8 @@ func (s *MutualFundService) GetAll(ctx context.Context) ([]models.MutualFund, er
 	}
 	for i := range funds {
 		s.recalculate(&funds[i])
+		funds[i].XIRR = ComputeMutualFundXIRR(&funds[i])
+		funds[i].DataSource = "mfapi.in"
 	}
 	return funds, nil
 }
@@ -61,6 +63,7 @@ func (s *MutualFundService) GetByID(ctx context.Context, id string) (*models.Mut
 		return nil, err
 	}
 	s.recalculate(mf)
+	mf.XIRR = ComputeMutualFundXIRR(mf)
 	return mf, nil
 }
 
@@ -189,6 +192,80 @@ func (s *MutualFundService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, objID)
 }
 
+func (s *MutualFundService) DeleteTransaction(ctx context.Context, fundID, txnID string) (*models.MutualFund, error) {
+	objID, err := parseObjectID(fundID)
+	if err != nil {
+		return nil, err
+	}
+	mf, err := s.repo.GetByID(ctx, objID)
+	if err != nil {
+		return nil, err
+	}
+	found := false
+	newTxns := make([]models.MFTransaction, 0, len(mf.Transactions))
+	for _, t := range mf.Transactions {
+		if t.TransactionID == txnID {
+			found = true
+			continue
+		}
+		newTxns = append(newTxns, t)
+	}
+	if !found {
+		return nil, fmt.Errorf("transaction not found")
+	}
+	mf.Transactions = newTxns
+	s.recalculate(mf)
+	if err := s.repo.Update(ctx, mf); err != nil {
+		return nil, err
+	}
+	return mf, nil
+}
+
+func (s *MutualFundService) UpdateTransaction(ctx context.Context, fundID, txnID string, req models.AddMFTransactionRequest) (*models.MutualFund, error) {
+	objID, err := parseObjectID(fundID)
+	if err != nil {
+		return nil, err
+	}
+	mf, err := s.repo.GetByID(ctx, objID)
+	if err != nil {
+		return nil, err
+	}
+	txDate, err := parseDate(req.Date)
+	if err != nil {
+		return nil, err
+	}
+	units := req.Units
+	if units == 0 && req.NAVAtPurchase > 0 {
+		units = req.Amount / req.NAVAtPurchase
+	}
+	found := false
+	for i, t := range mf.Transactions {
+		if t.TransactionID == txnID {
+			mf.Transactions[i].Date = txDate
+			mf.Transactions[i].Type = req.Type
+			mf.Transactions[i].Amount = req.Amount
+			mf.Transactions[i].NAVAtPurchase = req.NAVAtPurchase
+			mf.Transactions[i].Units = units
+			if mf.IsELSS && (req.Type == models.TransactionPurchase || req.Type == models.TransactionSIP) {
+				lockIn := txDate.AddDate(3, 0, 0)
+				mf.Transactions[i].LockInEnd = &lockIn
+			} else {
+				mf.Transactions[i].LockInEnd = nil
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("transaction not found")
+	}
+	s.recalculate(mf)
+	if err := s.repo.Update(ctx, mf); err != nil {
+		return nil, err
+	}
+	return mf, nil
+}
+
 func (s *MutualFundService) Update(ctx context.Context, id string, req models.UpdateMutualFundRequest) (*models.MutualFund, error) {
 	objID, err := parseObjectID(id)
 	if err != nil {
@@ -308,21 +385,23 @@ func (s *MutualFundService) ImportFromCAS(ctx context.Context, req models.Import
 					continue
 				}
 
-				// Check for duplicate
+				// Check for duplicate (4-field composite: date + amount + units + type)
 				isDuplicate := false
+				txType := mapCASTransactionType(tx.Type)
 				for _, existingTx := range existingMF.Transactions {
 					if existingTx.Date.Equal(txDate) &&
 						existingTx.Amount == tx.Amount &&
-						existingTx.Units == tx.Units {
+						existingTx.Units == tx.Units &&
+						existingTx.Type == txType {
 						isDuplicate = true
 						break
 					}
 				}
 				if isDuplicate {
+					result.TransactionsSkipped++
 					continue
 				}
 
-				txType := mapCASTransactionType(tx.Type)
 				txn := models.MFTransaction{
 					TransactionID: uuid.New().String(),
 					Date:          txDate,
@@ -371,15 +450,58 @@ func (s *MutualFundService) ImportFromCAS(ctx context.Context, req models.Import
 
 func mapCASCategory(category string) models.FundType {
 	switch {
-	case contains(category, "ELSS") || contains(category, "Tax Saver"):
+	// Tax-saving
+	case contains(category, "ELSS") || contains(category, "Tax Saver") || contains(category, "Tax Saving"):
 		return models.FundTypeELSS
-	case contains(category, "Index"):
+	// Index / ETF
+	case contains(category, "Index") || contains(category, "Nifty") || contains(category, "Sensex") || contains(category, "ETF"):
 		return models.FundTypeIndex
+	// Overnight
+	case contains(category, "Overnight"):
+		return models.FundTypeOvernight
+	// Liquid
 	case contains(category, "Liquid"):
 		return models.FundTypeLiquid
-	case contains(category, "Hybrid"):
+	// Money Market
+	case contains(category, "Money Market"):
+		return models.FundTypeMoneyMarket
+	// Gilt
+	case contains(category, "Gilt") || contains(category, "Government Securities"):
+		return models.FundTypeGilt
+	// Corporate Bond (debt)
+	case contains(category, "Corporate Bond") || contains(category, "Credit Risk"):
+		return models.FundTypeCorporateBond
+	// Dynamic Bond
+	case contains(category, "Dynamic Bond") || contains(category, "Dynamic Duration"):
+		return models.FundTypeDynamicBond
+	// Small Cap
+	case contains(category, "Small Cap") || contains(category, "Smallcap"):
+		return models.FundTypeSmallCap
+	// Mid Cap
+	case contains(category, "Mid Cap") || contains(category, "Midcap"):
+		return models.FundTypeMidCap
+	// Large Cap
+	case contains(category, "Large Cap") || contains(category, "Largecap") || contains(category, "Bluechip"):
+		return models.FundTypeLargeCap
+	// Large & Mid Cap
+	case contains(category, "Large & Mid"):
+		return models.FundTypeLargeCap
+	// Multi Cap
+	case contains(category, "Multi Cap") || contains(category, "Multicap"):
+		return models.FundTypeMultiCap
+	// Flexi Cap
+	case contains(category, "Flexi Cap") || contains(category, "Flexicap"):
+		return models.FundTypeFlexiCap
+	// Sectoral / Thematic
+	case contains(category, "Sectoral") || contains(category, "Sector"):
+		return models.FundTypeSectoral
+	case contains(category, "Thematic"):
+		return models.FundTypeThematic
+	// Hybrid
+	case contains(category, "Hybrid") || contains(category, "Balanced") || contains(category, "Aggressive") || contains(category, "Conservative") || contains(category, "Equity Savings") || contains(category, "Arbitrage"):
 		return models.FundTypeHybrid
-	case contains(category, "Debt"):
+	// Debt (catch-all for debt variants)
+	case contains(category, "Debt") || contains(category, "Short Duration") || contains(category, "Medium Duration") || contains(category, "Long Duration") || contains(category, "Ultra Short") || contains(category, "Low Duration") || contains(category, "Banking") || contains(category, "Floater"):
 		return models.FundTypeDebt
 	default:
 		return models.FundTypeEquity

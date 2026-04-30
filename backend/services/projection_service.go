@@ -34,14 +34,29 @@ func NewProjectionService(
 }
 
 func (s *ProjectionService) GetProjections(ctx context.Context, years int) (*models.ProjectionsResponse, error) {
+	return s.GetProjectionsWithScenario(ctx, years, "base")
+}
+
+func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, years int, scenario string) (*models.ProjectionsResponse, error) {
 	if years <= 0 || years > 30 {
 		years = 5
 	}
+
+	// Scenario rate multiplier
+	rateMultiplier := 1.0
+	switch scenario {
+	case "bull":
+		rateMultiplier = 1.5
+	case "bear":
+		rateMultiplier = 0.4
+	}
+
 	totalMonths := years * 12
 	now := time.Now()
 
 	resp := &models.ProjectionsResponse{
 		Investments: []models.InvestmentProjection{},
+		Scenario:    scenario,
 	}
 
 	// Mutual Funds — use historical CAGR per fund, fallback 12% for equity, 8% for debt
@@ -51,7 +66,7 @@ func (s *ProjectionService) GetProjections(ctx context.Context, years int) (*mod
 			if mf.CurrentValue <= 0 {
 				continue
 			}
-			rate := estimateMFRate(&mf)
+			rate := estimateMFRate(&mf) * rateMultiplier
 			proj := projectGrowth(mf.FundName, "mutual_fund", mf.CurrentValue, rate, totalMonths, now)
 			resp.Investments = append(resp.Investments, proj)
 		}
@@ -80,6 +95,7 @@ func (s *ProjectionService) GetProjections(ctx context.Context, years int) (*mod
 			if rate <= 0 {
 				rate = 8.25
 			}
+			rate *= rateMultiplier
 			proj := projectGrowth(pf.EmployerName+" - "+string(pf.AccountType), "provident_fund", pf.CurrentBalance, rate, totalMonths, now)
 			resp.Investments = append(resp.Investments, proj)
 		}
@@ -97,6 +113,7 @@ func (s *ProjectionService) GetProjections(ctx context.Context, years int) (*mod
 			if stock.TotalInvested > 0 && stock.CurrentValue > stock.TotalInvested {
 				rate = estimateStockCAGR(&stock)
 			}
+			rate *= rateMultiplier
 			proj := projectGrowth(stock.StockName, "stock", stock.CurrentValue, rate, totalMonths, now)
 			resp.Investments = append(resp.Investments, proj)
 		}
@@ -109,7 +126,7 @@ func (s *ProjectionService) GetProjections(ctx context.Context, years int) (*mod
 			if bond.Status == "matured" {
 				continue
 			}
-			proj := projectGrowth(bond.BondName, "corporate_bond", bond.RemainingPrincipal, bond.CouponRate, totalMonths, now)
+			proj := projectGrowth(bond.BondName, "corporate_bond", bond.RemainingPrincipal, bond.CouponRate*rateMultiplier, totalMonths, now)
 			resp.Investments = append(resp.Investments, proj)
 		}
 	}

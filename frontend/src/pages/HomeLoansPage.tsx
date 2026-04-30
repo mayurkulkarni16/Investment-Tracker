@@ -3,6 +3,8 @@ import { getHomeLoans, createHomeLoan, deleteHomeLoan, updateHomeLoan, recordEMI
 import type { HomeLoan, CreateHomeLoanRequest, UpdateHomeLoanRequest, AddEMIPaymentRequest, AddPrepaymentRequest, ChangeRateRequest, LoanRateType, AmortizationEntry, AddDisbursementRequest } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line } from 'recharts';
 
 export default function HomeLoansPage() {
   const [loans, setLoans] = useState<HomeLoan[]>([]);
@@ -13,11 +15,14 @@ export default function HomeLoansPage() {
   const [showPrepay, setShowPrepay] = useState<string | null>(null);
   const [showRate, setShowRate] = useState<string | null>(null);
   const [expandedLoan, setExpandedLoan] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [amortization, setAmortization] = useState<AmortizationEntry[] | null>(null);
   const [showAmort, setShowAmort] = useState<string | null>(null);
   const [showDisb, setShowDisb] = useState<string | null>(null);
   const [showMarkComplete, setShowMarkComplete] = useState<string | null>(null);
   const { toast } = useToast();
+  const { confirm } = useConfirm();
 
   const [form, setForm] = useState<CreateHomeLoanRequest>({
     bank_name: '', sanctioned_amount: 0, disbursed_amount: 0,
@@ -60,7 +65,7 @@ export default function HomeLoansPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this home loan?')) return;
+    if (!await confirm({ message: 'Delete this home loan?', danger: true, confirmLabel: 'Delete' })) return;
     try { await deleteHomeLoan(id); toast('Home loan deleted'); load(); }
     catch { toast('Failed to delete home loan', 'error'); }
   };
@@ -106,7 +111,7 @@ export default function HomeLoansPage() {
   };
 
   const handleRecalculate = async (id: string) => {
-    if (!confirm('Recalculate all EMIs and pre-EMIs using the correct interest rate at each point in time? This replays all transactions chronologically.')) return;
+    if (!await confirm({ message: 'Recalculate all EMIs and pre-EMIs using the correct interest rate at each point in time? This replays all transactions chronologically.', danger: false, confirmLabel: 'Confirm' })) return;
     try { await recalculateLoan(id); toast('Loan recalculated'); load(); }
     catch { toast('Failed to recalculate', 'error'); }
   };
@@ -162,7 +167,21 @@ export default function HomeLoansPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {loans.map(l => (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div className="search-bar" style={{ flex: 1, marginBottom: 0 }}>
+              <input type="search" placeholder="Search by bank name..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {['all', 'active', 'closed'].map(s => (
+                <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-outline'}`} onClick={() => setStatusFilter(s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
+              ))}
+            </div>
+          </div>
+          {loans.filter(l => {
+            const matchSearch = !search || l.bank_name.toLowerCase().includes(search.toLowerCase());
+            const matchStatus = statusFilter === 'all' || l.status === statusFilter;
+            return matchSearch && matchStatus;
+          }).map(l => (
             <div key={l.id} className="card" style={{ padding: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                 <div>
@@ -342,8 +361,23 @@ export default function HomeLoansPage() {
 
               {/* Amortization Schedule */}
               {showAmort === l.id && amortization && (
-                <div style={{ marginTop: 12, maxHeight: 400, overflowY: 'auto' }}>
+                <div style={{ marginTop: 12 }}>
                   <strong style={{ fontSize: 13 }}>Amortization Schedule (Remaining)</strong>
+                  <div style={{ marginTop: 12, marginBottom: 16 }}>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <AreaChart data={amortization}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" fontSize={11} />
+                        <YAxis tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}K`} fontSize={11} />
+                        <Tooltip formatter={(v: any) => formatCurrency(v)} />
+                        <Legend />
+                        <Area type="monotone" dataKey="principal_portion" name="Principal" stackId="emi" stroke="#1a73e8" fill="#bbdefb" />
+                        <Area type="monotone" dataKey="interest_portion" name="Interest" stackId="emi" stroke="#ea4335" fill="#ffcdd2" />
+                        <Line type="monotone" dataKey="outstanding_after" name="Outstanding" stroke="#f57f17" strokeWidth={2} dot={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div style={{ maxHeight: 300, overflowY: 'auto' }}>
                   <table style={{ fontSize: 12, marginTop: 6 }}>
                     <thead><tr><th>#</th><th>EMI</th><th>Principal</th><th>Interest</th><th>Outstanding</th></tr></thead>
                     <tbody>
@@ -358,6 +392,7 @@ export default function HomeLoansPage() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
             </div>

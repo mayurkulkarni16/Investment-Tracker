@@ -103,15 +103,28 @@ export default function TaxCenterPage() {
             </div>
           </div>
 
+          {cg.harvesting_tips && cg.harvesting_tips.length > 0 && (
+            <div className="card" style={{ marginBottom: 16, background: '#e8f5e9', border: '1px solid #4caf50' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, color: '#2e7d32' }}>Tax Harvesting Tips</h3>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+                {cg.harvesting_tips.map((tip, i) => (
+                  <li key={i} style={{ marginBottom: 4 }}>{tip}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {cg.entries?.length > 0 && (
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
                     <th>Investment</th>
+                    <th>Buy Date</th>
                     <th className="text-right">Buy</th>
                     <th className="text-right">Sell</th>
                     <th className="text-right">Gain</th>
+                    <th>Holding</th>
                     <th>Type</th>
                     <th className="text-right">Tax</th>
                   </tr>
@@ -119,10 +132,15 @@ export default function TaxCenterPage() {
                 <tbody>
                   {cg.entries.map((e, i) => (
                     <tr key={i}>
-                      <td>{e.investment_name} <span className="text-muted" style={{ fontSize: 11 }}>({e.investment_type})</span></td>
+                      <td>
+                        {e.investment_name} <span className="text-muted" style={{ fontSize: 11 }}>({e.investment_type})</span>
+                        {e.grandfathered && <span style={{ fontSize: 10, background: '#fff3e0', color: '#e65100', borderRadius: 4, padding: '1px 5px', marginLeft: 4 }}>GF</span>}
+                      </td>
+                      <td className="text-muted" style={{ fontSize: 12 }}>{e.buy_date}</td>
                       <td className="text-right">{formatCurrency(e.buy_amount)}</td>
                       <td className="text-right">{formatCurrency(e.sell_amount)}</td>
                       <td className={`text-right ${e.gain >= 0 ? 'text-success' : 'text-danger'}`}>{formatCurrency(e.gain)}</td>
+                      <td className="text-muted" style={{ fontSize: 12 }}>{e.holding_days > 365 ? `${Math.floor(e.holding_days / 365)}y ${Math.floor((e.holding_days % 365) / 30)}m` : `${e.holding_days}d`}</td>
                       <td>{e.is_long_term ? 'LTCG' : 'STCG'} <span className="text-muted" style={{ fontSize: 11 }}>@{e.tax_rate}%</span></td>
                       <td className="text-right">{formatCurrency(e.tax_liability)}</td>
                     </tr>

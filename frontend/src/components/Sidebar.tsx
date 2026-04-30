@@ -1,11 +1,13 @@
 import { NavLink } from 'react-router-dom';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { getUnreadNotifications, generateNotifications, markNotificationRead, markAllNotificationsRead } from '../api/notifications';
 import type { Notification } from '../types';
 
 export default function Sidebar() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showPanel, setShowPanel] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark');
   const panelRef = useRef<HTMLDivElement>(null);
 
   const loadNotifications = () => {
@@ -27,6 +29,13 @@ export default function Sidebar() {
     if (showPanel) document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showPanel]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+  }, [dark]);
+
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   const handleGenerate = async () => {
     await generateNotifications();
@@ -50,15 +59,27 @@ export default function Sidebar() {
       case 'sip_due': return '📊';
       case 'bond_coupon': return '💰';
       case 'credit_card_due': return '💳';
+      case 'goal_milestone': return '🎯';
       default: return '🔔';
     }
   };
 
   return (
-    <aside className="sidebar">
+    <>
+      <button className="hamburger" onClick={() => setMobileOpen(o => !o)} aria-label="Toggle menu">☰</button>
+      {mobileOpen && <div className="sidebar-overlay" onClick={closeMobile} />}
+      <aside className={`sidebar${mobileOpen ? ' open' : ''}`}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px 20px', borderBottom: '1px solid var(--border)', marginBottom: 8 }}>
         <h2 style={{ padding: 0, border: 'none', marginBottom: 0 }}>My Investments</h2>
-        <div ref={panelRef} style={{ position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={() => setDark(d => !d)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, padding: '4px 6px', borderRadius: 6 }}
+            title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {dark ? '☀️' : '🌙'}
+          </button>
+          <div ref={panelRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setShowPanel(!showPanel)}
             style={{
@@ -133,8 +154,9 @@ export default function Sidebar() {
             </div>
           )}
         </div>
+        </div>
       </div>
-      <nav>
+      <nav onClick={closeMobile}>
         <NavLink to="/" end>Dashboard</NavLink>
         <NavLink to="/net-worth">Net Worth</NavLink>
         <NavLink to="/mutual-funds">Mutual Funds</NavLink>
@@ -149,8 +171,11 @@ export default function Sidebar() {
         <NavLink to="/goals">Goals</NavLink>
         <NavLink to="/tax-center">Tax Center</NavLink>
         <NavLink to="/projections">Projections</NavLink>
+        <NavLink to="/cashflow">Cashflow</NavLink>
+        <NavLink to="/insights">Insights</NavLink>
         <NavLink to="/settings">Settings</NavLink>
       </nav>
     </aside>
+    </>
   );
 }

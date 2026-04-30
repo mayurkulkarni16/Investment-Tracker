@@ -55,6 +55,7 @@ func (s *NPSService) GetAll(ctx context.Context) ([]models.NPSAccount, error) {
 	}
 	for i := range accounts {
 		s.computeDerived(&accounts[i])
+		accounts[i].XIRR = ComputeNPSXIRR(&accounts[i])
 	}
 	return accounts, nil
 }
@@ -69,6 +70,7 @@ func (s *NPSService) GetByID(ctx context.Context, id string) (*models.NPSAccount
 		return nil, err
 	}
 	s.computeDerived(account)
+	account.XIRR = ComputeNPSXIRR(account)
 	return account, nil
 }
 

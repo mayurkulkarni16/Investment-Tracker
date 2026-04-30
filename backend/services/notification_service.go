@@ -19,6 +19,7 @@ type NotificationService struct {
 	bondRepo         *repository.CorporateBondRepo
 	sipRepo          *repository.SIPRepo
 	creditCardRepo   *repository.CreditCardRepo
+	goalService      *GoalService
 }
 
 func NewNotificationService(
@@ -29,10 +30,12 @@ func NewNotificationService(
 	bondRepo *repository.CorporateBondRepo,
 	sipRepo *repository.SIPRepo,
 	creditCardRepo *repository.CreditCardRepo,
+	goalService *GoalService,
 ) *NotificationService {
 	return &NotificationService{
 		repo: repo, homeLoanRepo: homeLoanRepo, personalLoanRepo: personalLoanRepo,
 		fdRepo: fdRepo, bondRepo: bondRepo, sipRepo: sipRepo, creditCardRepo: creditCardRepo,
+		goalService: goalService,
 	}
 }
 
@@ -180,6 +183,41 @@ func (s *NotificationService) GenerateNotifications(ctx context.Context) ([]mode
 					ReferenceType: "credit_card",
 					ReferenceID:   card.ID.Hex(),
 				})
+			}
+		}
+	}
+
+	// Goal Milestones
+	if s.goalService != nil {
+		goals, _ := s.goalService.GetAll(ctx)
+		for _, g := range goals {
+			if g.Status != "active" {
+				continue
+			}
+			// Alert if goal target date is within 90 days and not on track
+			if !g.OnTrack && !g.TargetDate.Before(now) && !g.TargetDate.After(now.AddDate(0, 0, 90)) {
+				generated = append(generated, models.Notification{
+					Type:          "goal_milestone",
+					Title:         "Goal At Risk",
+					Message:       fmt.Sprintf("%s is %.0f%% complete but target date %s is approaching. Shortfall: ₹%.0f", g.Name, g.ProgressPct, g.TargetDate.Format("02 Jan 2006"), g.Shortfall),
+					Date:          g.TargetDate,
+					ReferenceType: "goal",
+					ReferenceID:   g.ID.Hex(),
+				})
+			}
+			// Alert on milestone reached (25%, 50%, 75%, 90%)
+			for _, pct := range []float64{25, 50, 75, 90} {
+				if g.ProgressPct >= pct && g.ProgressPct < pct+5 {
+					generated = append(generated, models.Notification{
+						Type:          "goal_milestone",
+						Title:         fmt.Sprintf("Goal %.0f%% Reached!", pct),
+						Message:       fmt.Sprintf("%s has reached %.0f%% of its ₹%.0f target", g.Name, g.ProgressPct, g.TargetAmount),
+						Date:          now,
+						ReferenceType: "goal",
+						ReferenceID:   g.ID.Hex(),
+					})
+					break
+				}
 			}
 		}
 	}

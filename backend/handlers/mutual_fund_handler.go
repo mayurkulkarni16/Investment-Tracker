@@ -68,6 +68,29 @@ func (h *MutualFundHandler) AddTransaction(c *gin.Context) {
 	c.JSON(http.StatusOK, mf)
 }
 
+func (h *MutualFundHandler) DeleteTransaction(c *gin.Context) {
+	mf, err := h.service.DeleteTransaction(c.Request.Context(), c.Param("id"), c.Param("txnId"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, mf)
+}
+
+func (h *MutualFundHandler) UpdateTransaction(c *gin.Context) {
+	var req models.AddMFTransactionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	mf, err := h.service.UpdateTransaction(c.Request.Context(), c.Param("id"), c.Param("txnId"), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, mf)
+}
+
 func (h *MutualFundHandler) RefreshNAV(c *gin.Context) {
 	id := c.Param("id")
 	if id != "" {

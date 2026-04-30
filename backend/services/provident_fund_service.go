@@ -32,7 +32,14 @@ func (s *ProvidentFundService) Create(ctx context.Context, req models.CreateProv
 }
 
 func (s *ProvidentFundService) GetAll(ctx context.Context) ([]models.ProvidentFund, error) {
-	return s.repo.GetAll(ctx)
+	pfs, err := s.repo.GetAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range pfs {
+		pfs[i].XIRR = ComputeProvidentFundXIRR(&pfs[i])
+	}
+	return pfs, nil
 }
 
 func (s *ProvidentFundService) GetByID(ctx context.Context, id string) (*models.ProvidentFund, error) {
@@ -40,7 +47,12 @@ func (s *ProvidentFundService) GetByID(ctx context.Context, id string) (*models.
 	if err != nil {
 		return nil, err
 	}
-	return s.repo.GetByID(ctx, objID)
+	pf, err := s.repo.GetByID(ctx, objID)
+	if err != nil {
+		return nil, err
+	}
+	pf.XIRR = ComputeProvidentFundXIRR(pf)
+	return pf, nil
 }
 
 func (s *ProvidentFundService) AddContribution(ctx context.Context, id string, req models.AddMonthlyContributionRequest) (*models.ProvidentFund, error) {

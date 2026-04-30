@@ -15,15 +15,19 @@ import GoalsPage from './pages/GoalsPage';
 import NetWorthPage from './pages/NetWorthPage';
 import TaxCenterPage from './pages/TaxCenterPage';
 import SettingsPage from './pages/SettingsPage';
+import CashflowPage from './pages/CashflowPage';
+import InsightsPage from './pages/InsightsPage';
+import { ConfirmProvider } from './components/ConfirmDialog';
+import { useKeyboardShortcuts } from './utils/shortcuts';
 import './index.css';
 
-export default function App() {
+function AppShell() {
+  useKeyboardShortcuts();
   return (
-    <BrowserRouter>
-      <div className="app">
-        <Sidebar />
-        <main className="main-content">
-          <Routes>
+    <div className="app">
+      <Sidebar />
+      <main className="main-content">
+        <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/mutual-funds" element={<MutualFundsPage />} />
             <Route path="/corporate-bonds" element={<CorporateBondsPage />} />
@@ -38,10 +42,21 @@ export default function App() {
             <Route path="/net-worth" element={<NetWorthPage />} />
             <Route path="/tax-center" element={<TaxCenterPage />} />
             <Route path="/projections" element={<ProjectionsPage />} />
+            <Route path="/cashflow" element={<CashflowPage />} />
+            <Route path="/insights" element={<InsightsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
-          </Routes>
-        </main>
-      </div>
+        </Routes>
+      </main>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ConfirmProvider>
+    <BrowserRouter>
+      <AppShell />
     </BrowserRouter>
+    </ConfirmProvider>
   );
 }

@@ -29,6 +29,7 @@ export interface MutualFund {
   nav_last_updated?: string;
   gain_loss: number;
   gain_loss_percent: number;
+  xirr: number;
   notes: string;
   created_at: string;
   updated_at: string;
@@ -90,6 +91,7 @@ export interface CorporateBond {
   remaining_principal: number;
   total_interest_earned: number;
   total_principal_returned: number;
+  xirr: number;
   status: BondStatus;
   notes: string;
   created_at: string;
@@ -131,6 +133,7 @@ export interface FixedDeposit {
   payout_frequency?: PayoutFrequency;
   maturity_amount: number;
   interest_earned: number;
+  xirr: number;
   is_auto_renewed: boolean;
   status: FDStatus;
   notes: string;
@@ -181,6 +184,7 @@ export interface ProvidentFund {
   total_employee_contribution: number;
   total_employer_contribution: number;
   total_interest_earned: number;
+  xirr: number;
   notes: string;
   created_at: string;
   updated_at: string;
@@ -205,6 +209,7 @@ export interface AddMonthlyContributionRequest {
 export interface InvestmentSummary {
   total_invested: number;
   current_value: number;
+  xirr: number;
   count: number;
 }
 
@@ -221,6 +226,7 @@ export interface DashboardSummary {
   current_value: number;
   total_gains: number;
   overall_return_percent: number;
+  portfolio_xirr: number;
   elss_tax_saving: number;
   asset_allocation: Record<string, number>;
   upcoming_payouts: UpcomingPayout[];
@@ -229,8 +235,26 @@ export interface DashboardSummary {
   fixed_deposit_summary: InvestmentSummary;
   provident_fund_summary: InvestmentSummary;
   stock_summary: InvestmentSummary;
+  nps_summary: InvestmentSummary;
   home_loan_summary: LoanSummary;
   personal_loan_summary: LoanSummary;
+  credit_card_summary: CreditCardSummary;
+  risk_metrics: RiskMetrics;
+}
+
+export interface CreditCardSummary {
+  total_outstanding: number;
+  total_limit: number;
+  avg_utilization: number;
+  count: number;
+}
+
+export interface RiskMetrics {
+  equity_debt_ratio: number;
+  risk_score: number;
+  diversification: number;
+  loan_to_asset_ratio: number;
+  concentration_risk: string;
 }
 
 export interface LoanSummary {
@@ -293,14 +317,23 @@ export interface StockTransaction {
   amount: number;
 }
 
+export interface StockDividend {
+  dividend_id: string;
+  date: string;
+  amount_per_share: number;
+  total_amount: number;
+}
+
 export interface Stock {
   id: string;
   stock_name: string;
   symbol: string;
   exchange: StockExchange;
   transactions: StockTransaction[];
+  dividends: StockDividend[];
   total_quantity: number;
   total_invested: number;
+  total_dividends: number;
   avg_buy_price: number;
   current_price: number;
   current_value: number;
@@ -308,6 +341,7 @@ export interface Stock {
   day_change_percent: number;
   gain_loss: number;
   gain_loss_percent: number;
+  xirr: number;
   price_last_updated?: string;
   is_market_open: boolean;
   notes: string;
@@ -334,6 +368,11 @@ export interface AddStockTransactionRequest {
   type: StockTransactionType;
   quantity: number;
   price_per_share: number;
+}
+
+export interface AddStockDividendRequest {
+  date: string;
+  amount_per_share: number;
 }
 
 // Home Loan types
@@ -571,6 +610,7 @@ export interface ProjectionsResponse {
   total_projected_1y: number;
   total_projected_3y: number;
   total_projected_5y: number;
+  scenario: string;
 }
 
 // NPS types
@@ -600,6 +640,7 @@ export interface NPSAccount {
   total_employer_contribution: number;
   total_contribution: number;
   current_value: number;
+  xirr: number;
   section_80ccd1: number;
   section_80ccd1b: number;
   section_80ccd2: number;
@@ -790,6 +831,11 @@ export interface LinkedInvestment {
   allocated_pct: number;
 }
 
+export interface GoalProjection {
+  month: number;
+  value: number;
+}
+
 export interface Goal {
   id: string;
   name: string;
@@ -805,6 +851,9 @@ export interface Goal {
   monthly_needed: number;
   months_remaining: number;
   on_track: boolean;
+  projected_date?: string;
+  shortfall: number;
+  projection_points?: GoalProjection[];
   status: string;
   notes: string;
   created_at: string;
@@ -1009,6 +1058,7 @@ export interface CapitalGainEntry {
   is_long_term: boolean;
   tax_rate: number;
   tax_liability: number;
+  grandfathered?: boolean;
 }
 
 export interface CapitalGainsSummary {
@@ -1019,6 +1069,7 @@ export interface CapitalGainsSummary {
   total_tax: number;
   entries: CapitalGainEntry[];
   ltcg_exemption: number;
+  harvesting_tips?: string[];
 }
 
 export interface TaxSummary {

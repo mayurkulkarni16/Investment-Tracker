@@ -39,17 +39,18 @@ type CapitalGainEntry struct {
 	IsLongTerm     bool    `json:"is_long_term"`
 	TaxRate        float64 `json:"tax_rate"` // percentage
 	TaxLiability   float64 `json:"tax_liability"`
+	Grandfathered  bool    `json:"grandfathered,omitempty"` // pre-31-Jan-2018 equity
 }
 
 type CapitalGainsSummary struct {
-	STCG     float64            `json:"stcg"`
-	LTCG     float64            `json:"ltcg"`
-	STCGTax  float64            `json:"stcg_tax"`
-	LTCGTax  float64            `json:"ltcg_tax"`
-	TotalTax float64            `json:"total_tax"`
-	Entries  []CapitalGainEntry `json:"entries"`
-	// LTCG exemption for equity MF/stocks: first 1.25L is exempt
-	LTCGExemption float64 `json:"ltcg_exemption"`
+	STCG           float64            `json:"stcg"`
+	LTCG           float64            `json:"ltcg"`
+	STCGTax        float64            `json:"stcg_tax"`
+	LTCGTax        float64            `json:"ltcg_tax"`
+	TotalTax       float64            `json:"total_tax"`
+	Entries        []CapitalGainEntry `json:"entries"`
+	LTCGExemption  float64            `json:"ltcg_exemption"`
+	HarvestingTips []string           `json:"harvesting_tips,omitempty"`
 }
 
 type TaxSummary struct {

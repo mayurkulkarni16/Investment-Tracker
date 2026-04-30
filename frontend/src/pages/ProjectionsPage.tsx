@@ -26,14 +26,15 @@ export default function ProjectionsPage() {
   const [data, setData] = useState<ProjectionsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [years, setYears] = useState(5);
+  const [scenario, setScenario] = useState<string>('base');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   const load = () => {
     setLoading(true);
-    getProjections(years).then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false));
+    getProjections(years, scenario).then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [years]);
+  useEffect(() => { load(); }, [years, scenario]);
 
   if (loading) return <div className="loading">Loading projections...</div>;
   if (!data || data.investments.length === 0) {
@@ -101,7 +102,20 @@ export default function ProjectionsPage() {
       <div className="page-header">
         <h1>Investment Projections</h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <label style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Projection Period:</label>
+          <label style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Scenario:</label>
+          <div style={{ display: 'flex', gap: 0 }}>
+            {[{ key: 'bear', label: '🐻 Bear', color: '#ea4335' }, { key: 'base', label: '📊 Base', color: '#1a73e8' }, { key: 'bull', label: '🐂 Bull', color: '#0f9d58' }].map(s => (
+              <button key={s.key} onClick={() => setScenario(s.key)}
+                style={{
+                  padding: '6px 14px', fontSize: 13, border: '1px solid var(--border-color)', cursor: 'pointer',
+                  background: scenario === s.key ? s.color : 'var(--bg-primary)',
+                  color: scenario === s.key ? '#fff' : 'var(--text-primary)',
+                  borderRadius: s.key === 'bear' ? '6px 0 0 6px' : s.key === 'bull' ? '0 6px 6px 0' : '0',
+                  fontWeight: scenario === s.key ? 600 : 400,
+                }}>{s.label}</button>
+            ))}
+          </div>
+          <label style={{ fontSize: 13, color: 'var(--text-secondary)', marginLeft: 12 }}>Period:</label>
           <select value={years} onChange={e => setYears(parseInt(e.target.value))} style={{ padding: '6px 12px', borderRadius: 6 }}>
             <option value={1}>1 Year</option>
             <option value={3}>3 Years</option>

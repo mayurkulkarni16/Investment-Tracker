@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { getStocks, createStock, deleteStock, addStockTransaction, refreshAllPrices, updateStock } from '../api/stocks';
-import type { Stock, CreateStockRequest, AddStockTransactionRequest, StockExchange, UpdateStockRequest } from '../types';
+import { getStocks, createStock, deleteStock, addStockTransaction, deleteStockTransaction, addStockDividend, deleteStockDividend, refreshAllPrices, updateStock } from '../api/stocks';
+import type { Stock, CreateStockRequest, AddStockTransactionRequest, StockExchange, UpdateStockRequest, AddStockDividendRequest } from '../types';
 import { formatCurrency, formatPercent, formatDate } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
 
 const EXCHANGES: StockExchange[] = ['NSE', 'BSE'];
 const REFRESH_INTERVAL_MS = 60_000; // Auto-refresh every 60s during market hours
@@ -16,11 +17,15 @@ export default function StocksPage() {
   const [expandedStock, setExpandedStock] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [search, setSearch] = useState('');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { confirm } = useConfirm();
 
   const [form, setForm] = useState<CreateStockRequest>({ stock_name: '', symbol: '', exchange: 'NSE' });
   const [txForm, setTxForm] = useState<AddStockTransactionRequest>({ date: '', type: 'buy', quantity: 0, price_per_share: 0 });
   const [editForm, setEditForm] = useState<UpdateStockRequest>({});
+  const [showDiv, setShowDiv] = useState<string | null>(null);
+  const [divForm, setDivForm] = useState<AddStockDividendRequest>({ date: '', amount_per_share: 0 });
 
   const isMarketOpen = stocks.length > 0 ? stocks[0].is_market_open : false;
 
@@ -80,9 +85,28 @@ export default function StocksPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this stock?')) return;
+    if (!await confirm({ message: 'Delete this stock?', danger: true, confirmLabel: 'Delete' })) return;
     try { await deleteStock(id); toast('Stock deleted'); load(); }
     catch { toast('Failed to delete stock', 'error'); }
+  };
+
+  const handleDeleteTxn = async (stockId: string, txnId: string) => {
+    if (!await confirm({ message: 'Delete this transaction? Stock totals will be recalculated.', danger: true, confirmLabel: 'Delete' })) return;
+    try { await deleteStockTransaction(stockId, txnId); toast('Transaction deleted'); load(); }
+    catch { toast('Failed to delete transaction', 'error'); }
+  };
+
+  const handleAddDiv = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showDiv) return;
+    try { await addStockDividend(showDiv, divForm); toast('Dividend recorded'); setShowDiv(null); setDivForm({ date: '', amount_per_share: 0 }); load(); }
+    catch { toast('Failed to add dividend', 'error'); }
+  };
+
+  const handleDeleteDiv = async (stockId: string, divId: string) => {
+    if (!await confirm({ message: 'Delete this dividend record?', danger: true, confirmLabel: 'Delete' })) return;
+    try { await deleteStockDividend(stockId, divId); toast('Dividend deleted'); load(); }
+    catch { toast('Failed to delete dividend', 'error'); }
   };
 
   // Totals
@@ -141,6 +165,12 @@ export default function StocksPage() {
             {formatCurrency(totalDayChange)}
           </div>
         </div>
+        <div className="stat-card">
+          <div className="label">Avg XIRR</div>
+          <div className={`value ${(() => { const w = stocks.filter(s => s.total_invested > 0); const t = w.reduce((s, x) => s + x.total_invested, 0); const x = t > 0 ? w.reduce((s, x) => s + x.xirr * x.total_invested, 0) / t : 0; return x >= 0 ? 'positive' : 'negative'; })()}`}>
+            {formatPercent((() => { const w = stocks.filter(s => s.total_invested > 0); const t = w.reduce((s, x) => s + x.total_invested, 0); return t > 0 ? w.reduce((s, x) => s + x.xirr * x.total_invested, 0) / t : 0; })())}
+          </div>
+        </div>
       </div>
 
       {stocks.length === 0 ? (
@@ -150,6 +180,10 @@ export default function StocksPage() {
           <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Stock</button>
         </div>
       ) : (
+        <>
+        <div className="search-bar">
+          <input type="search" placeholder="Search by name or symbol..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
         <div className="table-container">
           <table>
             <thead>
@@ -163,11 +197,12 @@ export default function StocksPage() {
                 <th>Current Value</th>
                 <th>P&L</th>
                 <th>Day Change</th>
+                <th>XIRR</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {stocks.map(s => (
+              {stocks.filter(s => !search || s.symbol.toLowerCase().includes(search.toLowerCase()) || s.stock_name.toLowerCase().includes(search.toLowerCase())).map(s => (
                 <tr key={s.id} style={{ cursor: 'pointer' }} onClick={() => setExpandedStock(expandedStock === s.id ? null : s.id)}>
                   <td>
                     <strong>{s.symbol}</strong>
@@ -196,6 +231,9 @@ export default function StocksPage() {
                     {s.day_change >= 0 ? '+' : ''}{formatCurrency(s.day_change)}<br />
                     <span style={{ fontSize: 12 }}>{s.day_change_percent >= 0 ? '+' : ''}{s.day_change_percent.toFixed(2)}%</span>
                   </td>
+                  <td className={s.xirr >= 0 ? 'text-success' : 'text-danger'}>
+                    {formatPercent(s.xirr)}
+                  </td>
                   <td>
                     <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
                       <button className="btn btn-sm btn-outline" onClick={() => setExpandedStock(expandedStock === s.id ? null : s.id)}>
@@ -203,6 +241,7 @@ export default function StocksPage() {
                       </button>
                       <button className="btn btn-sm btn-outline" onClick={() => openEdit(s)}>Edit</button>
                       <button className="btn btn-sm btn-outline" onClick={() => setShowTx(s.id)}>+ Txn</button>
+                      <button className="btn btn-sm btn-outline" onClick={() => { setShowDiv(s.id); setDivForm({ date: '', amount_per_share: 0 }); }}>+ Div</button>
                       <button className="btn btn-sm btn-danger" onClick={() => handleDelete(s.id)}>Del</button>
                     </div>
                   </td>
@@ -210,7 +249,7 @@ export default function StocksPage() {
               ))}
               {stocks.map(s => expandedStock === s.id && s.transactions?.length > 0 && (
                 <tr key={`${s.id}-txns`}>
-                  <td colSpan={10} style={{ padding: 0 }}>
+                  <td colSpan={11} style={{ padding: 0 }}>
                     <div style={{ background: '#f8f9fa', padding: '12px 16px', borderTop: '1px solid #e0e0e0' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                         <strong style={{ fontSize: 14 }}>Transactions — {s.symbol}</strong>
@@ -224,6 +263,7 @@ export default function StocksPage() {
                             <th>Quantity</th>
                             <th>Price/Share</th>
                             <th>Amount</th>
+                            <th>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -242,10 +282,32 @@ export default function StocksPage() {
                               <td>{tx.quantity}</td>
                               <td>{formatCurrency(tx.price_per_share)}</td>
                               <td>{formatCurrency(tx.amount)}</td>
+                              <td><button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); handleDeleteTxn(s.id, tx.transaction_id); }}>Del</button></td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
+                      {s.dividends?.length > 0 && (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 8 }}>
+                            <strong style={{ fontSize: 14 }}>Dividends — {s.symbol}</strong>
+                            <span className="text-muted" style={{ fontSize: 12 }}>Total: {formatCurrency(s.total_dividends)}</span>
+                          </div>
+                          <table style={{ fontSize: 13, background: '#fff', borderRadius: 6 }}>
+                            <thead><tr><th>Date</th><th>₹/Share</th><th>Total</th><th>Actions</th></tr></thead>
+                            <tbody>
+                              {[...s.dividends].sort((a, b) => b.date.localeCompare(a.date)).map(d => (
+                                <tr key={d.dividend_id}>
+                                  <td>{formatDate(d.date)}</td>
+                                  <td>₹{d.amount_per_share.toFixed(2)}</td>
+                                  <td>{formatCurrency(d.total_amount)}</td>
+                                  <td><button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); handleDeleteDiv(s.id, d.dividend_id); }}>Del</button></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -253,6 +315,8 @@ export default function StocksPage() {
             </tbody>
           </table>
         </div>
+        <p className="text-muted" style={{ fontSize: 11, marginTop: 6 }}>Stock prices via Yahoo Finance • Prices may be delayed by 15 minutes</p>
+        </>
       )}
 
       {/* Add Stock Modal */}
@@ -362,6 +426,28 @@ export default function StocksPage() {
               <div className="modal-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setShowTx(null)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Add Transaction</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showDiv && (
+        <div className="modal-overlay" onClick={() => setShowDiv(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <h2>Record Dividend</h2>
+            <form onSubmit={handleAddDiv}>
+              <div className="form-group">
+                <label>Date</label>
+                <input type="date" required value={divForm.date} onChange={e => setDivForm({ ...divForm, date: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>Amount per Share (₹)</label>
+                <input type="number" step="0.01" min="0.01" required value={divForm.amount_per_share || ''} onChange={e => setDivForm({ ...divForm, amount_per_share: parseFloat(e.target.value) })} />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowDiv(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Record Dividend</button>
               </div>
             </form>
           </div>

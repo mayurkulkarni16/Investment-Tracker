@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getProfiles, createProfile, updateProfile } from '../api/profiles';
-import { exportCSV, exportBackup } from '../api/exports';
+import { exportCSV, exportBackup, restoreBackup } from '../api/exports';
 import type { Profile, CreateProfileRequest, UpdateProfileRequest } from '../types';
 import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -12,7 +13,9 @@ export default function SettingsPage() {
   const [form, setForm] = useState<UpdateProfileRequest>({});
   const [createForm, setCreateForm] = useState<CreateProfileRequest>({ name: '', relationship: 'self', color: '#1a73e8' });
   const [msg, setMsg] = useState('');
+  const [restoring, setRestoring] = useState(false);
   const { toast } = useToast();
+  const { confirm } = useConfirm();
 
   const load = () => { getProfiles().then(r => { const p = r.data?.[0] || null; setProfile(p); setForm(p ? { name: p.name, relationship: p.relationship, color: p.color } : {}); if (!p) setCreating(true); }).catch(() => {}).finally(() => setLoading(false)); };
   useEffect(() => { load(); }, []);
@@ -47,6 +50,28 @@ export default function SettingsPage() {
       const a = document.createElement('a'); a.href = url; a.download = `investments.csv`; a.click(); URL.revokeObjectURL(url);
       toast('CSV exported');
     } catch { toast('Failed to export CSV', 'error'); }
+  };
+
+  const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!await confirm({ message: 'This will replace ALL existing data with the backup. Are you sure?', danger: true, confirmLabel: 'Restore' })) {
+      e.target.value = '';
+      return;
+    }
+    setRestoring(true);
+    try {
+      const text = await file.text();
+      JSON.parse(text); // validate JSON
+      const res = await restoreBackup(text);
+      toast(`Restored ${res.data.collections_restored} collections`);
+      setMsg(`Restore complete — ${res.data.collections_restored} collections restored.${res.data.errors?.length ? ' Errors: ' + res.data.errors.join(', ') : ''}`);
+    } catch (err) {
+      toast('Failed to restore backup', 'error');
+    } finally {
+      setRestoring(false);
+      e.target.value = '';
+    }
   };
 
   if (loading) return <div className="loading">Loading...</div>;
@@ -122,11 +147,16 @@ export default function SettingsPage() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Backup & Export</h3>
-        <p className="text-muted" style={{ fontSize: 13, marginBottom: 12 }}>Download a full backup or export your data.</p>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <p className="text-muted" style={{ fontSize: 13, marginBottom: 12 }}>Download a full backup, restore from a previous backup, or export your data.</p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className="btn btn-primary" onClick={handleBackup}>Download Backup (JSON)</button>
+          <label className="btn btn-outline" style={{ cursor: restoring ? 'wait' : 'pointer', opacity: restoring ? 0.6 : 1 }}>
+            {restoring ? 'Restoring...' : 'Restore from Backup'}
+            <input type="file" accept=".json" onChange={handleRestore} disabled={restoring} style={{ display: 'none' }} />
+          </label>
           <button className="btn btn-outline" onClick={handleExportCSV}>Export CSV</button>
         </div>
+        <p className="text-muted" style={{ fontSize: 11, marginTop: 8 }}>⚠️ Restore will replace all existing data with the backup contents.</p>
       </div>
     </div>
   );

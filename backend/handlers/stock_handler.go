@@ -68,6 +68,29 @@ func (h *StockHandler) AddTransaction(c *gin.Context) {
 	c.JSON(http.StatusOK, stock)
 }
 
+func (h *StockHandler) DeleteTransaction(c *gin.Context) {
+	stock, err := h.service.DeleteTransaction(c.Request.Context(), c.Param("id"), c.Param("txnId"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, stock)
+}
+
+func (h *StockHandler) UpdateTransaction(c *gin.Context) {
+	var req models.AddStockTransactionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	stock, err := h.service.UpdateTransaction(c.Request.Context(), c.Param("id"), c.Param("txnId"), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, stock)
+}
+
 func (h *StockHandler) RefreshPrice(c *gin.Context) {
 	id := c.Param("id")
 	if id != "" {
@@ -113,4 +136,27 @@ func (h *StockHandler) Delete(c *gin.Context) {
 
 func (h *StockHandler) MarketStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"is_market_open": services.IsMarketOpen()})
+}
+
+func (h *StockHandler) AddDividend(c *gin.Context) {
+	var req models.AddStockDividendRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	stock, err := h.service.AddDividend(c.Request.Context(), c.Param("id"), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, stock)
+}
+
+func (h *StockHandler) DeleteDividend(c *gin.Context) {
+	stock, err := h.service.DeleteDividend(c.Request.Context(), c.Param("id"), c.Param("divId"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, stock)
 }

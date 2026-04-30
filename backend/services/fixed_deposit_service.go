@@ -67,7 +67,14 @@ func (s *FixedDepositService) calculateMaturity(fd *models.FixedDeposit) {
 }
 
 func (s *FixedDepositService) GetAll(ctx context.Context) ([]models.FixedDeposit, error) {
-	return s.repo.GetAll(ctx)
+	fds, err := s.repo.GetAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range fds {
+		fds[i].XIRR = ComputeFixedDepositXIRR(&fds[i])
+	}
+	return fds, nil
 }
 
 func (s *FixedDepositService) GetByID(ctx context.Context, id string) (*models.FixedDeposit, error) {
@@ -75,7 +82,12 @@ func (s *FixedDepositService) GetByID(ctx context.Context, id string) (*models.F
 	if err != nil {
 		return nil, err
 	}
-	return s.repo.GetByID(ctx, objID)
+	fd, err := s.repo.GetByID(ctx, objID)
+	if err != nil {
+		return nil, err
+	}
+	fd.XIRR = ComputeFixedDepositXIRR(fd)
+	return fd, nil
 }
 
 func (s *FixedDepositService) Update(ctx context.Context, id string, req models.CreateFixedDepositRequest) (*models.FixedDeposit, error) {

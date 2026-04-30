@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getCorporateBonds, createCorporateBond, deleteCorporateBond, markPayoutReceived, updateCorporateBond } from '../api/corporateBonds';
 import type { CorporateBond, CreateCorporateBondRequest, PrincipalRepaymentInput, PayoutFrequency, MaturityType } from '../types';
-import { formatCurrency, formatDate, toInputDate } from '../utils/format';
+import { formatCurrency, formatDate, formatPercent, toInputDate } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
 
 export default function CorporateBondsPage() {
   const [bonds, setBonds] = useState<CorporateBond[]>([]);
@@ -10,7 +11,10 @@ export default function CorporateBondsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState<CorporateBond | null>(null);
   const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [form, setForm] = useState<CreateCorporateBondRequest>({
     bond_name: '', issuer: '', purchase_date: '', investment_amount: 0,
     coupon_rate: 0, interest_payout_frequency: 'quarterly', maturity_date: '',
@@ -47,7 +51,7 @@ export default function CorporateBondsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this bond?')) return;
+    if (!await confirm({ message: 'Delete this bond?', danger: true, confirmLabel: 'Delete' })) return;
     try { await deleteCorporateBond(id); toast('Bond deleted'); load(); }
     catch { toast('Failed to delete bond', 'error'); }
   };
@@ -109,7 +113,7 @@ export default function CorporateBondsPage() {
         const totalInterest = bonds.reduce((s, b) => s + b.total_interest_earned, 0);
         const totalPrincipalReturned = bonds.reduce((s, b) => s + b.total_principal_returned, 0);
         const remaining = bonds.reduce((s, b) => s + b.remaining_principal, 0);
-        const activeBonds = bonds.filter(b => b.status === 'active').length;
+        const activeBonds = bonds.filter(b => b.status !== 'matured').length;
         const avgCoupon = bonds.length > 0 ? bonds.reduce((s, b) => s + b.coupon_rate, 0) / bonds.length : 0;
         const now = new Date();
         const thisMonth = now.getMonth();
@@ -137,6 +141,12 @@ export default function CorporateBondsPage() {
               <div className="label">Avg Coupon Rate</div>
               <div className="value">{avgCoupon.toFixed(2)}%</div>
             </div>
+            <div className="stat-card">
+              <div className="label">Avg XIRR</div>
+              <div className={`value ${(() => { const w = bonds.filter(b => b.investment_amount > 0); const t = w.reduce((s, b) => s + b.investment_amount, 0); const x = t > 0 ? w.reduce((s, b) => s + b.xirr * b.investment_amount, 0) / t : 0; return x >= 0 ? 'positive' : 'negative'; })()}`}>
+                {formatPercent((() => { const w = bonds.filter(b => b.investment_amount > 0); const t = w.reduce((s, b) => s + b.investment_amount, 0); return t > 0 ? w.reduce((s, b) => s + b.xirr * b.investment_amount, 0) / t : 0; })())}
+              </div>
+            </div>
           </div>
         );
       })()}
@@ -148,7 +158,22 @@ export default function CorporateBondsPage() {
           <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Bond</button>
         </div>
       ) : (
-        bonds.map(bond => (
+        <>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center' }}>
+          <div className="search-bar" style={{ flex: 1, marginBottom: 0 }}>
+            <input type="search" placeholder="Search by bond name or issuer..." value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {['all', 'active', 'partially_matured', 'matured'].map(s => (
+              <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-outline'}`} onClick={() => setStatusFilter(s)}>{s === 'partially_matured' ? 'Partial' : s.charAt(0).toUpperCase() + s.slice(1)}</button>
+            ))}
+          </div>
+        </div>
+        {bonds.filter(b => {
+          const matchSearch = !search || b.bond_name.toLowerCase().includes(search.toLowerCase()) || b.issuer.toLowerCase().includes(search.toLowerCase());
+          const matchStatus = statusFilter === 'all' || b.status === statusFilter;
+          return matchSearch && matchStatus;
+        }).map(bond => (
           <div key={bond.id} className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
@@ -174,6 +199,7 @@ export default function CorporateBondsPage() {
               <div><span className="text-muted" style={{ fontSize: 12 }}>Maturity</span><div style={{ fontWeight: 600 }}>{formatDate(bond.maturity_date)} ({bond.maturity_type})</div></div>
               <div><span className="text-muted" style={{ fontSize: 12 }}>Remaining Principal</span><div style={{ fontWeight: 600 }}>{formatCurrency(bond.remaining_principal)}</div></div>
               <div><span className="text-muted" style={{ fontSize: 12 }}>Total Interest Earned</span><div style={{ fontWeight: 600, color: 'var(--success)' }}>{formatCurrency(bond.total_interest_earned)}</div></div>
+              <div><span className="text-muted" style={{ fontSize: 12 }}>XIRR</span><div style={{ fontWeight: 600, color: bond.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercent(bond.xirr)}</div></div>
             </div>
 
             {expanded === bond.id && (
@@ -223,7 +249,8 @@ export default function CorporateBondsPage() {
               </div>
             )}
           </div>
-        ))
+        ))}
+        </>
       )}
 
       {showAdd && (

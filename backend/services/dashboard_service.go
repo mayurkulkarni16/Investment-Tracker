@@ -15,6 +15,8 @@ type DashboardService struct {
 	stockRepo        *repository.StockRepo
 	homeLoanRepo     *repository.HomeLoanRepo
 	personalLoanRepo *repository.PersonalLoanRepo
+	npsRepo          *repository.NPSRepo
+	creditCardRepo   *repository.CreditCardRepo
 }
 
 func NewDashboardService(
@@ -25,6 +27,8 @@ func NewDashboardService(
 	stockRepo *repository.StockRepo,
 	homeLoanRepo *repository.HomeLoanRepo,
 	personalLoanRepo *repository.PersonalLoanRepo,
+	npsRepo *repository.NPSRepo,
+	creditCardRepo *repository.CreditCardRepo,
 ) *DashboardService {
 	return &DashboardService{
 		mfRepo:           mfRepo,
@@ -34,6 +38,8 @@ func NewDashboardService(
 		stockRepo:        stockRepo,
 		homeLoanRepo:     homeLoanRepo,
 		personalLoanRepo: personalLoanRepo,
+		npsRepo:          npsRepo,
+		creditCardRepo:   creditCardRepo,
 	}
 }
 
@@ -42,6 +48,7 @@ type DashboardData struct {
 	CurrentValue        float64            `json:"current_value"`
 	TotalGains          float64            `json:"total_gains"`
 	OverallReturnPct    float64            `json:"overall_return_percent"`
+	PortfolioXIRR       float64            `json:"portfolio_xirr"`
 	ELSSTaxSaving       float64            `json:"elss_tax_saving"`
 	AssetAllocation     map[string]float64 `json:"asset_allocation"`
 	UpcomingPayouts     []UpcomingPayout   `json:"upcoming_payouts"`
@@ -50,14 +57,27 @@ type DashboardData struct {
 	FDSummary           CategorySummary    `json:"fixed_deposit_summary"`
 	PFSummary           CategorySummary    `json:"provident_fund_summary"`
 	StockSummary        CategorySummary    `json:"stock_summary"`
+	NPSSummary          CategorySummary    `json:"nps_summary"`
 	HomeLoanSummary     LoanSummary        `json:"home_loan_summary"`
 	PersonalLoanSummary LoanSummary        `json:"personal_loan_summary"`
+	CreditCardSummary   CreditCardSummary  `json:"credit_card_summary"`
+	RiskMetrics         RiskMetrics        `json:"risk_metrics"`
+	DataSources         map[string]string  `json:"data_sources,omitempty"`
 }
 
 type CategorySummary struct {
 	TotalInvested float64 `json:"total_invested"`
 	CurrentValue  float64 `json:"current_value"`
+	XIRR          float64 `json:"xirr"`
 	Count         int     `json:"count"`
+}
+
+type RiskMetrics struct {
+	EquityDebtRatio   float64 `json:"equity_debt_ratio"`
+	RiskScore         int     `json:"risk_score"`
+	Diversification   float64 `json:"diversification"`
+	LoanToAssetRatio  float64 `json:"loan_to_asset_ratio"`
+	ConcentrationRisk string  `json:"concentration_risk"`
 }
 
 type LoanSummary struct {
@@ -67,6 +87,13 @@ type LoanSummary struct {
 	TotalPrepayments  float64 `json:"total_prepayments"`
 	MonthlyEMI        float64 `json:"monthly_emi"`
 	Count             int     `json:"count"`
+}
+
+type CreditCardSummary struct {
+	TotalOutstanding float64 `json:"total_outstanding"`
+	TotalLimit       float64 `json:"total_limit"`
+	AvgUtilization   float64 `json:"avg_utilization"`
+	Count            int     `json:"count"`
 }
 
 type UpcomingPayout struct {
@@ -89,17 +116,36 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 
 	// Mutual Funds
 	funds, err := s.mfRepo.GetAll(ctx)
+	var allCashflows []Cashflow
+	var equityValue, debtValue float64
 	if err == nil {
 		for _, mf := range funds {
 			dashboard.MFSummary.TotalInvested += mf.TotalInvested
 			dashboard.MFSummary.CurrentValue += mf.CurrentValue
 			dashboard.MFSummary.Count++
 
-			if mf.IsELSS {
-				for _, txn := range mf.Transactions {
-					if !txn.Date.Before(currentFYStart) {
-						dashboard.ELSSTaxSaving += txn.Amount
-					}
+			// Classify equity vs debt
+			switch mf.FundType {
+			case "Equity", "ELSS", "Index", "Small Cap", "Mid Cap", "Large Cap", "Multi Cap", "Flexi Cap", "Sectoral", "Thematic":
+				equityValue += mf.CurrentValue
+			case "Debt", "Liquid", "Gilt", "Corporate Bond", "Dynamic Bond", "Overnight", "Money Market":
+				debtValue += mf.CurrentValue
+			case "Hybrid":
+				equityValue += mf.CurrentValue * 0.65
+				debtValue += mf.CurrentValue * 0.35
+			}
+
+			// Collect cashflows for portfolio XIRR
+			for _, txn := range mf.Transactions {
+				switch txn.Type {
+				case "purchase", "sip", "switch_in":
+					allCashflows = append(allCashflows, Cashflow{Date: txn.Date, Amount: -txn.Amount})
+				case "redemption", "switch_out":
+					allCashflows = append(allCashflows, Cashflow{Date: txn.Date, Amount: txn.Amount})
+				}
+
+				if mf.IsELSS && !txn.Date.Before(currentFYStart) {
+					dashboard.ELSSTaxSaving += txn.Amount
 				}
 			}
 		}
@@ -112,6 +158,20 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 			dashboard.BondSummary.TotalInvested += bond.InvestmentAmount
 			dashboard.BondSummary.CurrentValue += bond.RemainingPrincipal
 			dashboard.BondSummary.Count++
+			debtValue += bond.RemainingPrincipal
+
+			// Collect cashflows for portfolio XIRR
+			allCashflows = append(allCashflows, Cashflow{Date: bond.PurchaseDate, Amount: -bond.InvestmentAmount})
+			for _, p := range bond.InterestPayouts {
+				if p.Status == "received" && p.ReceivedDate != nil {
+					allCashflows = append(allCashflows, Cashflow{Date: *p.ReceivedDate, Amount: p.Amount})
+				}
+			}
+			for _, p := range bond.PrincipalRepayments {
+				if p.Status == "received" && p.ReceivedDate != nil {
+					allCashflows = append(allCashflows, Cashflow{Date: *p.ReceivedDate, Amount: p.Amount})
+				}
+			}
 
 			for _, p := range bond.InterestPayouts {
 				if p.Status == "pending" && !p.ScheduledDate.Before(now) && !p.ScheduledDate.After(thirtyDaysLater) {
@@ -149,6 +209,10 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 				dashboard.FDSummary.CurrentValue += fd.PrincipalAmount
 			}
 			dashboard.FDSummary.Count++
+			debtValue += fd.PrincipalAmount
+
+			// Cashflows for portfolio XIRR
+			allCashflows = append(allCashflows, Cashflow{Date: fd.StartDate, Amount: -fd.PrincipalAmount})
 
 			if fd.Status == "active" && !fd.MaturityDate.Before(now) && !fd.MaturityDate.After(thirtyDaysLater) {
 				dashboard.UpcomingPayouts = append(dashboard.UpcomingPayouts, UpcomingPayout{
@@ -170,6 +234,20 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 			dashboard.PFSummary.TotalInvested += totalContrib
 			dashboard.PFSummary.CurrentValue += pf.CurrentBalance
 			dashboard.PFSummary.Count++
+			debtValue += pf.CurrentBalance
+
+			// Cashflows for portfolio XIRR
+			for _, fy := range pf.FinancialYearEntries {
+				for _, mc := range fy.MonthlyContributions {
+					date := parsePFMonth(mc.Month, fy.FinancialYear)
+					if !date.IsZero() {
+						total := mc.EmployeeContribution + mc.EmployerContribution
+						if total > 0 {
+							allCashflows = append(allCashflows, Cashflow{Date: date, Amount: -total})
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -180,6 +258,38 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 			dashboard.StockSummary.TotalInvested += stock.TotalInvested
 			dashboard.StockSummary.CurrentValue += stock.CurrentValue
 			dashboard.StockSummary.Count++
+			equityValue += stock.CurrentValue
+
+			// Cashflows for portfolio XIRR
+			for _, txn := range stock.Transactions {
+				switch txn.Type {
+				case "buy":
+					allCashflows = append(allCashflows, Cashflow{Date: txn.Date, Amount: -txn.Amount})
+				case "sell":
+					allCashflows = append(allCashflows, Cashflow{Date: txn.Date, Amount: txn.Amount})
+				}
+			}
+		}
+	}
+
+	// NPS
+	npsAccounts, err := s.npsRepo.GetAll(ctx)
+	if err == nil {
+		for _, nps := range npsAccounts {
+			dashboard.NPSSummary.TotalInvested += nps.TotalContribution
+			dashboard.NPSSummary.CurrentValue += nps.CurrentValue
+			dashboard.NPSSummary.Count++
+
+			// Classify equity vs debt based on NPS allocation
+			npsEquity := nps.CurrentValue * nps.EquityPct / 100
+			npsDebt := nps.CurrentValue - npsEquity
+			equityValue += npsEquity
+			debtValue += npsDebt
+
+			// Cashflows for portfolio XIRR
+			for _, c := range nps.Contributions {
+				allCashflows = append(allCashflows, Cashflow{Date: c.Date, Amount: -c.Amount})
+			}
 		}
 	}
 
@@ -248,18 +358,33 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 		}
 	}
 
+	// Credit Cards (liabilities, not assets)
+	creditCards, err := s.creditCardRepo.GetAll(ctx)
+	if err == nil {
+		for _, cc := range creditCards {
+			dashboard.CreditCardSummary.TotalOutstanding += cc.CurrentOutstanding
+			dashboard.CreditCardSummary.TotalLimit += cc.CreditLimit
+			dashboard.CreditCardSummary.Count++
+		}
+		if dashboard.CreditCardSummary.TotalLimit > 0 {
+			dashboard.CreditCardSummary.AvgUtilization = dashboard.CreditCardSummary.TotalOutstanding / dashboard.CreditCardSummary.TotalLimit * 100
+		}
+	}
+
 	// Totals
 	dashboard.TotalInvested = dashboard.MFSummary.TotalInvested +
 		dashboard.BondSummary.TotalInvested +
 		dashboard.FDSummary.TotalInvested +
 		dashboard.PFSummary.TotalInvested +
-		dashboard.StockSummary.TotalInvested
+		dashboard.StockSummary.TotalInvested +
+		dashboard.NPSSummary.TotalInvested
 
 	dashboard.CurrentValue = dashboard.MFSummary.CurrentValue +
 		dashboard.BondSummary.CurrentValue +
 		dashboard.FDSummary.CurrentValue +
 		dashboard.PFSummary.CurrentValue +
-		dashboard.StockSummary.CurrentValue
+		dashboard.StockSummary.CurrentValue +
+		dashboard.NPSSummary.CurrentValue
 
 	dashboard.TotalGains = dashboard.CurrentValue - dashboard.TotalInvested
 	if dashboard.TotalInvested > 0 {
@@ -278,6 +403,119 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 		dashboard.AssetAllocation["Fixed Deposits"] = dashboard.FDSummary.CurrentValue
 		dashboard.AssetAllocation["Provident Fund"] = dashboard.PFSummary.CurrentValue
 		dashboard.AssetAllocation["Stocks"] = dashboard.StockSummary.CurrentValue
+		if dashboard.NPSSummary.CurrentValue > 0 {
+			dashboard.AssetAllocation["NPS"] = dashboard.NPSSummary.CurrentValue
+		}
+	}
+
+	// Portfolio XIRR
+	if len(allCashflows) > 0 && dashboard.CurrentValue > 0 {
+		// Add terminal value for remaining holdings
+		terminalValue := dashboard.MFSummary.CurrentValue + dashboard.StockSummary.CurrentValue +
+			dashboard.BondSummary.CurrentValue + dashboard.FDSummary.CurrentValue +
+			dashboard.PFSummary.CurrentValue + dashboard.NPSSummary.CurrentValue
+		allCashflows = append(allCashflows, Cashflow{Date: now, Amount: terminalValue})
+		if xirr, err := CalculateXIRR(allCashflows); err == nil {
+			dashboard.PortfolioXIRR = xirr * 100
+		}
+	}
+
+	// Risk Metrics
+	totalAssets := dashboard.CurrentValue
+	totalLiabilities := dashboard.HomeLoanSummary.TotalOutstanding + dashboard.PersonalLoanSummary.TotalOutstanding + dashboard.CreditCardSummary.TotalOutstanding
+
+	// Equity/Debt Ratio
+	if debtValue > 0 {
+		dashboard.RiskMetrics.EquityDebtRatio = equityValue / debtValue
+	}
+
+	// Loan-to-Asset Ratio
+	if totalAssets > 0 {
+		dashboard.RiskMetrics.LoanToAssetRatio = totalLiabilities / totalAssets
+	}
+
+	// Diversification (Herfindahl Index: lower = more diversified)
+	if totalAssets > 0 {
+		categories := []float64{
+			dashboard.MFSummary.CurrentValue,
+			dashboard.BondSummary.CurrentValue,
+			dashboard.FDSummary.CurrentValue,
+			dashboard.PFSummary.CurrentValue,
+			dashboard.StockSummary.CurrentValue,
+			dashboard.NPSSummary.CurrentValue,
+		}
+		hhi := 0.0
+		activeCategories := 0
+		for _, v := range categories {
+			if v > 0 {
+				share := v / totalAssets
+				hhi += share * share
+				activeCategories++
+			}
+		}
+		// Normalize: 1.0 = fully concentrated, 0.0 = perfectly diversified
+		// Convert to 0-100 diversification score (higher = better)
+		if activeCategories > 1 {
+			minHHI := 1.0 / float64(activeCategories)
+			dashboard.RiskMetrics.Diversification = (1.0 - hhi) / (1.0 - minHHI) * 100
+		}
+	}
+
+	// Concentration Risk
+	if totalAssets > 0 {
+		maxPct := 0.0
+		maxCat := ""
+		catMap := map[string]float64{
+			"Mutual Funds": dashboard.MFSummary.CurrentValue,
+			"Stocks":       dashboard.StockSummary.CurrentValue,
+			"Bonds":        dashboard.BondSummary.CurrentValue,
+			"FDs":          dashboard.FDSummary.CurrentValue,
+			"PF":           dashboard.PFSummary.CurrentValue,
+			"NPS":          dashboard.NPSSummary.CurrentValue,
+		}
+		for name, val := range catMap {
+			pct := val / totalAssets * 100
+			if pct > maxPct {
+				maxPct = pct
+				maxCat = name
+			}
+		}
+		if maxPct > 70 {
+			dashboard.RiskMetrics.ConcentrationRisk = maxCat
+		}
+	}
+
+	// Risk Score (1-10: 1=very conservative, 10=very aggressive)
+	score := 5 // Base
+	eqPct := 0.0
+	if totalAssets > 0 {
+		eqPct = equityValue / totalAssets * 100
+	}
+	if eqPct > 80 {
+		score += 3
+	} else if eqPct > 60 {
+		score += 2
+	} else if eqPct > 40 {
+		score += 1
+	} else if eqPct < 20 {
+		score -= 2
+	}
+	if dashboard.RiskMetrics.LoanToAssetRatio > 0.5 {
+		score += 1
+	}
+	if dashboard.RiskMetrics.Diversification < 30 {
+		score += 1
+	}
+	if score < 1 {
+		score = 1
+	} else if score > 10 {
+		score = 10
+	}
+	dashboard.RiskMetrics.RiskScore = score
+
+	dashboard.DataSources = map[string]string{
+		"mutual_funds": "mfapi.in",
+		"stocks":       "Yahoo Finance",
 	}
 
 	return dashboard, nil
@@ -289,4 +527,58 @@ func getCurrentFYStart(now time.Time) time.Time {
 		year--
 	}
 	return time.Date(year, 4, 1, 0, 0, 0, 0, time.Local)
+}
+
+type RebalanceSuggestion struct {
+	Category      string  `json:"category"`
+	CurrentPct    float64 `json:"current_pct"`
+	TargetPct     float64 `json:"target_pct"`
+	DiffPct       float64 `json:"diff_pct"`
+	CurrentValue  float64 `json:"current_value"`
+	TargetValue   float64 `json:"target_value"`
+	AdjustmentAmt float64 `json:"adjustment_amount"`
+	Action        string  `json:"action"` // "buy_more" or "reduce"
+}
+
+type RebalanceResponse struct {
+	TotalValue  float64               `json:"total_value"`
+	Suggestions []RebalanceSuggestion `json:"suggestions"`
+}
+
+func (s *DashboardService) GetRebalanceSuggestions(ctx context.Context, targets map[string]float64) (*RebalanceResponse, error) {
+	dashboard, err := s.GetDashboard(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	totalValue := dashboard.CurrentValue
+	if totalValue <= 0 {
+		return &RebalanceResponse{TotalValue: 0}, nil
+	}
+
+	var suggestions []RebalanceSuggestion
+	for category, targetPct := range targets {
+		currentVal := dashboard.AssetAllocation[category]
+		currentPct := (currentVal / totalValue) * 100
+		targetVal := totalValue * targetPct / 100
+		diff := targetPct - currentPct
+		action := "on_target"
+		if diff > 1 {
+			action = "buy_more"
+		} else if diff < -1 {
+			action = "reduce"
+		}
+		suggestions = append(suggestions, RebalanceSuggestion{
+			Category:      category,
+			CurrentPct:    currentPct,
+			TargetPct:     targetPct,
+			DiffPct:       diff,
+			CurrentValue:  currentVal,
+			TargetValue:   targetVal,
+			AdjustmentAmt: targetVal - currentVal,
+			Action:        action,
+		})
+	}
+
+	return &RebalanceResponse{TotalValue: totalValue, Suggestions: suggestions}, nil
 }

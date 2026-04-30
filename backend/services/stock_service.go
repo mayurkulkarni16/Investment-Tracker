@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"investment-tracker/models"
@@ -43,6 +44,8 @@ func (s *StockService) GetAll(ctx context.Context) ([]models.Stock, error) {
 	for i := range stocks {
 		s.recalculate(&stocks[i])
 		stocks[i].IsMarketOpen = marketOpen
+		stocks[i].XIRR = ComputeStockXIRR(&stocks[i])
+		stocks[i].DataSource = "Yahoo Finance"
 	}
 	return stocks, nil
 }
@@ -58,6 +61,7 @@ func (s *StockService) GetByID(ctx context.Context, id string) (*models.Stock, e
 	}
 	s.recalculate(stock)
 	stock.IsMarketOpen = IsMarketOpen()
+	stock.XIRR = ComputeStockXIRR(stock)
 	return stock, nil
 }
 
@@ -190,6 +194,137 @@ func (s *StockService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, objID)
 }
 
+func (s *StockService) DeleteTransaction(ctx context.Context, stockID, txnID string) (*models.Stock, error) {
+	objID, err := parseObjectID(stockID)
+	if err != nil {
+		return nil, err
+	}
+	stock, err := s.repo.GetByID(ctx, objID)
+	if err != nil {
+		return nil, err
+	}
+	found := false
+	newTxns := make([]models.StockTransaction, 0, len(stock.Transactions))
+	for _, t := range stock.Transactions {
+		if t.TransactionID == txnID {
+			found = true
+			continue
+		}
+		newTxns = append(newTxns, t)
+	}
+	if !found {
+		return nil, fmt.Errorf("transaction not found")
+	}
+	stock.Transactions = newTxns
+	s.recalculate(stock)
+	if err := s.repo.Update(ctx, stock); err != nil {
+		return nil, err
+	}
+	return stock, nil
+}
+
+func (s *StockService) UpdateTransaction(ctx context.Context, stockID, txnID string, req models.AddStockTransactionRequest) (*models.Stock, error) {
+	objID, err := parseObjectID(stockID)
+	if err != nil {
+		return nil, err
+	}
+	stock, err := s.repo.GetByID(ctx, objID)
+	if err != nil {
+		return nil, err
+	}
+	txDate, err := parseDate(req.Date)
+	if err != nil {
+		return nil, err
+	}
+	found := false
+	for i, t := range stock.Transactions {
+		if t.TransactionID == txnID {
+			stock.Transactions[i].Date = txDate
+			stock.Transactions[i].Type = req.Type
+			stock.Transactions[i].Quantity = req.Quantity
+			stock.Transactions[i].PricePerShare = req.PricePerShare
+			stock.Transactions[i].Amount = float64(req.Quantity) * req.PricePerShare
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("transaction not found")
+	}
+	s.recalculate(stock)
+	if err := s.repo.Update(ctx, stock); err != nil {
+		return nil, err
+	}
+	return stock, nil
+}
+
+func (s *StockService) AddDividend(ctx context.Context, stockID string, req models.AddStockDividendRequest) (*models.Stock, error) {
+	objID, err := parseObjectID(stockID)
+	if err != nil {
+		return nil, err
+	}
+	stock, err := s.repo.GetByID(ctx, objID)
+	if err != nil {
+		return nil, err
+	}
+	dvDate, err := parseDate(req.Date)
+	if err != nil {
+		return nil, err
+	}
+	// Calculate quantity held at dividend date
+	qtyAtDate := 0
+	for _, tx := range stock.Transactions {
+		if !tx.Date.After(dvDate) {
+			if tx.Type == models.StockBuy {
+				qtyAtDate += tx.Quantity
+			} else {
+				qtyAtDate -= tx.Quantity
+			}
+		}
+	}
+	div := models.StockDividend{
+		DividendID:     uuid.New().String(),
+		Date:           dvDate,
+		AmountPerShare: req.AmountPerShare,
+		TotalAmount:    req.AmountPerShare * float64(qtyAtDate),
+	}
+	stock.Dividends = append(stock.Dividends, div)
+	s.recalculate(stock)
+	if err := s.repo.Update(ctx, stock); err != nil {
+		return nil, err
+	}
+	return stock, nil
+}
+
+func (s *StockService) DeleteDividend(ctx context.Context, stockID, divID string) (*models.Stock, error) {
+	objID, err := parseObjectID(stockID)
+	if err != nil {
+		return nil, err
+	}
+	stock, err := s.repo.GetByID(ctx, objID)
+	if err != nil {
+		return nil, err
+	}
+	found := false
+	newDivs := make([]models.StockDividend, 0, len(stock.Dividends))
+	for _, d := range stock.Dividends {
+		if d.DividendID == divID {
+			found = true
+			continue
+		}
+		newDivs = append(newDivs, d)
+	}
+	if !found {
+		return nil, fmt.Errorf("dividend not found")
+	}
+	stock.Dividends = newDivs
+	s.recalculate(stock)
+	if err := s.repo.Update(ctx, stock); err != nil {
+		return nil, err
+	}
+	return stock, nil
+}
+
 // recalculate recomputes derived fields from transactions
 func (s *StockService) recalculate(stock *models.Stock) {
 	totalQty := 0
@@ -233,4 +368,11 @@ func (s *StockService) recalculate(stock *models.Stock) {
 	} else {
 		stock.GainLossPercent = 0
 	}
+
+	// Sum dividends
+	totalDiv := 0.0
+	for _, d := range stock.Dividends {
+		totalDiv += d.TotalAmount
+	}
+	stock.TotalDividends = totalDiv
 }

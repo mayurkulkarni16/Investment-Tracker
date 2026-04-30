@@ -19,12 +19,24 @@ const (
 type FundType string
 
 const (
-	FundTypeEquity FundType = "Equity"
-	FundTypeDebt   FundType = "Debt"
-	FundTypeHybrid FundType = "Hybrid"
-	FundTypeELSS   FundType = "ELSS"
-	FundTypeIndex  FundType = "Index"
-	FundTypeLiquid FundType = "Liquid"
+	FundTypeEquity        FundType = "Equity"
+	FundTypeDebt          FundType = "Debt"
+	FundTypeHybrid        FundType = "Hybrid"
+	FundTypeELSS          FundType = "ELSS"
+	FundTypeIndex         FundType = "Index"
+	FundTypeLiquid        FundType = "Liquid"
+	FundTypeSmallCap      FundType = "Small Cap"
+	FundTypeMidCap        FundType = "Mid Cap"
+	FundTypeLargeCap      FundType = "Large Cap"
+	FundTypeMultiCap      FundType = "Multi Cap"
+	FundTypeFlexiCap      FundType = "Flexi Cap"
+	FundTypeSectoral      FundType = "Sectoral"
+	FundTypeThematic      FundType = "Thematic"
+	FundTypeGilt          FundType = "Gilt"
+	FundTypeCorporateBond FundType = "Corporate Bond"
+	FundTypeDynamicBond   FundType = "Dynamic Bond"
+	FundTypeOvernight     FundType = "Overnight"
+	FundTypeMoneyMarket   FundType = "Money Market"
 )
 
 type MFTransaction struct {
@@ -54,6 +66,8 @@ type MutualFund struct {
 	NAVLastUpdated  *time.Time         `json:"nav_last_updated,omitempty" bson:"nav_last_updated,omitempty"`
 	GainLoss        float64            `json:"gain_loss" bson:"gain_loss"`
 	GainLossPercent float64            `json:"gain_loss_percent" bson:"gain_loss_percent"`
+	XIRR            float64            `json:"xirr" bson:"-"`
+	DataSource      string             `json:"data_source" bson:"-"`
 	Notes           string             `json:"notes" bson:"notes"`
 	CreatedAt       time.Time          `json:"created_at" bson:"created_at"`
 	UpdatedAt       time.Time          `json:"updated_at" bson:"updated_at"`
@@ -108,8 +122,9 @@ type ImportCASRequest struct {
 }
 
 type ImportResult struct {
-	FundsCreated      int      `json:"funds_created"`
-	FundsUpdated      int      `json:"funds_updated"`
-	TransactionsAdded int      `json:"transactions_added"`
-	Errors            []string `json:"errors,omitempty"`
+	FundsCreated        int      `json:"funds_created"`
+	FundsUpdated        int      `json:"funds_updated"`
+	TransactionsAdded   int      `json:"transactions_added"`
+	TransactionsSkipped int      `json:"transactions_skipped"`
+	Errors              []string `json:"errors,omitempty"`
 }

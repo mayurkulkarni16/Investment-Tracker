@@ -48,18 +48,21 @@ func main() {
 	homeLoanService := services.NewHomeLoanService(homeLoanRepo)
 	personalLoanService := services.NewPersonalLoanService(personalLoanRepo)
 	projectionService := services.NewProjectionService(mfRepo, fdRepo, pfRepo, stockRepo, bondRepo)
-	dashboardService := services.NewDashboardService(mfRepo, bondRepo, fdRepo, pfRepo, stockRepo, homeLoanRepo, personalLoanRepo)
+	dashboardService := services.NewDashboardService(mfRepo, bondRepo, fdRepo, pfRepo, stockRepo, homeLoanRepo, personalLoanRepo, npsRepo, creditCardRepo)
 	npsService := services.NewNPSService(npsRepo)
 	creditCardService := services.NewCreditCardService(creditCardRepo)
 	goalService := services.NewGoalService(goalRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo)
 	netWorthService := services.NewNetWorthService(netWorthRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo, homeLoanRepo, personalLoanRepo, creditCardRepo)
-	sipService := services.NewSIPService(sipRepo)
-	notificationService := services.NewNotificationService(notificationRepo, homeLoanRepo, personalLoanRepo, fdRepo, bondRepo, sipRepo, creditCardRepo)
+	sipService := services.NewSIPService(sipRepo, mfRepo)
+	notificationService := services.NewNotificationService(notificationRepo, homeLoanRepo, personalLoanRepo, fdRepo, bondRepo, sipRepo, creditCardRepo, goalService)
 	profileService := services.NewProfileService(profileRepo)
 	taxService := services.NewTaxService(mfRepo, fdRepo, pfRepo, npsRepo, bondRepo, homeLoanRepo, personalLoanRepo, stockRepo)
 	benchmarkService := services.NewBenchmarkService()
 	exportService := services.NewExportService(mfRepo, stockRepo, fdRepo, pfRepo, bondRepo, homeLoanRepo, personalLoanRepo, npsRepo)
-	backupService := services.NewBackupService(mfRepo, stockRepo, fdRepo, pfRepo, bondRepo, homeLoanRepo, personalLoanRepo, npsRepo, creditCardRepo, goalRepo, sipRepo, profileRepo)
+	backupService := services.NewBackupService(db, mfRepo, stockRepo, fdRepo, pfRepo, bondRepo, homeLoanRepo, personalLoanRepo, npsRepo, creditCardRepo, goalRepo, sipRepo, profileRepo)
+	cashflowService := services.NewCashflowService(mfRepo, bondRepo, fdRepo, pfRepo, stockRepo, npsRepo)
+	insightsService := services.NewInsightsService(mfService, stockService, bondService, fdService, pfService, homeLoanRepo, personalLoanRepo, npsService, goalService)
+	scheduler := services.NewScheduler(mfService, stockService, netWorthService)
 
 	// Handlers
 	mfHandler := handlers.NewMutualFundHandler(mfService)
@@ -82,6 +85,8 @@ func main() {
 	benchmarkHandler := handlers.NewBenchmarkHandler(benchmarkService)
 	exportHandler := handlers.NewExportHandler(exportService)
 	backupHandler := handlers.NewBackupHandler(backupService)
+	cashflowHandler := handlers.NewCashflowHandler(cashflowService)
+	insightsHandler := handlers.NewInsightsHandler(insightsService)
 
 	// Router
 	r := gin.Default()
@@ -97,7 +102,11 @@ func main() {
 	{
 		// Dashboard & Projections
 		api.GET("/dashboard", dashboardHandler.GetDashboard)
+		api.POST("/dashboard/rebalance", dashboardHandler.GetRebalanceSuggestions)
 		api.GET("/projections", projectionHandler.GetProjections)
+		api.GET("/cashflow", cashflowHandler.GetMonthlyCashflows)
+		api.GET("/cashflow/:month", cashflowHandler.GetMonthDetail)
+		api.GET("/insights", insightsHandler.GetInsights)
 
 		// Mutual Funds
 		mf := api.Group("/mutual-funds")
@@ -110,6 +119,8 @@ func main() {
 			mf.PUT("/:id", mfHandler.Update)
 			mf.DELETE("/:id", mfHandler.Delete)
 			mf.POST("/:id/transactions", mfHandler.AddTransaction)
+			mf.DELETE("/:id/transactions/:txnId", mfHandler.DeleteTransaction)
+			mf.PUT("/:id/transactions/:txnId", mfHandler.UpdateTransaction)
 			mf.POST("/:id/refresh-nav", mfHandler.RefreshNAV)
 			mf.POST("/refresh-nav", mfHandler.RefreshNAV)
 		}
@@ -158,6 +169,10 @@ func main() {
 			stocks.PUT("/:id", stockHandler.Update)
 			stocks.DELETE("/:id", stockHandler.Delete)
 			stocks.POST("/:id/transactions", stockHandler.AddTransaction)
+			stocks.DELETE("/:id/transactions/:txnId", stockHandler.DeleteTransaction)
+			stocks.PUT("/:id/transactions/:txnId", stockHandler.UpdateTransaction)
+			stocks.POST("/:id/dividends", stockHandler.AddDividend)
+			stocks.DELETE("/:id/dividends/:divId", stockHandler.DeleteDividend)
 			stocks.POST("/:id/refresh-price", stockHandler.RefreshPrice)
 		}
 
@@ -227,6 +242,7 @@ func main() {
 			goals.PUT("/:id", goalHandler.Update)
 			goals.DELETE("/:id", goalHandler.Delete)
 			goals.POST("/:id/link", goalHandler.LinkInvestment)
+			goals.POST("/:id/link-batch", goalHandler.BatchLinkInvestments)
 			goals.DELETE("/:id/link/:investmentId", goalHandler.UnlinkInvestment)
 		}
 
@@ -283,7 +299,12 @@ func main() {
 
 		// Backup
 		api.GET("/backup", backupHandler.Export)
+		api.POST("/backup/restore", backupHandler.Restore)
 	}
+
+	// Start daily scheduler
+	scheduler.Start()
+	defer scheduler.Stop()
 
 	log.Printf("Server starting on port %s", cfg.ServerPort)
 	if err := r.Run(":" + cfg.ServerPort); err != nil {

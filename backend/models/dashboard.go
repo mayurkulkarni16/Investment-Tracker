@@ -12,6 +12,7 @@ type DashboardSummary struct {
 	CorporateBondSummary InvestmentSummary  `json:"corporate_bond_summary"`
 	FixedDepositSummary  InvestmentSummary  `json:"fixed_deposit_summary"`
 	ProvidentFundSummary InvestmentSummary  `json:"provident_fund_summary"`
+	DataSources          map[string]string  `json:"data_sources,omitempty"`
 }
 
 type InvestmentSummary struct {

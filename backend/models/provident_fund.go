@@ -40,6 +40,7 @@ type ProvidentFund struct {
 	TotalEmployeeContribution float64              `json:"total_employee_contribution" bson:"total_employee_contribution"`
 	TotalEmployerContribution float64              `json:"total_employer_contribution" bson:"total_employer_contribution"`
 	TotalInterestEarned       float64              `json:"total_interest_earned" bson:"total_interest_earned"`
+	XIRR                      float64              `json:"xirr" bson:"-"`
 	Notes                     string               `json:"notes" bson:"notes"`
 	CreatedAt                 time.Time            `json:"created_at" bson:"created_at"`
 	UpdatedAt                 time.Time            `json:"updated_at" bson:"updated_at"`

@@ -162,6 +162,7 @@ func (s *CorporateBondService) GetAll(ctx context.Context) ([]models.CorporateBo
 	}
 	for i := range bonds {
 		s.recalculateBond(&bonds[i])
+		bonds[i].XIRR = ComputeCorporateBondXIRR(&bonds[i])
 	}
 	return bonds, nil
 }
@@ -176,6 +177,7 @@ func (s *CorporateBondService) GetByID(ctx context.Context, id string) (*models.
 		return nil, err
 	}
 	s.recalculateBond(bond)
+	bond.XIRR = ComputeCorporateBondXIRR(bond)
 	return bond, nil
 }
 

@@ -3,11 +3,19 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"investment-tracker/repository"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
+// restoreDoc is a generic BSON document for restore operations.
+type restoreDoc = bson.M
+
 type BackupService struct {
+	db               *mongo.Database
 	mfRepo           *repository.MutualFundRepo
 	stockRepo        *repository.StockRepo
 	fdRepo           *repository.FixedDepositRepo
@@ -23,6 +31,7 @@ type BackupService struct {
 }
 
 func NewBackupService(
+	db *mongo.Database,
 	mfRepo *repository.MutualFundRepo,
 	stockRepo *repository.StockRepo,
 	fdRepo *repository.FixedDepositRepo,
@@ -37,7 +46,7 @@ func NewBackupService(
 	profileRepo *repository.ProfileRepo,
 ) *BackupService {
 	return &BackupService{
-		mfRepo: mfRepo, stockRepo: stockRepo, fdRepo: fdRepo, pfRepo: pfRepo,
+		db: db, mfRepo: mfRepo, stockRepo: stockRepo, fdRepo: fdRepo, pfRepo: pfRepo,
 		bondRepo: bondRepo, homeLoanRepo: homeLoanRepo, personalLoanRepo: personalLoanRepo,
 		npsRepo: npsRepo, creditCardRepo: creditCardRepo, goalRepo: goalRepo,
 		sipRepo: sipRepo, profileRepo: profileRepo,
@@ -91,4 +100,75 @@ func (s *BackupService) Export(ctx context.Context) ([]byte, error) {
 	}
 
 	return json.MarshalIndent(backup, "", "  ")
+}
+
+type RestoreResult struct {
+	CollectionsRestored int      `json:"collections_restored"`
+	Errors              []string `json:"errors,omitempty"`
+}
+
+// Restore replaces all data from a backup JSON payload.
+func (s *BackupService) Restore(ctx context.Context, data []byte) (*RestoreResult, error) {
+	// Parse backup into a generic map to handle each collection
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("invalid backup JSON: %w", err)
+	}
+
+	// Map backup keys to MongoDB collection names
+	collectionMap := map[string]string{
+		"mutual_funds":    "mutual_funds",
+		"stocks":          "stocks",
+		"fixed_deposits":  "fixed_deposits",
+		"provident_fund":  "provident_fund_entries",
+		"corporate_bonds": "corporate_bonds",
+		"home_loans":      "home_loans",
+		"personal_loans":  "personal_loans",
+		"nps":             "nps_accounts",
+		"credit_cards":    "credit_cards",
+		"goals":           "goals",
+		"sips":            "sips",
+		"profiles":        "profiles",
+	}
+
+	result := &RestoreResult{}
+
+	for key, collName := range collectionMap {
+		rawData, ok := raw[key]
+		if !ok || string(rawData) == "null" {
+			continue
+		}
+
+		// Decode as array of generic BSON documents
+		var docs []restoreDoc
+		if err := json.Unmarshal(rawData, &docs); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("Failed to parse %s: %v", key, err))
+			continue
+		}
+
+		if len(docs) == 0 {
+			continue
+		}
+
+		coll := s.db.Collection(collName)
+
+		// Drop existing data
+		if _, err := coll.DeleteMany(ctx, bson.M{}); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("Failed to clear %s: %v", key, err))
+			continue
+		}
+
+		// Insert restored documents
+		inserts := make([]interface{}, len(docs))
+		for i := range docs {
+			inserts[i] = docs[i]
+		}
+		if _, err := coll.InsertMany(ctx, inserts); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("Failed to insert %s: %v", key, err))
+			continue
+		}
+		result.CollectionsRestored++
+	}
+
+	return result, nil
 }

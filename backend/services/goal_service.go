@@ -177,6 +177,42 @@ func (s *GoalService) LinkInvestment(ctx context.Context, id string, req models.
 	return goal, nil
 }
 
+func (s *GoalService) BatchLinkInvestments(ctx context.Context, id string, req models.BatchLinkInvestmentRequest) (*models.Goal, error) {
+	objID, err := parseObjectID(id)
+	if err != nil {
+		return nil, err
+	}
+	goal, err := s.repo.GetByID(ctx, objID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build set of already-linked IDs to avoid duplicates
+	linked := make(map[string]bool)
+	for _, li := range goal.LinkedInvestments {
+		linked[li.InvestmentID] = true
+	}
+
+	for _, inv := range req.Investments {
+		if linked[inv.InvestmentID] {
+			continue
+		}
+		goal.LinkedInvestments = append(goal.LinkedInvestments, models.LinkedInvestment{
+			InvestmentType: inv.InvestmentType,
+			InvestmentID:   inv.InvestmentID,
+			InvestmentName: inv.InvestmentName,
+			AllocatedPct:   inv.AllocatedPct,
+		})
+		linked[inv.InvestmentID] = true
+	}
+
+	if err := s.repo.Update(ctx, goal); err != nil {
+		return nil, err
+	}
+	s.computeDerived(ctx, goal)
+	return goal, nil
+}
+
 func (s *GoalService) UnlinkInvestment(ctx context.Context, id string, investmentID string) (*models.Goal, error) {
 	objID, err := parseObjectID(id)
 	if err != nil {
@@ -239,6 +275,41 @@ func (s *GoalService) computeDerived(ctx context.Context, goal *models.Goal) {
 	if goal.ProgressPct >= 100 {
 		goal.OnTrack = true
 	}
+
+	// Projection points: project monthly growth for up to target date or 60 months
+	maxMonths := months
+	if maxMonths <= 0 {
+		maxMonths = 12
+	}
+	if maxMonths > 60 {
+		maxMonths = 60
+	}
+	monthlyRate := goal.AssumedReturnRate / 100 / 12
+	projValue := currentValue
+	goal.ProjectionPoints = make([]models.GoalProjection, 0, maxMonths+1)
+	goal.ProjectionPoints = append(goal.ProjectionPoints, models.GoalProjection{Month: 0, Value: math.Round(projValue)})
+	projectedDateFound := false
+	for m := 1; m <= maxMonths; m++ {
+		projValue = projValue*(1+monthlyRate) + goal.MonthlyNeeded
+		goal.ProjectionPoints = append(goal.ProjectionPoints, models.GoalProjection{Month: m, Value: math.Round(projValue)})
+		if !projectedDateFound && projValue >= goal.TargetAmount {
+			pd := now.AddDate(0, m, 0)
+			goal.ProjectedDate = &pd
+			projectedDateFound = true
+		}
+	}
+
+	// Shortfall: projected value at target date vs target
+	if months > 0 {
+		fv := currentValue
+		for m := 0; m < months; m++ {
+			fv = fv*(1+monthlyRate) + goal.MonthlyNeeded
+		}
+		goal.Shortfall = math.Round((goal.TargetAmount-fv)*100) / 100
+		if goal.Shortfall < 0 {
+			goal.Shortfall = 0
+		}
+	}
 }
 
 func (s *GoalService) getInvestmentValue(ctx context.Context, li models.LinkedInvestment) float64 {
@@ -263,7 +334,7 @@ func (s *GoalService) getInvestmentValue(ctx context.Context, li models.LinkedIn
 			return 0
 		}
 		return stock.CurrentValue
-	case "fd":
+	case "fixed_deposit", "fd":
 		id, err := parseObjectID(li.InvestmentID)
 		if err != nil {
 			return 0
@@ -273,7 +344,7 @@ func (s *GoalService) getInvestmentValue(ctx context.Context, li models.LinkedIn
 			return 0
 		}
 		return fd.MaturityAmount
-	case "pf":
+	case "provident_fund", "pf":
 		id, err := parseObjectID(li.InvestmentID)
 		if err != nil {
 			return 0
@@ -293,7 +364,7 @@ func (s *GoalService) getInvestmentValue(ctx context.Context, li models.LinkedIn
 			return 0
 		}
 		return nps.CurrentValue
-	case "bond":
+	case "corporate_bond", "bond":
 		id, err := parseObjectID(li.InvestmentID)
 		if err != nil {
 			return 0

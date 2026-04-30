@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react';
 import { getFixedDeposits, createFixedDeposit, deleteFixedDeposit, updateFixedDeposit } from '../api/fixedDeposits';
 import type { FixedDeposit, CreateFixedDepositRequest, InterestType, PayoutFrequency } from '../types';
-import { formatCurrency, formatDate, toInputDate } from '../utils/format';
+import { formatCurrency, formatDate, formatPercent, toInputDate } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
 
 export default function FixedDepositsPage() {
   const [fds, setFDs] = useState<FixedDeposit[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState<FixedDeposit | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortCol, setSortCol] = useState<string>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [form, setForm] = useState<CreateFixedDepositRequest>({
     bank_name: '', principal_amount: 0, interest_rate: 0,
     start_date: '', maturity_date: '', tenure_months: 12,
@@ -34,7 +40,7 @@ export default function FixedDepositsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this FD?')) return;
+    if (!await confirm({ message: 'Are you sure you want to delete this FD?', danger: true, confirmLabel: 'Delete' })) return;
     try { await deleteFixedDeposit(id); toast('FD deleted'); load(); }
     catch { toast('Failed to delete FD', 'error'); }
   };
@@ -96,6 +102,12 @@ export default function FixedDepositsPage() {
               <div className="label">Avg Interest Rate</div>
               <div className="value">{avgRate.toFixed(2)}%</div>
             </div>
+            <div className="stat-card">
+              <div className="label">Avg XIRR</div>
+              <div className={`value ${(() => { const w = fds.filter(f => f.principal_amount > 0); const t = w.reduce((s, f) => s + f.principal_amount, 0); const x = t > 0 ? w.reduce((s, f) => s + f.xirr * f.principal_amount, 0) / t : 0; return x >= 0 ? 'positive' : 'negative'; })()}`}>
+                {formatPercent((() => { const w = fds.filter(f => f.principal_amount > 0); const t = w.reduce((s, f) => s + f.principal_amount, 0); return t > 0 ? w.reduce((s, f) => s + f.xirr * f.principal_amount, 0) / t : 0; })())}
+              </div>
+            </div>
           </div>
         );
       })()}
@@ -106,26 +118,52 @@ export default function FixedDepositsPage() {
           <p>Add your first FD to start tracking.</p>
           <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add FD</button>
         </div>
-      ) : (
+      ) : (() => {
+        const filtered = fds.filter(fd => {
+          const matchSearch = !search || fd.bank_name.toLowerCase().includes(search.toLowerCase()) || (fd.fd_number || '').toLowerCase().includes(search.toLowerCase());
+          const matchStatus = statusFilter === 'all' || fd.status === statusFilter;
+          return matchSearch && matchStatus;
+        });
+        const toggleSort = (col: string) => { if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(col); setSortDir('asc'); } };
+        const sorted = [...filtered].sort((a, b) => {
+          if (!sortCol) return 0;
+          const dir = sortDir === 'asc' ? 1 : -1;
+          const av = (a as any)[sortCol], bv = (b as any)[sortCol];
+          if (typeof av === 'string') return av.localeCompare(bv) * dir;
+          return ((av ?? 0) - (bv ?? 0)) * dir;
+        });
+        return (
+          <>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center' }}>
+              <div className="search-bar" style={{ flex: 1, marginBottom: 0 }}>
+                <input type="search" placeholder="Search by bank name or FD number..." value={search} onChange={e => setSearch(e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {['all', 'active', 'matured'].map(s => (
+                  <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-outline'}`} onClick={() => setStatusFilter(s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
+                ))}
+              </div>
+            </div>
         <div className="table-container">
           <table>
             <thead>
               <tr>
-                <th>Bank</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('bank_name')}>Bank {sortCol === 'bank_name' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
                 <th>FD Number</th>
-                <th>Principal</th>
-                <th>Rate</th>
-                <th>Tenure</th>
-                <th>Start</th>
-                <th>Maturity</th>
-                <th>Maturity Amt</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('principal_amount')}>Principal {sortCol === 'principal_amount' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('interest_rate')}>Rate {sortCol === 'interest_rate' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('tenure_months')}>Tenure {sortCol === 'tenure_months' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('start_date')}>Start {sortCol === 'start_date' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('maturity_date')}>Maturity {sortCol === 'maturity_date' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('maturity_amount')}>Maturity Amt {sortCol === 'maturity_amount' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
                 <th>Type</th>
                 <th>Status</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('xirr')}>XIRR {sortCol === 'xirr' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {fds.map(fd => (
+              {sorted.map(fd => (
                 <tr key={fd.id}>
                   <td>{fd.bank_name}</td>
                   <td>{fd.fd_number || '-'}</td>
@@ -137,6 +175,7 @@ export default function FixedDepositsPage() {
                   <td>{formatCurrency(fd.maturity_amount)}</td>
                   <td>{fd.interest_type === 'cumulative' ? 'Cumulative' : 'Non-Cumulative'}</td>
                   <td><span className={`badge badge-${fd.status}`}>{fd.status}</span></td>
+                  <td className={fd.xirr >= 0 ? 'text-success' : 'text-danger'}>{formatPercent(fd.xirr)}</td>
                   <td>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button className="btn btn-sm btn-outline" onClick={() => openEdit(fd)}>Edit</button>
@@ -148,7 +187,9 @@ export default function FixedDepositsPage() {
             </tbody>
           </table>
         </div>
-      )}
+          </>
+        );
+      })()}
 
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>

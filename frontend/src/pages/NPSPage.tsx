@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getNPSAccounts, createNPSAccount, updateNPSAccount, deleteNPSAccount, addNPSContribution } from '../api/nps';
 import type { NPSAccount, CreateNPSAccountRequest, UpdateNPSAccountRequest, AddNPSContributionRequest } from '../types';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatPercent } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
 
 export default function NPSPage() {
   const [accounts, setAccounts] = useState<NPSAccount[]>([]);
@@ -11,7 +12,9 @@ export default function NPSPage() {
   const [showEdit, setShowEdit] = useState<NPSAccount | null>(null);
   const [showContrib, setShowContrib] = useState<string | null>(null);
   const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const [form, setForm] = useState<CreateNPSAccountRequest>({
     account_holder_name: '', pran: '', account_type: 'tier_1', fund_manager: '',
     date_of_joining: '', equity_pct: 50, corporate_bond_pct: 30, govt_sec_pct: 20,
@@ -38,14 +41,14 @@ export default function NPSPage() {
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showEdit) return;
-    const sum = editForm.equity_pct + editForm.corporate_bond_pct + editForm.govt_sec_pct + editForm.alternate_pct;
+    const sum = (editForm.equity_pct ?? 0) + (editForm.corporate_bond_pct ?? 0) + (editForm.govt_sec_pct ?? 0) + (editForm.alternate_pct ?? 0);
     if (sum !== 100) { toast(`Allocation must total 100% (currently ${sum}%)`, 'error'); return; }
     try { await updateNPSAccount(showEdit.id, editForm); setShowEdit(null); toast('NPS account updated'); load(); }
     catch { toast('Failed to update NPS account', 'error'); }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this NPS account?')) return;
+    if (!await confirm({ message: 'Delete this NPS account?', danger: true, confirmLabel: 'Delete' })) return;
     try { await deleteNPSAccount(id); toast('NPS account deleted'); load(); }
     catch { toast('Failed to delete', 'error'); }
   };
@@ -93,6 +96,12 @@ export default function NPSPage() {
               <div className="label">Total Gain/Loss</div>
               <div className={`value ${gainLoss >= 0 ? 'positive' : 'negative'}`}>{formatCurrency(gainLoss)} ({gainPct.toFixed(1)}%)</div>
             </div>
+            <div className="stat-card">
+              <div className="label">Avg XIRR</div>
+              <div className={`value ${(() => { const w = accounts.filter(a => a.current_value > 0); const t = w.reduce((s, a) => s + a.current_value, 0); const x = t > 0 ? w.reduce((s, a) => s + a.xirr * a.current_value, 0) / t : 0; return x >= 0 ? 'positive' : 'negative'; })()}`}>
+                {formatPercent((() => { const w = accounts.filter(a => a.current_value > 0); const t = w.reduce((s, a) => s + a.current_value, 0); return t > 0 ? w.reduce((s, a) => s + a.xirr * a.current_value, 0) / t : 0; })())}
+              </div>
+            </div>
           </div>
         );
       })()}
@@ -105,7 +114,12 @@ export default function NPSPage() {
         </div>
       ) : (
         <div className="card-grid">
-          {accounts.map(a => (
+          <div style={{ gridColumn: '1 / -1' }}>
+            <div className="search-bar" style={{ marginBottom: 0 }}>
+              <input type="search" placeholder="Search by name or PRAN..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+          </div>
+          {accounts.filter(a => !search || a.account_holder_name.toLowerCase().includes(search.toLowerCase()) || a.pran.toLowerCase().includes(search.toLowerCase())).map(a => (
             <div key={a.id} className="card" style={{ cursor: 'pointer' }} onClick={() => setExpanded(expanded === a.id ? null : a.id)}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
@@ -115,6 +129,7 @@ export default function NPSPage() {
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: 20, fontWeight: 700 }}>{formatCurrency(a.current_value)}</div>
                   <div className="text-muted" style={{ fontSize: 13 }}>Contributed: {formatCurrency(a.total_contribution)}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: a.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>XIRR: {formatPercent(a.xirr)}</div>
                 </div>
               </div>
 

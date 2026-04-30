@@ -21,4 +21,5 @@ type ProjectionsResponse struct {
 	TotalProjected1Y float64                `json:"total_projected_1y"`
 	TotalProjected3Y float64                `json:"total_projected_3y"`
 	TotalProjected5Y float64                `json:"total_projected_5y"`
+	Scenario         string                 `json:"scenario"`
 }
