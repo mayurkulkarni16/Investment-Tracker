@@ -123,10 +123,7 @@ export function parsePFText(text: string): ParsedPFData {
   // Or: Date | Particulars | Employee Share | Employer Share | ...
   // Try to find table rows with monthly contribution data
 
-  const _monthNames = [
-    'apr', 'may', 'jun', 'jul', 'aug', 'sep',
-    'oct', 'nov', 'dec', 'jan', 'feb', 'mar'
-  ];
+
 
   const monthPattern = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i;
 

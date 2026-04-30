@@ -111,8 +111,8 @@ export default function CorporateBondsPage() {
       {bonds.length > 0 && (() => {
         const totalInvested = bonds.reduce((s, b) => s + b.investment_amount, 0);
         const totalInterest = bonds.reduce((s, b) => s + b.total_interest_earned, 0);
-        const _totalPrincipalReturned = bonds.reduce((s, b) => s + b.total_principal_returned, 0);
-        const _remaining = bonds.reduce((s, b) => s + b.remaining_principal, 0);
+        const totalPrincipalReturned = bonds.reduce((s, b) => s + b.total_principal_returned, 0);
+        const remaining = bonds.reduce((s, b) => s + b.remaining_principal, 0);
         const activeBonds = bonds.filter(b => b.status !== 'matured').length;
         const avgCoupon = bonds.length > 0 ? bonds.reduce((s, b) => s + b.coupon_rate, 0) / bonds.length : 0;
         const now = new Date();
@@ -120,7 +120,7 @@ export default function CorporateBondsPage() {
         const thisYear = now.getFullYear();
         const interestThisMonth = bonds.reduce((s, b) => s + (b.interest_payouts || []).filter(p => { const d = new Date(p.scheduled_date); return d.getMonth() === thisMonth && d.getFullYear() === thisYear; }).reduce((s2, p) => s2 + p.amount, 0), 0);
         return (
-          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', marginBottom: 20 }}>
+          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 20 }}>
             <div className="stat-card">
               <div className="label">Active / Total Bonds</div>
               <div className="value">{activeBonds} / {bonds.length}</div>
@@ -136,6 +136,14 @@ export default function CorporateBondsPage() {
             <div className="stat-card">
               <div className="label">Interest This Month</div>
               <div className="value positive">{formatCurrency(interestThisMonth)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Principal Returned</div>
+              <div className="value positive">{formatCurrency(totalPrincipalReturned)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Remaining Principal</div>
+              <div className="value">{formatCurrency(remaining)}</div>
             </div>
             <div className="stat-card">
               <div className="label">Avg Coupon Rate</div>

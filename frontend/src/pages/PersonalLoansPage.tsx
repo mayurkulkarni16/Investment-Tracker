@@ -249,7 +249,7 @@ export default function PersonalLoansPage() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="month" fontSize={11} />
                         <YAxis tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}K`} fontSize={11} />
-                        <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                        <Tooltip formatter={(v) => formatCurrency(v as number)} />
                         <Legend />
                         <Area type="monotone" dataKey="principal_portion" name="Principal" stackId="emi" stroke="#1a73e8" fill="#bbdefb" />
                         <Area type="monotone" dataKey="interest_portion" name="Interest" stackId="emi" stroke="#ea4335" fill="#ffcdd2" />

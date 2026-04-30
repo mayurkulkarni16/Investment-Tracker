@@ -81,11 +81,11 @@ export default function FixedDepositsPage() {
       {fds.length > 0 && (() => {
         const activeFDs = fds.filter(f => f.status === 'active');
         const totalPrincipal = activeFDs.reduce((s, f) => s + f.principal_amount, 0);
-        const _totalMaturity = activeFDs.reduce((s, f) => s + f.maturity_amount, 0);
+        const totalMaturity = activeFDs.reduce((s, f) => s + f.maturity_amount, 0);
         const totalInterest = fds.reduce((s, f) => s + f.interest_earned, 0);
         const avgRate = activeFDs.length > 0 ? activeFDs.reduce((s, f) => s + f.interest_rate, 0) / activeFDs.length : 0;
         return (
-          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 20 }}>
+          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', marginBottom: 20 }}>
             <div className="stat-card">
               <div className="label">Active / Total FDs</div>
               <div className="value">{activeFDs.length} / {fds.length}</div>
@@ -93,6 +93,10 @@ export default function FixedDepositsPage() {
             <div className="stat-card">
               <div className="label">Total Principal</div>
               <div className="value">{formatCurrency(totalPrincipal)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Total Maturity Value</div>
+              <div className="value">{formatCurrency(totalMaturity)}</div>
             </div>
             <div className="stat-card">
               <div className="label">Total Interest Earned</div>
