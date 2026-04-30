@@ -6,7 +6,7 @@ import { authApi, type User as AuthUser } from '../api/auth';
 import type { Notification } from '../types';
 
 export default function Sidebar() {
-  const { user, isAdmin, isViewOnly, viewAsUserId, logout, setViewAsUser } = useAuth();
+  const { user, isAdmin, viewAsUserId, logout, setViewAsUser } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showPanel, setShowPanel] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);

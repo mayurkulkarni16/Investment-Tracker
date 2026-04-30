@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getProjections } from '../api/projections';
-import type { ProjectionsResponse, InvestmentProjection } from '../types';
+import type { ProjectionsResponse } from '../types';
 import { formatCurrency } from '../utils/format';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area, BarChart, Bar, Cell } from 'recharts';
 
@@ -184,7 +184,7 @@ export default function ProjectionsPage() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} angle={-45} textAnchor="end" height={60} interval={Math.floor(aggregateChartData.length / 8)} />
               <YAxis tickFormatter={v => `₹${(v / 100000).toFixed(1)}L`} fontSize={11} />
-              <Tooltip formatter={(val: number) => formatCurrency(val)} />
+              <Tooltip formatter={(val) => formatCurrency(val as number)} />
               <Area type="monotone" dataKey="value" name="Portfolio Value" stroke="#1a73e8" fill="url(#growthGradient)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
@@ -198,7 +198,7 @@ export default function ProjectionsPage() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} angle={-45} textAnchor="end" height={60} interval={Math.floor(categoryAggData.length / 8)} />
               <YAxis tickFormatter={v => `₹${(v / 100000).toFixed(1)}L`} fontSize={11} />
-              <Tooltip formatter={(val: number) => formatCurrency(val)} />
+              <Tooltip formatter={(val) => formatCurrency(val as number)} />
               <Legend />
               {categories.map(cat => (
                 <Area key={cat} type="monotone" dataKey={cat} name={CATEGORY_LABELS[cat] || cat} stroke={CATEGORY_COLORS[cat] || '#999'} fill={CATEGORY_COLORS[cat] || '#999'} fillOpacity={0.15} strokeWidth={2} stackId="1" />
@@ -226,7 +226,7 @@ export default function ProjectionsPage() {
                 height={60}
               />
               <YAxis tickFormatter={v => `₹${(v / 100000).toFixed(1)}L`} fontSize={11} />
-              <Tooltip formatter={(val: number) => formatCurrency(val)} />
+              <Tooltip formatter={(val) => formatCurrency(val as number)} />
               <Legend />
               {filtered.slice(0, 8).map((inv, i) => {
                 const lineData = inv.projections
@@ -260,7 +260,7 @@ export default function ProjectionsPage() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis type="number" tickFormatter={v => `${v}%`} fontSize={11} />
               <YAxis type="category" dataKey="name" width={140} fontSize={11} />
-              <Tooltip formatter={(val: number, name: string) => name === 'growth' ? `${val}%` : formatCurrency(val)} />
+              <Tooltip formatter={(val, name) => name === 'growth' ? `${val}%` : formatCurrency(val as number)} />
               <Bar dataKey="growth" name="Growth %" radius={[0, 4, 4, 0]}>
                 {comparisonData.map((entry, i) => (
                   <Cell key={i} fill={CATEGORY_COLORS[entry.category] || COLORS[i % COLORS.length]} />
@@ -279,7 +279,7 @@ export default function ProjectionsPage() {
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis type="number" tickFormatter={v => `₹${(v / 100000).toFixed(1)}L`} fontSize={11} />
             <YAxis type="category" dataKey="name" width={140} fontSize={11} />
-            <Tooltip formatter={(val: number) => formatCurrency(val)} />
+            <Tooltip formatter={(val) => formatCurrency(val as number)} />
             <Legend />
             <Bar dataKey="current" name="Current Value" fill="#1a73e8" radius={[0, 4, 4, 0]} />
             <Bar dataKey="projected" name={`Projected (${years}Y)`} fill="#0f9d58" radius={[0, 4, 4, 0]} />

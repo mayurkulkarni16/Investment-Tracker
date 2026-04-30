@@ -19,6 +19,7 @@ export default function StocksPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [search, setSearch] = useState('');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { toast } = useToast();
   const { confirm } = useConfirm();
 
   const [form, setForm] = useState<CreateStockRequest>({ stock_name: '', symbol: '', exchange: 'NSE' });

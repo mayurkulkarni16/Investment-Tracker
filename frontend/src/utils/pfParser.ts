@@ -49,7 +49,7 @@ export async function extractPFFromPDF(
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    await page.render({ canvas, canvasContext: ctx, viewport } as any).promise;
 
     // Debug: check if canvas has content
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -123,7 +123,7 @@ export function parsePFText(text: string): ParsedPFData {
   // Or: Date | Particulars | Employee Share | Employer Share | ...
   // Try to find table rows with monthly contribution data
 
-  const monthNames = [
+  const _monthNames = [
     'apr', 'may', 'jun', 'jul', 'aug', 'sep',
     'oct', 'nov', 'dec', 'jan', 'feb', 'mar'
   ];

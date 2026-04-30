@@ -111,8 +111,8 @@ export default function CorporateBondsPage() {
       {bonds.length > 0 && (() => {
         const totalInvested = bonds.reduce((s, b) => s + b.investment_amount, 0);
         const totalInterest = bonds.reduce((s, b) => s + b.total_interest_earned, 0);
-        const totalPrincipalReturned = bonds.reduce((s, b) => s + b.total_principal_returned, 0);
-        const remaining = bonds.reduce((s, b) => s + b.remaining_principal, 0);
+        const _totalPrincipalReturned = bonds.reduce((s, b) => s + b.total_principal_returned, 0);
+        const _remaining = bonds.reduce((s, b) => s + b.remaining_principal, 0);
         const activeBonds = bonds.filter(b => b.status !== 'matured').length;
         const avgCoupon = bonds.length > 0 ? bonds.reduce((s, b) => s + b.coupon_rate, 0) / bonds.length : 0;
         const now = new Date();

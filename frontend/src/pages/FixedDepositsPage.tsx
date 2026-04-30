@@ -81,7 +81,7 @@ export default function FixedDepositsPage() {
       {fds.length > 0 && (() => {
         const activeFDs = fds.filter(f => f.status === 'active');
         const totalPrincipal = activeFDs.reduce((s, f) => s + f.principal_amount, 0);
-        const totalMaturity = activeFDs.reduce((s, f) => s + f.maturity_amount, 0);
+        const _totalMaturity = activeFDs.reduce((s, f) => s + f.maturity_amount, 0);
         const totalInterest = fds.reduce((s, f) => s + f.interest_earned, 0);
         const avgRate = activeFDs.length > 0 ? activeFDs.reduce((s, f) => s + f.interest_rate, 0) / activeFDs.length : 0;
         return (

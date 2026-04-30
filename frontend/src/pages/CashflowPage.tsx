@@ -92,7 +92,7 @@ export default function CashflowPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" fontSize={12} />
                 <YAxis tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}K`} fontSize={11} />
-                <Tooltip formatter={(val: number) => formatCurrency(val)} />
+                <Tooltip formatter={(val) => formatCurrency(val as number)} />
                 <Legend />
                 <Bar dataKey="inflow" name="Inflows" fill="#0f9d58" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="outflow" name="Outflows" fill="#ea4335" radius={[4, 4, 0, 0]} />
@@ -107,7 +107,7 @@ export default function CashflowPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" fontSize={12} />
                 <YAxis tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}K`} fontSize={11} />
-                <Tooltip formatter={(val: number) => formatCurrency(val)} />
+                <Tooltip formatter={(val) => formatCurrency(val as number)} />
                 <Area type="monotone" dataKey="cumulative" name="Cumulative Net" stroke="#1a73e8" fill="#1a73e8" fillOpacity={0.15} />
               </AreaChart>
             </ResponsiveContainer>
