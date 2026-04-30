@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: investment-tracker-api
+    runtime: go
+    rootDir: backend
+    buildCommand: go build -o server .
+    startCommand: ./server
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: DB_NAME
+        value: investment_tracker
+      - key: SERVER_PORT
+        value: "8080"
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
