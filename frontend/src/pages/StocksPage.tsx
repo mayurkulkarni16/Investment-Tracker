@@ -4,11 +4,13 @@ import type { Stock, CreateStockRequest, AddStockTransactionRequest, StockExchan
 import { formatCurrency, formatPercent, formatDate } from '../utils/format';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
+import { useAuth } from '../context/AuthContext';
 
 const EXCHANGES: StockExchange[] = ['NSE', 'BSE'];
 const REFRESH_INTERVAL_MS = 60_000; // Auto-refresh every 60s during market hours
 
 export default function StocksPage() {
+  const { isViewOnly } = useAuth();
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -137,10 +139,10 @@ export default function StocksPage() {
               Auto-refresh
             </label>
           )}
-          <button className="btn btn-outline" onClick={handleRefresh} disabled={refreshing}>
+          {!isViewOnly && <button className="btn btn-outline" onClick={handleRefresh} disabled={refreshing}>
             {refreshing ? 'Refreshing...' : 'Refresh Prices'}
-          </button>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Stock</button>
+          </button>}
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Stock</button>}
         </div>
       </div>
 
@@ -178,7 +180,7 @@ export default function StocksPage() {
         <div className="empty-state">
           <h3>No stocks yet</h3>
           <p>Add your first stock to start tracking.</p>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Stock</button>
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Stock</button>}
         </div>
       ) : (
         <>
@@ -240,10 +242,10 @@ export default function StocksPage() {
                       <button className="btn btn-sm btn-outline" onClick={() => setExpandedStock(expandedStock === s.id ? null : s.id)}>
                         {expandedStock === s.id ? 'Hide' : 'Txns'} ({s.transactions?.length || 0})
                       </button>
-                      <button className="btn btn-sm btn-outline" onClick={() => openEdit(s)}>Edit</button>
-                      <button className="btn btn-sm btn-outline" onClick={() => setShowTx(s.id)}>+ Txn</button>
-                      <button className="btn btn-sm btn-outline" onClick={() => { setShowDiv(s.id); setDivForm({ date: '', amount_per_share: 0 }); }}>+ Div</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(s.id)}>Del</button>
+                      {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => openEdit(s)}>Edit</button>}
+                      {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowTx(s.id)}>+ Txn</button>}
+                      {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => { setShowDiv(s.id); setDivForm({ date: '', amount_per_share: 0 }); }}>+ Div</button>}
+                      {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(s.id)}>Del</button>}
                     </div>
                   </td>
                 </tr>
@@ -283,7 +285,7 @@ export default function StocksPage() {
                               <td>{tx.quantity}</td>
                               <td>{formatCurrency(tx.price_per_share)}</td>
                               <td>{formatCurrency(tx.amount)}</td>
-                              <td><button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); handleDeleteTxn(s.id, tx.transaction_id); }}>Del</button></td>
+                              {!isViewOnly && <td><button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); handleDeleteTxn(s.id, tx.transaction_id); }}>Del</button></td>}
                             </tr>
                           ))}
                         </tbody>
@@ -302,7 +304,7 @@ export default function StocksPage() {
                                   <td>{formatDate(d.date)}</td>
                                   <td>₹{d.amount_per_share.toFixed(2)}</td>
                                   <td>{formatCurrency(d.total_amount)}</td>
-                                  <td><button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); handleDeleteDiv(s.id, d.dividend_id); }}>Del</button></td>
+                                  {!isViewOnly && <td><button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); handleDeleteDiv(s.id, d.dividend_id); }}>Del</button></td>}
                                 </tr>
                               ))}
                             </tbody>

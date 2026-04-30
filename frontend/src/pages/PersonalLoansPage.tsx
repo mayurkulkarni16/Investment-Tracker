@@ -3,6 +3,7 @@ import { getPersonalLoans, createPersonalLoan, deletePersonalLoan, updatePersona
 import type { PersonalLoan, CreatePersonalLoanRequest, UpdatePersonalLoanRequest, AddEMIPaymentRequest, AddPrepaymentRequest, ChangeRateRequest, LoanRateType, AmortizationEntry } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line } from 'recharts';
 
@@ -12,6 +13,7 @@ const PURPOSES: Record<string, string> = {
 };
 
 export default function PersonalLoansPage() {
+  const { isViewOnly } = useAuth();
   const [loans, setLoans] = useState<PersonalLoan[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -110,7 +112,7 @@ export default function PersonalLoansPage() {
     <div>
       <div className="page-header">
         <h1>Personal Loans</h1>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Loan</button>
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Loan</button>}
       </div>
 
       <div className="card-grid" style={{ marginBottom: 20 }}>
@@ -124,7 +126,7 @@ export default function PersonalLoansPage() {
         <div className="empty-state">
           <h3>No personal loans yet</h3>
           <p>Add your first personal loan to start tracking.</p>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Loan</button>
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Loan</button>}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -187,9 +189,9 @@ export default function PersonalLoansPage() {
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {l.status === 'active' && (
                   <>
-                    <button className="btn btn-sm btn-outline" onClick={() => setShowEMI(l.id)}>Record EMI</button>
-                    <button className="btn btn-sm btn-outline" onClick={() => setShowPrepay(l.id)}>Prepayment</button>
-                    {l.rate_type === 'floating' && <button className="btn btn-sm btn-outline" onClick={() => setShowRate(l.id)}>Change Rate</button>}
+                    {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowEMI(l.id)}>Record EMI</button>}
+                    {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowPrepay(l.id)}>Prepayment</button>}
+                    {!isViewOnly && l.rate_type === 'floating' && <button className="btn btn-sm btn-outline" onClick={() => setShowRate(l.id)}>Change Rate</button>}
                   </>
                 )}
                 <button className="btn btn-sm btn-outline" onClick={() => handleShowAmort(l.id)}>
@@ -198,8 +200,8 @@ export default function PersonalLoansPage() {
                 <button className="btn btn-sm btn-outline" onClick={() => setExpandedLoan(expandedLoan === l.id ? null : l.id)}>
                   History ({(l.emis_paid?.length || 0) + (l.prepayments?.length || 0)})
                 </button>
-                <button className="btn btn-sm btn-outline" onClick={() => openEdit(l)}>Edit</button>
-                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(l.id)}>Del</button>
+                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => openEdit(l)}>Edit</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(l.id)}>Del</button>}
               </div>
 
               {expandedLoan === l.id && (

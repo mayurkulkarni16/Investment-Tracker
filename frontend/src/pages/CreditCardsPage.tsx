@@ -3,9 +3,11 @@ import { getCreditCards, createCreditCard, updateCreditCard, deleteCreditCard, a
 import type { CreditCard, CreateCreditCardRequest, UpdateCreditCardRequest, AddCardStatementRequest, PayStatementRequest, AddCardTransactionRequest, AddCardEMIRequest, AddCreditScoreRequest } from '../types';
 import { formatCurrency } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
 
 export default function CreditCardsPage() {
+  const { isViewOnly } = useAuth();
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -56,7 +58,7 @@ export default function CreditCardsPage() {
           <h1>Credit Cards</h1>
           <p className="text-muted" style={{ fontSize: 14 }}>Outstanding: {formatCurrency(totalOutstanding)} / Limit: {formatCurrency(totalLimit)}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Card</button>
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Card</button>}
       </div>
 
       {cards.length > 0 && (() => {
@@ -88,7 +90,7 @@ export default function CreditCardsPage() {
         <div className="empty-state">
           <h3>No credit cards added yet</h3>
           <p>Add your first card to start tracking.</p>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Card</button>
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Card</button>}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -124,11 +126,11 @@ export default function CreditCardsPage() {
               )}
 
               <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
-                <button className="btn btn-sm btn-primary" onClick={() => setShowStatement(card.id)}>+ Statement</button>
-                <button className="btn btn-sm btn-outline" onClick={() => setShowEMI(card.id)}>+ EMI</button>
-                <button className="btn btn-sm btn-outline" onClick={() => { setShowEdit(card); setEditForm({ card_name: card.card_name, credit_limit: card.credit_limit, billing_date: card.billing_date, due_date_offset: card.due_date_offset, reward_points: card.reward_points }); }}>Edit</button>
-                <button className="btn btn-sm btn-success" onClick={() => setShowScore(card.id)}>+ Credit Score</button>
-                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(card.id)}>Delete</button>
+                {!isViewOnly && <button className="btn btn-sm btn-primary" onClick={() => setShowStatement(card.id)}>+ Statement</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowEMI(card.id)}>+ EMI</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => { setShowEdit(card); setEditForm({ card_name: card.card_name, credit_limit: card.credit_limit, billing_date: card.billing_date, due_date_offset: card.due_date_offset, reward_points: card.reward_points }); }}>Edit</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-success" onClick={() => setShowScore(card.id)}>+ Credit Score</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(card.id)}>Delete</button>}
               </div>
 
               {expanded === card.id && (
@@ -146,8 +148,8 @@ export default function CreditCardsPage() {
                               <td className="text-right">{formatCurrency(s.amount_paid)}</td>
                               <td><span className={`badge ${s.is_paid ? 'badge-active' : 'badge-matured'}`}>{s.is_paid ? (s.paid_full ? 'Full' : 'Partial') : 'Unpaid'}</span></td>
                               <td style={{ display: 'flex', gap: 4 }}>
-                                {!s.is_paid && <button className="btn btn-sm btn-primary" onClick={() => { setShowPay({ cardId: card.id, statementId: s.statement_id }); setPayForm({ statement_id: s.statement_id, amount_paid: s.total_amount, paid_date: '' }); }}>Pay</button>}
-                                <button className="btn btn-sm btn-outline" onClick={() => { setShowTxn({ cardId: card.id, statementId: s.statement_id }); setTxnForm({ statement_id: s.statement_id, date: '', description: '', amount: 0, category: '' }); }}>+ Txn</button>
+                                {!isViewOnly && !s.is_paid && <button className="btn btn-sm btn-primary" onClick={() => { setShowPay({ cardId: card.id, statementId: s.statement_id }); setPayForm({ statement_id: s.statement_id, amount_paid: s.total_amount, paid_date: '' }); }}>Pay</button>}
+                                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => { setShowTxn({ cardId: card.id, statementId: s.statement_id }); setTxnForm({ statement_id: s.statement_id, date: '', description: '', amount: 0, category: '' }); }}>+ Txn</button>}
                               </td>
                             </tr>
                           ))}

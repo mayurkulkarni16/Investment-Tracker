@@ -165,8 +165,14 @@ tr:hover { background: #f8f9fa; }
 .auth-links a:hover { text-decoration: underline; }
 
 /* View-only banner */
-.view-only-banner { background: #fef3c7; color: #92400e; padding: 8px 16px; text-align: center; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 12px; }
+.view-only-banner { background: #fef3c7; color: #92400e; padding: 8px 16px; text-align: center; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 12px; position: fixed; top: 0; left: 0; right: 0; z-index: 1100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 .view-only-banner button { background: #92400e; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.view-only-banner + .app { padding-top: 36px; }
+.view-only-banner + .app .sidebar { top: 36px; height: calc(100vh - 36px); }
+.view-only-banner + .app .main-content { padding-top: calc(24px + 36px) !important; }
+
+/* View-only mode: hide modals */
+.app.view-only .modal-overlay { display: none !important; }
 
 /* Tooltip */
 .info-tooltip { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--border); color: var(--text-secondary); font-size: 10px; font-weight: 700; cursor: help; margin-left: 4px; position: relative; }

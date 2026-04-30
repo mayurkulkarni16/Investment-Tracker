@@ -3,9 +3,11 @@ import { getNPSAccounts, createNPSAccount, updateNPSAccount, deleteNPSAccount, a
 import type { NPSAccount, CreateNPSAccountRequest, UpdateNPSAccountRequest, AddNPSContributionRequest } from '../types';
 import { formatCurrency, formatPercent } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
 
 export default function NPSPage() {
+  const { isViewOnly } = useAuth();
   const [accounts, setAccounts] = useState<NPSAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -72,7 +74,7 @@ export default function NPSPage() {
           <h1>NPS Accounts</h1>
           <p className="text-muted" style={{ fontSize: 14 }}>Total Value: {formatCurrency(totalValue)} | Total Contributions: {formatCurrency(totalContrib)}</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add NPS Account</button>
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add NPS Account</button>}
       </div>
 
       {accounts.length > 0 && (() => {
@@ -110,7 +112,7 @@ export default function NPSPage() {
         <div className="empty-state">
           <h3>No NPS accounts</h3>
           <p>Add one to get started.</p>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add NPS Account</button>
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add NPS Account</button>}
         </div>
       ) : (
         <div className="card-grid">
@@ -147,9 +149,9 @@ export default function NPSPage() {
               )}
 
               <div style={{ marginTop: 12, display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
-                <button className="btn btn-sm btn-success" onClick={() => { setShowContrib(a.id); setContribForm({ date: '', amount: 0, type: 'self' }); }}>Add Contribution</button>
-                <button className="btn btn-sm btn-primary" onClick={() => { setShowEdit(a); setEditForm({ fund_manager: a.fund_manager, equity_pct: a.equity_pct, corporate_bond_pct: a.corporate_bond_pct, govt_sec_pct: a.govt_sec_pct, alternate_pct: a.alternate_pct, current_value: a.current_value }); }}>Edit</button>
-                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(a.id)}>Delete</button>
+                {!isViewOnly && <button className="btn btn-sm btn-success" onClick={() => { setShowContrib(a.id); setContribForm({ date: '', amount: 0, type: 'self' }); }}>Add Contribution</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-primary" onClick={() => { setShowEdit(a); setEditForm({ fund_manager: a.fund_manager, equity_pct: a.equity_pct, corporate_bond_pct: a.corporate_bond_pct, govt_sec_pct: a.govt_sec_pct, alternate_pct: a.alternate_pct, current_value: a.current_value }); }}>Edit</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(a.id)}>Delete</button>}
               </div>
 
               {expanded === a.id && a.contributions?.length > 0 && (

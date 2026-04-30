@@ -3,10 +3,12 @@ import { getHomeLoans, createHomeLoan, deleteHomeLoan, updateHomeLoan, recordEMI
 import type { HomeLoan, CreateHomeLoanRequest, UpdateHomeLoanRequest, AddEMIPaymentRequest, AddPrepaymentRequest, ChangeRateRequest, LoanRateType, AmortizationEntry, AddDisbursementRequest } from '../types';
 import { formatCurrency, formatDate } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line } from 'recharts';
 
 export default function HomeLoansPage() {
+  const { isViewOnly } = useAuth();
   const [loans, setLoans] = useState<HomeLoan[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -130,7 +132,7 @@ export default function HomeLoansPage() {
     <div>
       <div className="page-header">
         <h1>Home Loans</h1>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Loan</button>
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Loan</button>}
       </div>
 
       {/* Summary cards */}
@@ -163,7 +165,7 @@ export default function HomeLoansPage() {
         <div className="empty-state">
           <h3>No home loans yet</h3>
           <p>Add your first home loan to start tracking.</p>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Loan</button>
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Loan</button>}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -255,15 +257,15 @@ export default function HomeLoansPage() {
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {l.status === 'active' && (
                   <>
-                    <button className="btn btn-sm btn-outline" onClick={() => setShowEMI(l.id)}>Record EMI</button>
+                    {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowEMI(l.id)}>Record EMI</button>}
                     {l.is_under_construction && (
                       <>
-                        <button className="btn btn-sm btn-outline" onClick={() => setShowDisb(l.id)}>Add Disbursement</button>
-                        <button className="btn btn-sm btn-primary" onClick={() => setShowMarkComplete(l.id)}>Mark Construction Complete</button>
+                        {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowDisb(l.id)}>Add Disbursement</button>}
+                        {!isViewOnly && <button className="btn btn-sm btn-primary" onClick={() => setShowMarkComplete(l.id)}>Mark Construction Complete</button>}
                       </>
                     )}
-                    <button className="btn btn-sm btn-outline" onClick={() => setShowPrepay(l.id)}>Prepayment</button>
-                    {l.rate_type === 'floating' && <button className="btn btn-sm btn-outline" onClick={() => setShowRate(l.id)}>Change Rate</button>}
+                    {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowPrepay(l.id)}>Prepayment</button>}
+                    {!isViewOnly && l.rate_type === 'floating' && <button className="btn btn-sm btn-outline" onClick={() => setShowRate(l.id)}>Change Rate</button>}
                   </>
                 )}
                 <button className="btn btn-sm btn-outline" onClick={() => handleShowAmort(l.id)}>
@@ -272,9 +274,9 @@ export default function HomeLoansPage() {
                 <button className="btn btn-sm btn-outline" onClick={() => setExpandedLoan(expandedLoan === l.id ? null : l.id)}>
                   History ({(l.emis_paid?.length || 0) + (l.prepayments?.length || 0) + (l.pre_emis_paid?.length || 0)})
                 </button>
-                <button className="btn btn-sm btn-outline" onClick={() => openEdit(l)}>Edit</button>
-                <button className="btn btn-sm btn-outline" onClick={() => handleRecalculate(l.id)} title="Replay all transactions with correct rates">Recalculate</button>
-                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(l.id)}>Del</button>
+                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => openEdit(l)}>Edit</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => handleRecalculate(l.id)} title="Replay all transactions with correct rates">Recalculate</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(l.id)}>Del</button>}
               </div>
 
               {/* EMI + Prepayment History */}

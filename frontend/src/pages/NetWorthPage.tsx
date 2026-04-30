@@ -4,9 +4,11 @@ import { getBenchmarks } from '../api/benchmarks';
 import type { NetWorthCurrent, NetWorthSnapshot, BenchmarkData } from '../types';
 import { formatCurrency } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../context/AuthContext';
 import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Brush } from 'recharts';
 
 export default function NetWorthPage() {
+  const { isViewOnly } = useAuth();
   const [current, setCurrent] = useState<NetWorthCurrent | null>(null);
   const [history, setHistory] = useState<NetWorthSnapshot[]>([]);
   const [benchmarks, setBenchmarks] = useState<BenchmarkData[]>([]);
@@ -67,7 +69,7 @@ export default function NetWorthPage() {
     <div>
       <div className="page-header">
         <h1>Net Worth</h1>
-        <button className="btn btn-primary" onClick={handleSnapshot}>Take Snapshot</button>
+        {!isViewOnly && <button className="btn btn-primary" onClick={handleSnapshot}>Take Snapshot</button>}
       </div>
 
       {current && (

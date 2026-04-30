@@ -3,6 +3,7 @@ import { getGoals, createGoal, updateGoal, deleteGoal, linkInvestment, batchLink
 import { getMutualFunds } from '../api/mutualFunds';
 import { getStocks } from '../api/stocks';
 import { getFixedDeposits } from '../api/fixedDeposits';
+import { useAuth } from '../context/AuthContext';
 import { getNPSAccounts } from '../api/nps';
 import { getProvidentFunds } from '../api/providentFund';
 import { getCorporateBonds } from '../api/corporateBonds';
@@ -16,6 +17,7 @@ const CATEGORIES = ['retirement', 'education', 'house', 'car', 'wedding', 'emerg
 const ICONS: Record<string, string> = { retirement: '🏖️', education: '🎓', house: '🏠', car: '🚗', wedding: '💍', emergency: '🆘', travel: '✈️', other: '🎯' };
 
 export default function GoalsPage() {
+  const { isViewOnly } = useAuth();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -86,7 +88,7 @@ export default function GoalsPage() {
     <div>
       <div className="page-header">
         <h1>Financial Goals</h1>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Goal</button>
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Goal</button>}
       </div>
 
       {goals.length > 0 && (() => {
@@ -120,7 +122,7 @@ export default function GoalsPage() {
         <div className="empty-state">
           <h3>No goals set</h3>
           <p>Start planning your financial future!</p>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Goal</button>
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Goal</button>}
         </div>
       ) : (
         <div className="card-grid">
@@ -185,9 +187,9 @@ export default function GoalsPage() {
               )}
 
               <div style={{ marginTop: 12, display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
-                <button className="btn btn-sm btn-primary" onClick={() => { setShowLink(g.id); fetchInvestments(linkForm.investment_type); }}>Link Investment</button>
-                <button className="btn btn-sm btn-outline" onClick={() => { setShowEdit(g); setEditForm({ name: g.name, category: g.category, target_amount: g.target_amount, target_date: g.target_date?.slice(0, 10), assumed_return_rate: g.assumed_return_rate, priority: g.priority, status: g.status, notes: g.notes }); }}>Edit</button>
-                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(g.id)}>Delete</button>
+                {!isViewOnly && <button className="btn btn-sm btn-primary" onClick={() => { setShowLink(g.id); fetchInvestments(linkForm.investment_type); }}>Link Investment</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => { setShowEdit(g); setEditForm({ name: g.name, category: g.category, target_amount: g.target_amount, target_date: g.target_date?.slice(0, 10), assumed_return_rate: g.assumed_return_rate, priority: g.priority, status: g.status, notes: g.notes }); }}>Edit</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(g.id)}>Delete</button>}
               </div>
 
               {expanded === g.id && g.linked_investments?.length > 0 && (
@@ -196,7 +198,7 @@ export default function GoalsPage() {
                   {g.linked_investments.map(li => (
                     <div key={li.investment_id} className="payout-item" style={{ fontSize: 13 }}>
                       <span>{li.investment_name} ({li.investment_type}) — {li.allocated_pct}%</span>
-                      <button className="btn btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); handleUnlink(g.id, li.investment_id); }}>Remove</button>
+                      {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); handleUnlink(g.id, li.investment_id); }}>Remove</button>}
                     </div>
                   ))}
                 </div>

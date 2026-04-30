@@ -3,9 +3,11 @@ import { getFixedDeposits, createFixedDeposit, deleteFixedDeposit, updateFixedDe
 import type { FixedDeposit, CreateFixedDepositRequest, InterestType, PayoutFrequency } from '../types';
 import { formatCurrency, formatDate, formatPercent, toInputDate } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
 
 export default function FixedDepositsPage() {
+  const { isViewOnly } = useAuth();
   const [fds, setFDs] = useState<FixedDeposit[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -75,7 +77,7 @@ export default function FixedDepositsPage() {
     <div>
       <div className="page-header">
         <h1>Fixed Deposits</h1>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add FD</button>
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add FD</button>}
       </div>
 
       {fds.length > 0 && (() => {
@@ -120,7 +122,7 @@ export default function FixedDepositsPage() {
         <div className="empty-state">
           <h3>No fixed deposits yet</h3>
           <p>Add your first FD to start tracking.</p>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add FD</button>
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add FD</button>}
         </div>
       ) : (() => {
         const filtered = fds.filter(fd => {
@@ -180,12 +182,12 @@ export default function FixedDepositsPage() {
                   <td>{fd.interest_type === 'cumulative' ? 'Cumulative' : 'Non-Cumulative'}</td>
                   <td><span className={`badge badge-${fd.status}`}>{fd.status}</span></td>
                   <td className={fd.xirr >= 0 ? 'text-success' : 'text-danger'}>{formatPercent(fd.xirr)}</td>
-                  <td>
+                  {!isViewOnly && <td>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button className="btn btn-sm btn-outline" onClick={() => openEdit(fd)}>Edit</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(fd.id)}>Del</button>
+                      {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => openEdit(fd)}>Edit</button>}
+                      {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(fd.id)}>Del</button>}
                     </div>
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>

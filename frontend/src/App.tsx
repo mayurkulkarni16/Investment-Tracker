@@ -30,13 +30,14 @@ function AppShell() {
   useKeyboardShortcuts();
   const { isViewOnly, setViewAsUser } = useAuth();
   return (
-    <div className="app">
+    <>
       {isViewOnly && (
         <div className="view-only-banner">
           <span>You are viewing another user's data (read-only mode)</span>
           <button onClick={() => setViewAsUser(null)}>Exit View Mode</button>
         </div>
       )}
+      <div className={`app${isViewOnly ? ' view-only' : ''}`}>
       <Sidebar />
       <main className="main-content">
         <Routes>
@@ -61,6 +62,7 @@ function AppShell() {
         </Routes>
       </main>
     </div>
+    </>
   );
 }
 

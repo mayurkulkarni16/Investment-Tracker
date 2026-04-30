@@ -5,12 +5,14 @@ import type { MutualFund, CreateMutualFundRequest, AddMFTransactionRequest, Fund
 import { formatCurrency, formatPercent, formatDate } from '../utils/format';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
+import { useAuth } from '../context/AuthContext';
 import { extractTextFromPDF, parseCASText } from '../utils/casParser';
 import type { ParsedCASFund } from '../utils/casParser';
 
 const FUND_TYPES: FundType[] = ['Equity', 'Debt', 'Hybrid', 'ELSS', 'Index', 'Liquid'];
 
 export default function MutualFundsPage() {
+  const { isViewOnly } = useAuth();
   const [funds, setFunds] = useState<MutualFund[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -333,15 +335,15 @@ export default function MutualFundsPage() {
               <button className="btn btn-outline" onClick={() => setFilter(filter === 'all' ? 'elss' : 'all')}>
                 {filter === 'all' ? 'Show ELSS Only' : 'Show All'}
               </button>
-              <button className="btn btn-outline" disabled={submitting} onClick={handleRefresh}>{submitting ? 'Refreshing...' : 'Refresh NAV'}</button>
-              <button className="btn btn-outline" onClick={() => setShowImport(true)}>Import CAS</button>
-              <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Fund</button>
+              {!isViewOnly && <button className="btn btn-outline" disabled={submitting} onClick={handleRefresh}>{submitting ? 'Refreshing...' : 'Refresh NAV'}</button>}
+              {!isViewOnly && <button className="btn btn-outline" onClick={() => setShowImport(true)}>Import CAS</button>}
+              {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Fund</button>}
             </>
           )}
           {tab === 'sips' && (
             <>
-              <button className="btn btn-outline" onClick={() => setShowSIPImport(true)}>Import from CAS</button>
-              <button className="btn btn-primary" onClick={() => setShowAddSIP(true)}>+ Add SIP</button>
+              {!isViewOnly && <button className="btn btn-outline" onClick={() => setShowSIPImport(true)}>Import from CAS</button>}
+              {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAddSIP(true)}>+ Add SIP</button>}
             </>
           )}
         </div>
@@ -399,8 +401,8 @@ export default function MutualFundsPage() {
           <h3>No mutual funds yet</h3>
           <p>Add your first mutual fund investment or import from CAS statement.</p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-            <button className="btn btn-outline" onClick={() => setShowImport(true)}>Import CAS</button>
-            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Fund</button>
+            {!isViewOnly && <button className="btn btn-outline" onClick={() => setShowImport(true)}>Import CAS</button>}
+            {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Fund</button>}
           </div>
         </div>
       ) : (
@@ -447,9 +449,9 @@ export default function MutualFundsPage() {
                       <button className="btn btn-sm btn-outline" onClick={() => setExpandedFund(expandedFund === f.id ? null : f.id)}>
                         {expandedFund === f.id ? 'Hide' : 'Txns'} ({f.transactions?.length || 0})
                       </button>
-                      <button className="btn btn-sm btn-outline" onClick={() => openEdit(f)}>Edit</button>
-                      <button className="btn btn-sm btn-outline" onClick={() => setShowTx(f.id)}>+ Txn</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(f.id)}>Del</button>
+                      {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => openEdit(f)}>Edit</button>}
+                      {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowTx(f.id)}>+ Txn</button>}
+                      {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(f.id)}>Del</button>}
                     </div>
                   </td>
                 </tr>
@@ -491,7 +493,7 @@ export default function MutualFundsPage() {
                               <td>₹{tx.nav_at_purchase.toFixed(4)}</td>
                               <td>{tx.units.toFixed(3)}</td>
                               {f.is_elss && <td>{tx.lock_in_end ? formatDate(tx.lock_in_end) : '-'}</td>}
-                              <td><button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); handleDeleteTxn(f.id, tx.transaction_id); }}>Del</button></td>
+                              {!isViewOnly && <td><button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); handleDeleteTxn(f.id, tx.transaction_id); }}>Del</button></td>}
                             </tr>
                           ))}
                         </tbody>
@@ -513,7 +515,7 @@ export default function MutualFundsPage() {
             <div className="empty-state">
               <h3>No SIPs set up</h3>
               <p>Add a Systematic Investment Plan to automate your mutual fund investing.</p>
-              <button className="btn btn-primary" onClick={() => setShowAddSIP(true)}>+ Add SIP</button>
+              {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAddSIP(true)}>+ Add SIP</button>}
             </div>
           ) : (
             <>
@@ -563,10 +565,10 @@ export default function MutualFundsPage() {
                         <td><span className={`badge ${sip.status === 'active' ? 'badge-active' : sip.status === 'paused' ? 'badge-pending' : 'badge-matured'}`}>{sip.status}</span></td>
                         <td>
                           <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-                            <button className="btn btn-sm btn-success" onClick={() => { setShowRecordSIP(sip.id); setRecordForm({ date: '', amount: sip.amount, status: 'success' }); }}>Record</button>
-                            <button className="btn btn-sm btn-outline" onClick={() => { setShowEditSIP(sip); setEditSIPForm({ amount: sip.amount, sip_date: sip.sip_date, end_date: sip.end_date, notes: sip.notes }); }}>Edit</button>
-                            <button className="btn btn-sm btn-outline" onClick={() => handleToggleSIP(sip)}>{sip.status === 'active' ? 'Pause' : 'Resume'}</button>
-                            <button className="btn btn-sm btn-danger" onClick={() => handleDeleteSIP(sip.id)}>Del</button>
+                            {!isViewOnly && <button className="btn btn-sm btn-success" onClick={() => { setShowRecordSIP(sip.id); setRecordForm({ date: '', amount: sip.amount, status: 'success' }); }}>Record</button>}
+                            {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => { setShowEditSIP(sip); setEditSIPForm({ amount: sip.amount, sip_date: sip.sip_date, end_date: sip.end_date, notes: sip.notes }); }}>Edit</button>}
+                            {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => handleToggleSIP(sip)}>{sip.status === 'active' ? 'Pause' : 'Resume'}</button>}
+                            {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDeleteSIP(sip.id)}>Del</button>}
                           </div>
                         </td>
                       </tr>

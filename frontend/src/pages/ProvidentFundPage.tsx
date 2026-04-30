@@ -3,11 +3,13 @@ import { getProvidentFunds, createProvidentFund, addContribution, updateProviden
 import type { ProvidentFund, CreateProvidentFundRequest, AddMonthlyContributionRequest, PFAccountType } from '../types';
 import { formatCurrency, formatPercent } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
 import { extractPFFromPDF } from '../utils/pfParser';
 import type { ParsedPFData } from '../utils/pfParser';
 
 export default function ProvidentFundPage() {
+  const { isViewOnly } = useAuth();
   const [funds, setFunds] = useState<ProvidentFund[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -128,7 +130,7 @@ export default function ProvidentFundPage() {
     <div>
       <div className="page-header">
         <h1>Provident Fund</h1>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add PF Account</button>
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add PF Account</button>}
       </div>
 
       {funds.length > 0 && (() => {
@@ -168,7 +170,7 @@ export default function ProvidentFundPage() {
         <div className="empty-state">
           <h3>No PF accounts yet</h3>
           <p>Add your EPF, VPF, or PPF account to start tracking.</p>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add PF Account</button>
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add PF Account</button>}
         </div>
       ) : (
         <>
@@ -186,13 +188,13 @@ export default function ProvidentFundPage() {
                 {pf.employer_name && <div className="text-muted" style={{ fontSize: 13 }}>{pf.employer_name}</div>}
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
-                <button className="btn btn-sm btn-outline" onClick={() => openEdit(pf)}>Edit</button>
-                <button className="btn btn-sm btn-outline" onClick={() => setShowImport(pf.id)}>Import PDF</button>
-                <button className="btn btn-sm btn-outline" onClick={() => setShowContrib(pf.id)}>+ Contribution</button>
+                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => openEdit(pf)}>Edit</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowImport(pf.id)}>Import PDF</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowContrib(pf.id)}>+ Contribution</button>}
                 <button className="btn btn-sm btn-outline" onClick={() => setExpanded(expanded === pf.id ? null : pf.id)}>
                   {expanded === pf.id ? 'Hide' : 'Details'}
                 </button>
-                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(pf.id)}>Del</button>
+                {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(pf.id)}>Del</button>}
               </div>
             </div>
 

@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { getCorporateBonds, createCorporateBond, deleteCorporateBond, markPayoutReceived, updateCorporateBond } from '../api/corporateBonds';
 import type { CorporateBond, CreateCorporateBondRequest, PrincipalRepaymentInput, PayoutFrequency, MaturityType } from '../types';
 import { formatCurrency, formatDate, formatPercent, toInputDate } from '../utils/format';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
 
 export default function CorporateBondsPage() {
+  const { isViewOnly } = useAuth();
   const [bonds, setBonds] = useState<CorporateBond[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -105,7 +107,7 @@ export default function CorporateBondsPage() {
     <div>
       <div className="page-header">
         <h1>Corporate Bonds</h1>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Bond</button>
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Bond</button>}
       </div>
 
       {bonds.length > 0 && (() => {
@@ -163,7 +165,7 @@ export default function CorporateBondsPage() {
         <div className="empty-state">
           <h3>No corporate bonds yet</h3>
           <p>Add your first corporate bond to track interest payouts and principal repayments.</p>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Bond</button>
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Bond</button>}
         </div>
       ) : (
         <>
@@ -192,11 +194,11 @@ export default function CorporateBondsPage() {
                 <div className="text-muted" style={{ fontSize: 13 }}>{bond.issuer}</div>
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
-                <button className="btn btn-sm btn-outline" onClick={() => openEdit(bond)}>Edit</button>
+                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => openEdit(bond)}>Edit</button>}
                 <button className="btn btn-sm btn-outline" onClick={() => setExpanded(expanded === bond.id ? null : bond.id)}>
                   {expanded === bond.id ? 'Hide' : 'Details'}
                 </button>
-                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(bond.id)}>Del</button>
+                {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(bond.id)}>Del</button>}
               </div>
             </div>
 
@@ -224,9 +226,7 @@ export default function CorporateBondsPage() {
                           <td>{formatCurrency(p.amount)}</td>
                           <td><span className={`badge badge-${p.status}`}>{p.status}</span></td>
                           <td>
-                            {p.status === 'pending' && (
-                              <button className="btn btn-sm btn-success" onClick={() => handleMarkReceived(bond.id, p.payout_id)}>Mark Received</button>
-                            )}
+                            {!isViewOnly && p.status === 'pending' && <button className="btn btn-sm btn-success" onClick={() => handleMarkReceived(bond.id, p.payout_id)}>Mark Received</button>}
                           </td>
                         </tr>
                       ))}
@@ -245,9 +245,7 @@ export default function CorporateBondsPage() {
                           <td>{formatCurrency(p.amount)}</td>
                           <td><span className={`badge badge-${p.status}`}>{p.status}</span></td>
                           <td>
-                            {p.status === 'pending' && (
-                              <button className="btn btn-sm btn-success" onClick={() => handleMarkReceived(bond.id, p.repayment_id)}>Mark Received</button>
-                            )}
+                            {!isViewOnly && p.status === 'pending' && <button className="btn btn-sm btn-success" onClick={() => handleMarkReceived(bond.id, p.repayment_id)}>Mark Received</button>}
                           </td>
                         </tr>
                       ))}
