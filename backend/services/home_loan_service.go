@@ -20,7 +20,7 @@ func NewHomeLoanService(repo *repository.HomeLoanRepo) *HomeLoanService {
 	return &HomeLoanService{repo: repo}
 }
 
-func (s *HomeLoanService) Create(ctx context.Context, req models.CreateHomeLoanRequest) (*models.HomeLoan, error) {
+func (s *HomeLoanService) Create(ctx context.Context, userID string, req models.CreateHomeLoanRequest) (*models.HomeLoan, error) {
 	emiStart, err := parseDate(req.EMIStartDate)
 	if err != nil {
 		return nil, err
@@ -49,6 +49,7 @@ func (s *HomeLoanService) Create(ctx context.Context, req models.CreateHomeLoanR
 	}
 
 	loan := &models.HomeLoan{
+		UserID:                userID,
 		BankName:              req.BankName,
 		LoanAccountNumber:     req.LoanAccountNumber,
 		PropertyAddress:       req.PropertyAddress,
@@ -83,8 +84,8 @@ func (s *HomeLoanService) Create(ctx context.Context, req models.CreateHomeLoanR
 	return loan, nil
 }
 
-func (s *HomeLoanService) GetAll(ctx context.Context) ([]models.HomeLoan, error) {
-	loans, err := s.repo.GetAll(ctx)
+func (s *HomeLoanService) GetAll(ctx context.Context, userID string) ([]models.HomeLoan, error) {
+	loans, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

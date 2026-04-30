@@ -30,8 +30,12 @@ func (r *NPSRepo) Create(ctx context.Context, account *models.NPSAccount) error 
 	return nil
 }
 
-func (r *NPSRepo) GetAll(ctx context.Context) ([]models.NPSAccount, error) {
-	cursor, err := r.collection.Find(ctx, bson.M{})
+func (r *NPSRepo) GetAll(ctx context.Context, userID string) ([]models.NPSAccount, error) {
+	filter := bson.M{}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
+	cursor, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}

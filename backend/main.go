@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"log"
+	"os"
 
 	"investment-tracker/config"
 	"investment-tracker/database"
 	"investment-tracker/handlers"
+	"investment-tracker/middleware"
 	"investment-tracker/repository"
 	"investment-tracker/services"
 
@@ -22,6 +25,7 @@ func main() {
 	}
 
 	// Repositories
+	userRepo := repository.NewUserRepo(db)
 	mfRepo := repository.NewMutualFundRepo(db)
 	bondRepo := repository.NewCorporateBondRepo(db)
 	fdRepo := repository.NewFixedDepositRepo(db)
@@ -38,6 +42,7 @@ func main() {
 	profileRepo := repository.NewProfileRepo(db)
 
 	// Services
+	authService := services.NewAuthService(userRepo, cfg)
 	navFetcher := services.NewNAVFetcher()
 	priceFetcher := services.NewStockPriceFetcher()
 	mfService := services.NewMutualFundService(mfRepo, navFetcher)
@@ -65,6 +70,7 @@ func main() {
 	scheduler := services.NewScheduler(mfService, stockService, netWorthService)
 
 	// Handlers
+	authHandler := handlers.NewAuthHandler(authService)
 	mfHandler := handlers.NewMutualFundHandler(mfService)
 	bondHandler := handlers.NewCorporateBondHandler(bondService)
 	fdHandler := handlers.NewFixedDepositHandler(fdService)
@@ -92,14 +98,33 @@ func main() {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     []string{cfg.FrontendURL},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-View-As-User"},
 		AllowCredentials: true,
 	}))
 
-	api := r.Group("/api/v1")
+	// Seed admin account
+	authService.SeedAdmin(context.Background())
+
+	// Public auth routes
+	auth := r.Group("/api/v1/auth")
 	{
+		auth.POST("/signup", authHandler.Signup)
+		auth.POST("/login", authHandler.Login)
+		auth.POST("/forgot-password", authHandler.ForgotPassword)
+		auth.POST("/reset-password", authHandler.ResetPassword)
+	}
+
+	api := r.Group("/api/v1")
+	api.Use(middleware.AuthRequired(cfg))
+	api.Use(middleware.ViewOnlyCheck())
+	{
+		// Authenticated auth routes
+		api.GET("/auth/me", authHandler.GetProfile)
+		api.PUT("/auth/me", authHandler.UpdateProfile)
+		api.PUT("/auth/change-password", authHandler.ChangePassword)
+		api.GET("/auth/users", middleware.AdminOnly(), authHandler.GetAllUsers)
 		// Dashboard & Projections
 		api.GET("/dashboard", dashboardHandler.GetDashboard)
 		api.POST("/dashboard/rebalance", dashboardHandler.GetRebalanceSuggestions)
@@ -305,6 +330,16 @@ func main() {
 	// Start daily scheduler
 	scheduler.Start()
 	defer scheduler.Stop()
+
+	// Serve frontend static files in production
+	if _, err := os.Stat("./static"); err == nil {
+		r.Static("/assets", "./static/assets")
+		r.StaticFile("/favicon.ico", "./static/favicon.ico")
+		r.NoRoute(func(c *gin.Context) {
+			c.File("./static/index.html")
+		})
+		log.Println("Serving frontend from ./static")
+	}
 
 	log.Printf("Server starting on port %s", cfg.ServerPort)
 	if err := r.Run(":" + cfg.ServerPort); err != nil {

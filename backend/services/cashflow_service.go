@@ -39,7 +39,7 @@ func NewCashflowService(mfRepo *repository.MutualFundRepo, bondRepo *repository.
 	return &CashflowService{mfRepo: mfRepo, bondRepo: bondRepo, fdRepo: fdRepo, pfRepo: pfRepo, stockRepo: stockRepo, npsRepo: npsRepo}
 }
 
-func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, months int) ([]MonthlyCashflow, error) {
+func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, userID string, months int) ([]MonthlyCashflow, error) {
 	if months <= 0 {
 		months = 12
 	}
@@ -72,7 +72,7 @@ func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, months int) (
 	}
 
 	// 1. Mutual Fund transactions
-	funds, err := s.mfRepo.GetAll(ctx)
+	funds, err := s.mfRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, fund := range funds {
 			for _, tx := range fund.Transactions {
@@ -92,7 +92,7 @@ func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, months int) (
 	}
 
 	// 2. Stock transactions
-	stocks, err := s.stockRepo.GetAll(ctx)
+	stocks, err := s.stockRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, stock := range stocks {
 			for _, tx := range stock.Transactions {
@@ -113,7 +113,7 @@ func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, months int) (
 	}
 
 	// 3. Corporate Bond interest payouts
-	bonds, err := s.bondRepo.GetAll(ctx)
+	bonds, err := s.bondRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, bond := range bonds {
 			if bond.PurchaseDate.After(cutoff) || bond.PurchaseDate.Equal(cutoff) {
@@ -141,7 +141,7 @@ func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, months int) (
 	}
 
 	// 4. Fixed Deposits
-	fds, err := s.fdRepo.GetAll(ctx)
+	fds, err := s.fdRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, fd := range fds {
 			if fd.StartDate.After(cutoff) || fd.StartDate.Equal(cutoff) {
@@ -158,7 +158,7 @@ func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, months int) (
 	}
 
 	// 5. Provident Fund monthly contributions
-	pfs, err := s.pfRepo.GetAll(ctx)
+	pfs, err := s.pfRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, pf := range pfs {
 			for _, fy := range pf.FinancialYearEntries {
@@ -176,7 +176,7 @@ func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, months int) (
 	}
 
 	// 6. NPS contributions
-	npsAccounts, err := s.npsRepo.GetAll(ctx)
+	npsAccounts, err := s.npsRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, nps := range npsAccounts {
 			for _, c := range nps.Contributions {
@@ -208,7 +208,7 @@ func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, months int) (
 }
 
 // GetMonthDetail returns itemized transactions for a specific month (format "2025-01")
-func (s *CashflowService) GetMonthDetail(ctx context.Context, month string) ([]CashflowDetail, error) {
+func (s *CashflowService) GetMonthDetail(ctx context.Context, userID string, month string) ([]CashflowDetail, error) {
 	// Parse month to get start/end
 	start, err := time.Parse("2006-01", month)
 	if err != nil {
@@ -223,7 +223,7 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, month string) ([]C
 	var details []CashflowDetail
 
 	// 1. Mutual Fund transactions
-	funds, err := s.mfRepo.GetAll(ctx)
+	funds, err := s.mfRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, fund := range funds {
 			for _, tx := range fund.Transactions {
@@ -248,7 +248,7 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, month string) ([]C
 	}
 
 	// 2. Stock transactions
-	stocks, err := s.stockRepo.GetAll(ctx)
+	stocks, err := s.stockRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, stock := range stocks {
 			for _, tx := range stock.Transactions {
@@ -273,7 +273,7 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, month string) ([]C
 	}
 
 	// 3. Corporate Bonds
-	bonds, err := s.bondRepo.GetAll(ctx)
+	bonds, err := s.bondRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, bond := range bonds {
 			if inMonth(bond.PurchaseDate) {
@@ -314,7 +314,7 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, month string) ([]C
 	}
 
 	// 4. Fixed Deposits
-	fds, err := s.fdRepo.GetAll(ctx)
+	fds, err := s.fdRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, fd := range fds {
 			if inMonth(fd.StartDate) {
@@ -341,7 +341,7 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, month string) ([]C
 	}
 
 	// 5. Provident Fund
-	pfs, err := s.pfRepo.GetAll(ctx)
+	pfs, err := s.pfRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, pf := range pfs {
 			for _, fy := range pf.FinancialYearEntries {
@@ -377,7 +377,7 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, month string) ([]C
 	}
 
 	// 6. NPS contributions
-	npsAccounts, err := s.npsRepo.GetAll(ctx)
+	npsAccounts, err := s.npsRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, nps := range npsAccounts {
 			for _, c := range nps.Contributions {

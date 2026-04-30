@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -30,7 +31,7 @@ func (h *ProjectionHandler) GetProjections(c *gin.Context) {
 		scenario = "base"
 	}
 
-	projections, err := h.service.GetProjectionsWithScenario(c.Request.Context(), years, scenario)
+	projections, err := h.service.GetProjectionsWithScenario(c.Request.Context(), middleware.GetEffectiveUserID(c), years, scenario)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

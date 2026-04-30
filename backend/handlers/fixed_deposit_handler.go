@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"investment-tracker/models"
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,7 @@ func (h *FixedDepositHandler) Create(c *gin.Context) {
 		return
 	}
 
-	fd, err := h.service.Create(c.Request.Context(), req)
+	fd, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -33,7 +34,7 @@ func (h *FixedDepositHandler) Create(c *gin.Context) {
 }
 
 func (h *FixedDepositHandler) GetAll(c *gin.Context) {
-	fds, err := h.service.GetAll(c.Request.Context())
+	fds, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -75,3 +76,7 @@ func (h *FixedDepositHandler) Delete(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Deleted successfully"})
 }
+
+
+
+

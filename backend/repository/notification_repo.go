@@ -30,9 +30,13 @@ func (r *NotificationRepo) Create(ctx context.Context, notif *models.Notificatio
 	return nil
 }
 
-func (r *NotificationRepo) GetAll(ctx context.Context) ([]models.Notification, error) {
+func (r *NotificationRepo) GetAll(ctx context.Context, userID string) ([]models.Notification, error) {
+	filter := bson.M{}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
 	opts := options.Find().SetSort(bson.D{{Key: "date", Value: -1}}).SetLimit(100)
-	cursor, err := r.collection.Find(ctx, bson.M{}, opts)
+	cursor, err := r.collection.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -43,9 +47,13 @@ func (r *NotificationRepo) GetAll(ctx context.Context) ([]models.Notification, e
 	return notifs, nil
 }
 
-func (r *NotificationRepo) GetUnread(ctx context.Context) ([]models.Notification, error) {
+func (r *NotificationRepo) GetUnread(ctx context.Context, userID string) ([]models.Notification, error) {
+	filter := bson.M{"is_read": false}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
 	opts := options.Find().SetSort(bson.D{{Key: "date", Value: -1}})
-	cursor, err := r.collection.Find(ctx, bson.M{"is_read": false}, opts)
+	cursor, err := r.collection.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +69,12 @@ func (r *NotificationRepo) MarkRead(ctx context.Context, id primitive.ObjectID) 
 	return err
 }
 
-func (r *NotificationRepo) MarkAllRead(ctx context.Context) error {
-	_, err := r.collection.UpdateMany(ctx, bson.M{"is_read": false}, bson.M{"$set": bson.M{"is_read": true}})
+func (r *NotificationRepo) MarkAllRead(ctx context.Context, userID string) error {
+	filter := bson.M{"is_read": false}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
+	_, err := r.collection.UpdateMany(ctx, filter, bson.M{"$set": bson.M{"is_read": true}})
 	return err
 }
 

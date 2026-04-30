@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"investment-tracker/models"
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +24,7 @@ func (h *SIPHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	sip, err := h.service.Create(c.Request.Context(), req)
+	sip, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -32,7 +33,7 @@ func (h *SIPHandler) Create(c *gin.Context) {
 }
 
 func (h *SIPHandler) GetAll(c *gin.Context) {
-	sips, err := h.service.GetAll(c.Request.Context())
+	sips, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -87,3 +88,7 @@ func (h *SIPHandler) RecordInstallment(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, sip)
 }
+
+
+
+

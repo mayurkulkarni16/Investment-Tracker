@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"investment-tracker/models"
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -25,7 +26,7 @@ func (h *CorporateBondHandler) Create(c *gin.Context) {
 		return
 	}
 
-	bond, err := h.service.Create(c.Request.Context(), req)
+	bond, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -34,7 +35,7 @@ func (h *CorporateBondHandler) Create(c *gin.Context) {
 }
 
 func (h *CorporateBondHandler) GetAll(c *gin.Context) {
-	bonds, err := h.service.GetAll(c.Request.Context())
+	bonds, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -100,3 +101,7 @@ func (h *CorporateBondHandler) Update(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, bond)
 }
+
+
+
+

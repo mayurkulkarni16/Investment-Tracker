@@ -38,7 +38,7 @@ func NewTaxService(
 	}
 }
 
-func (s *TaxService) GetTaxSummary(ctx context.Context, fy string) (*models.TaxSummary, error) {
+func (s *TaxService) GetTaxSummary(ctx context.Context, userID string, fy string) (*models.TaxSummary, error) {
 	now := time.Now()
 	fyStart := getCurrentFYStart(now)
 
@@ -53,7 +53,7 @@ func (s *TaxService) GetTaxSummary(ctx context.Context, fy string) (*models.TaxS
 	}
 
 	// 80C: EPF Employee contribution
-	pfs, _ := s.pfRepo.GetAll(ctx)
+	pfs, _ := s.pfRepo.GetAll(ctx, userID)
 	for _, pf := range pfs {
 		for _, fyEntry := range pf.FinancialYearEntries {
 			for _, mc := range fyEntry.MonthlyContributions {
@@ -64,7 +64,7 @@ func (s *TaxService) GetTaxSummary(ctx context.Context, fy string) (*models.TaxS
 	}
 
 	// 80C: ELSS investments
-	mfs, _ := s.mfRepo.GetAll(ctx)
+	mfs, _ := s.mfRepo.GetAll(ctx, userID)
 	for _, mf := range mfs {
 		if mf.IsELSS {
 			for _, txn := range mf.Transactions {
@@ -76,7 +76,7 @@ func (s *TaxService) GetTaxSummary(ctx context.Context, fy string) (*models.TaxS
 	}
 
 	// 80C: Home loan principal
-	homeLoans, _ := s.homeLoanRepo.GetAll(ctx)
+	homeLoans, _ := s.homeLoanRepo.GetAll(ctx, userID)
 	for _, loan := range homeLoans {
 		for _, emi := range loan.EMIsPaid {
 			if emi.PaidDate != nil && !emi.PaidDate.Before(fyStart) {
@@ -108,7 +108,7 @@ func (s *TaxService) GetTaxSummary(ctx context.Context, fy string) (*models.TaxS
 	summary.Section24b.Deduction = math.Min(summary.Section24b.Total, summary.Section24b.Limit)
 
 	// Section 80CCD: NPS
-	npsAccounts, _ := s.npsRepo.GetAll(ctx)
+	npsAccounts, _ := s.npsRepo.GetAll(ctx, userID)
 	for _, nps := range npsAccounts {
 		for _, c := range nps.Contributions {
 			if !c.Date.Before(fyStart) {
@@ -127,7 +127,7 @@ func (s *TaxService) GetTaxSummary(ctx context.Context, fy string) (*models.TaxS
 	}
 
 	// Interest income from FDs and Bonds
-	fds, _ := s.fdRepo.GetAll(ctx)
+	fds, _ := s.fdRepo.GetAll(ctx, userID)
 	for _, fd := range fds {
 		if fd.InterestType == "monthly" || fd.InterestType == "quarterly" {
 			// Estimate interest for FY
@@ -138,7 +138,7 @@ func (s *TaxService) GetTaxSummary(ctx context.Context, fy string) (*models.TaxS
 		}
 	}
 
-	bonds, _ := s.bondRepo.GetAll(ctx)
+	bonds, _ := s.bondRepo.GetAll(ctx, userID)
 	for _, bond := range bonds {
 		for _, p := range bond.InterestPayouts {
 			if p.Status == "received" && !p.ScheduledDate.Before(fyStart) {
@@ -158,7 +158,7 @@ func (s *TaxService) GetTaxSummary(ctx context.Context, fy string) (*models.TaxS
 
 // GetCapitalGains calculates capital gains from MF redemptions and stock sales
 // Uses FIFO cost basis, proper holding periods, and grandfathering for pre-31-Jan-2018 equity.
-func (s *TaxService) GetCapitalGains(ctx context.Context, fy string) (*models.CapitalGainsSummary, error) {
+func (s *TaxService) GetCapitalGains(ctx context.Context, userID string, fy string) (*models.CapitalGainsSummary, error) {
 	now := time.Now()
 	fyStart := getCurrentFYStart(now)
 	// Grandfathering cutoff date for equity LTCG
@@ -177,7 +177,7 @@ func (s *TaxService) GetCapitalGains(ctx context.Context, fy string) (*models.Ca
 	}
 
 	// MF redemptions — FIFO based
-	mfs, _ := s.mfRepo.GetAll(ctx)
+	mfs, _ := s.mfRepo.GetAll(ctx, userID)
 	for _, mf := range mfs {
 		// Build buy lot queue (FIFO)
 		type buyLot struct {
@@ -268,7 +268,7 @@ func (s *TaxService) GetCapitalGains(ctx context.Context, fy string) (*models.Ca
 	}
 
 	// Stock sales — FIFO based
-	stocks, _ := s.stockRepo.GetAll(ctx)
+	stocks, _ := s.stockRepo.GetAll(ctx, userID)
 	for _, stock := range stocks {
 		type buyLot struct {
 			date  time.Time

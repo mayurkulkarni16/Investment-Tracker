@@ -79,8 +79,8 @@ func (s *Scheduler) runDailyTasks() {
 		log.Printf("[Scheduler] Refreshed prices for %d stocks", len(stocks))
 	}
 
-	// 3. Take net worth snapshot
-	if _, err := s.netWorthService.TakeSnapshot(ctx); err != nil {
+	// 3. Take net worth snapshot (for all users — pass empty string)
+	if _, err := s.netWorthService.TakeSnapshot(ctx, ""); err != nil {
 		log.Printf("[Scheduler] Net worth snapshot error: %v", err)
 	} else {
 		log.Println("[Scheduler] Net worth snapshot taken")

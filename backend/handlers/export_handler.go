@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -18,7 +19,7 @@ func NewExportHandler(service *services.ExportService) *ExportHandler {
 
 func (h *ExportHandler) ExportCSV(c *gin.Context) {
 	module := c.DefaultQuery("module", "all")
-	data, filename, err := h.service.ExportCSV(c.Request.Context(), module)
+	data, filename, err := h.service.ExportCSV(c.Request.Context(), middleware.GetEffectiveUserID(c), module)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -26,3 +27,10 @@ func (h *ExportHandler) ExportCSV(c *gin.Context) {
 	c.Header("Content-Disposition", "attachment; filename="+filename)
 	c.Data(http.StatusOK, "text/csv", data)
 }
+
+
+
+
+
+
+

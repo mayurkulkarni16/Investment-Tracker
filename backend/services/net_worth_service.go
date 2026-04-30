@@ -47,61 +47,61 @@ func NewNetWorthService(
 	}
 }
 
-func (s *NetWorthService) GetCurrent(ctx context.Context) (*models.NetWorthCurrent, error) {
+func (s *NetWorthService) GetCurrent(ctx context.Context, userID string) (*models.NetWorthCurrent, error) {
 	nw := &models.NetWorthCurrent{
 		Assets:      make(map[string]float64),
 		Liabilities: make(map[string]float64),
 	}
 
 	// Assets
-	mfs, _ := s.mfRepo.GetAll(ctx)
+	mfs, _ := s.mfRepo.GetAll(ctx, userID)
 	for _, mf := range mfs {
 		nw.Assets["Mutual Funds"] += mf.CurrentValue
 	}
 
-	stocks, _ := s.stockRepo.GetAll(ctx)
+	stocks, _ := s.stockRepo.GetAll(ctx, userID)
 	for _, stock := range stocks {
 		nw.Assets["Stocks"] += stock.CurrentValue
 	}
 
-	fds, _ := s.fdRepo.GetAll(ctx)
+	fds, _ := s.fdRepo.GetAll(ctx, userID)
 	for _, fd := range fds {
 		if fd.Status == "active" {
 			nw.Assets["Fixed Deposits"] += fd.PrincipalAmount
 		}
 	}
 
-	pfs, _ := s.pfRepo.GetAll(ctx)
+	pfs, _ := s.pfRepo.GetAll(ctx, userID)
 	for _, pf := range pfs {
 		nw.Assets["Provident Fund"] += pf.CurrentBalance
 	}
 
-	npsAccounts, _ := s.npsRepo.GetAll(ctx)
+	npsAccounts, _ := s.npsRepo.GetAll(ctx, userID)
 	for _, nps := range npsAccounts {
 		nw.Assets["NPS"] += nps.CurrentValue
 	}
 
-	bonds, _ := s.bondRepo.GetAll(ctx)
+	bonds, _ := s.bondRepo.GetAll(ctx, userID)
 	for _, bond := range bonds {
 		nw.Assets["Corporate Bonds"] += bond.RemainingPrincipal
 	}
 
 	// Liabilities
-	homeLoans, _ := s.homeLoanRepo.GetAll(ctx)
+	homeLoans, _ := s.homeLoanRepo.GetAll(ctx, userID)
 	for _, loan := range homeLoans {
 		if loan.Status == "active" {
 			nw.Liabilities["Home Loans"] += loan.OutstandingPrincipal
 		}
 	}
 
-	personalLoans, _ := s.personalLoanRepo.GetAll(ctx)
+	personalLoans, _ := s.personalLoanRepo.GetAll(ctx, userID)
 	for _, loan := range personalLoans {
 		if loan.Status == "active" {
 			nw.Liabilities["Personal Loans"] += loan.OutstandingPrincipal
 		}
 	}
 
-	creditCards, _ := s.creditCardRepo.GetAll(ctx)
+	creditCards, _ := s.creditCardRepo.GetAll(ctx, userID)
 	for _, card := range creditCards {
 		if card.Status == "active" {
 			nw.Liabilities["Credit Cards"] += card.CurrentOutstanding
@@ -119,14 +119,15 @@ func (s *NetWorthService) GetCurrent(ctx context.Context) (*models.NetWorthCurre
 	return nw, nil
 }
 
-func (s *NetWorthService) TakeSnapshot(ctx context.Context) (*models.NetWorthSnapshot, error) {
-	current, err := s.GetCurrent(ctx)
+func (s *NetWorthService) TakeSnapshot(ctx context.Context, userID string) (*models.NetWorthSnapshot, error) {
+	current, err := s.GetCurrent(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	now := time.Now()
 	snapshot := &models.NetWorthSnapshot{
+		UserID:                userID,
 		Date:                  now,
 		Month:                 now.Format("2006-01"),
 		MutualFunds:           current.Assets["Mutual Funds"],
@@ -149,6 +150,6 @@ func (s *NetWorthService) TakeSnapshot(ctx context.Context) (*models.NetWorthSna
 	return snapshot, nil
 }
 
-func (s *NetWorthService) GetHistory(ctx context.Context) ([]models.NetWorthSnapshot, error) {
-	return s.snapshotRepo.GetAll(ctx)
+func (s *NetWorthService) GetHistory(ctx context.Context, userID string) ([]models.NetWorthSnapshot, error) {
+	return s.snapshotRepo.GetAll(ctx, userID)
 }

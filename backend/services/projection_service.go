@@ -33,11 +33,11 @@ func NewProjectionService(
 	}
 }
 
-func (s *ProjectionService) GetProjections(ctx context.Context, years int) (*models.ProjectionsResponse, error) {
-	return s.GetProjectionsWithScenario(ctx, years, "base")
+func (s *ProjectionService) GetProjections(ctx context.Context, userID string, years int) (*models.ProjectionsResponse, error) {
+	return s.GetProjectionsWithScenario(ctx, userID, years, "base")
 }
 
-func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, years int, scenario string) (*models.ProjectionsResponse, error) {
+func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, userID string, years int, scenario string) (*models.ProjectionsResponse, error) {
 	if years <= 0 || years > 30 {
 		years = 5
 	}
@@ -60,7 +60,7 @@ func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, year
 	}
 
 	// Mutual Funds — use historical CAGR per fund, fallback 12% for equity, 8% for debt
-	funds, err := s.mfRepo.GetAll(ctx)
+	funds, err := s.mfRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, mf := range funds {
 			if mf.CurrentValue <= 0 {
@@ -73,7 +73,7 @@ func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, year
 	}
 
 	// Fixed Deposits — use actual FD rate, project until maturity then flat
-	fds, err := s.fdRepo.GetAll(ctx)
+	fds, err := s.fdRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, fd := range fds {
 			if fd.Status != "active" {
@@ -85,7 +85,7 @@ func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, year
 	}
 
 	// Provident Fund — use current PF rate (default 8.25%)
-	pfs, err := s.pfRepo.GetAll(ctx)
+	pfs, err := s.pfRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, pf := range pfs {
 			if pf.CurrentBalance <= 0 {
@@ -102,7 +102,7 @@ func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, year
 	}
 
 	// Stocks — assume 12% average annual return
-	stocks, err := s.stockRepo.GetAll(ctx)
+	stocks, err := s.stockRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, stock := range stocks {
 			if stock.CurrentValue <= 0 {
@@ -120,7 +120,7 @@ func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, year
 	}
 
 	// Corporate Bonds — use coupon rate, project remaining returns
-	bonds, err := s.bondRepo.GetAll(ctx)
+	bonds, err := s.bondRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, bond := range bonds {
 			if bond.Status == "matured" {

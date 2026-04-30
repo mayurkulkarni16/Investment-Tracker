@@ -23,6 +23,7 @@ const (
 
 type FixedDeposit struct {
 	ID              primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	UserID          string             `json:"user_id" bson:"user_id"`
 	BankName        string             `json:"bank_name" bson:"bank_name"`
 	FDNumber        string             `json:"fd_number" bson:"fd_number"`
 	PrincipalAmount float64            `json:"principal_amount" bson:"principal_amount"`

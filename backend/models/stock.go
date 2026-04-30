@@ -38,6 +38,7 @@ type StockDividend struct {
 
 type Stock struct {
 	ID               primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	UserID           string             `json:"user_id" bson:"user_id"`
 	StockName        string             `json:"stock_name" bson:"stock_name"`
 	Symbol           string             `json:"symbol" bson:"symbol"`
 	Exchange         StockExchange      `json:"exchange" bson:"exchange"`

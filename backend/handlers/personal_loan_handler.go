@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"investment-tracker/models"
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +24,7 @@ func (h *PersonalLoanHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	loan, err := h.service.Create(c.Request.Context(), req)
+	loan, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -32,7 +33,7 @@ func (h *PersonalLoanHandler) Create(c *gin.Context) {
 }
 
 func (h *PersonalLoanHandler) GetAll(c *gin.Context) {
-	loans, err := h.service.GetAll(c.Request.Context())
+	loans, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -124,3 +125,7 @@ func (h *PersonalLoanHandler) GetAmortization(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, schedule)
 }
+
+
+
+

@@ -56,6 +56,7 @@ type InterestPayout struct {
 
 type CorporateBond struct {
 	ID                     primitive.ObjectID   `json:"id" bson:"_id,omitempty"`
+	UserID                 string               `json:"user_id" bson:"user_id"`
 	BondName               string               `json:"bond_name" bson:"bond_name"`
 	Issuer                 string               `json:"issuer" bson:"issuer"`
 	PurchaseDate           time.Time            `json:"purchase_date" bson:"purchase_date"`

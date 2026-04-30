@@ -32,8 +32,12 @@ func (r *PersonalLoanRepo) Create(ctx context.Context, loan *models.PersonalLoan
 	return nil
 }
 
-func (r *PersonalLoanRepo) GetAll(ctx context.Context) ([]models.PersonalLoan, error) {
-	cursor, err := r.collection.Find(ctx, bson.M{})
+func (r *PersonalLoanRepo) GetAll(ctx context.Context, userID string) ([]models.PersonalLoan, error) {
+	filter := bson.M{}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
+	cursor, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}

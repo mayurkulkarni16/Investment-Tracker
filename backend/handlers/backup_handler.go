@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -20,7 +21,7 @@ func NewBackupHandler(service *services.BackupService) *BackupHandler {
 }
 
 func (h *BackupHandler) Export(c *gin.Context) {
-	data, err := h.service.Export(c.Request.Context())
+	data, err := h.service.Export(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -43,10 +44,17 @@ func (h *BackupHandler) Restore(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.Restore(c.Request.Context(), body)
+	result, err := h.service.Restore(c.Request.Context(), middleware.GetEffectiveUserID(c), body)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
 }
+
+
+
+
+
+
+

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"investment-tracker/models"
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,7 @@ func (h *MutualFundHandler) Create(c *gin.Context) {
 		return
 	}
 
-	mf, err := h.service.Create(c.Request.Context(), req)
+	mf, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -33,7 +34,7 @@ func (h *MutualFundHandler) Create(c *gin.Context) {
 }
 
 func (h *MutualFundHandler) GetAll(c *gin.Context) {
-	funds, err := h.service.GetAll(c.Request.Context())
+	funds, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -141,7 +142,7 @@ func (h *MutualFundHandler) ImportFromCAS(c *gin.Context) {
 		return
 	}
 
-	result, err := h.service.ImportFromCAS(c.Request.Context(), req)
+	result, err := h.service.ImportFromCAS(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -150,10 +151,17 @@ func (h *MutualFundHandler) ImportFromCAS(c *gin.Context) {
 }
 
 func (h *MutualFundHandler) RecalculateAll(c *gin.Context) {
-	count, err := h.service.RecalculateAll(c.Request.Context())
+	count, err := h.service.RecalculateAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Recalculated all funds", "funds_updated": count})
 }
+
+
+
+
+
+
+

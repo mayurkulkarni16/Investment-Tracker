@@ -22,8 +22,9 @@ func NewMutualFundService(repo *repository.MutualFundRepo, navFetcher *NAVFetche
 	return &MutualFundService{repo: repo, navFetcher: navFetcher}
 }
 
-func (s *MutualFundService) Create(ctx context.Context, req models.CreateMutualFundRequest) (*models.MutualFund, error) {
+func (s *MutualFundService) Create(ctx context.Context, userID string, req models.CreateMutualFundRequest) (*models.MutualFund, error) {
 	mf := &models.MutualFund{
+		UserID:       userID,
 		FundName:     req.FundName,
 		AMC:          req.AMC,
 		FundType:     req.FundType,
@@ -40,8 +41,8 @@ func (s *MutualFundService) Create(ctx context.Context, req models.CreateMutualF
 	return mf, nil
 }
 
-func (s *MutualFundService) GetAll(ctx context.Context) ([]models.MutualFund, error) {
-	funds, err := s.repo.GetAll(ctx)
+func (s *MutualFundService) GetAll(ctx context.Context, userID string) ([]models.MutualFund, error) {
+	funds, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -67,8 +68,8 @@ func (s *MutualFundService) GetByID(ctx context.Context, id string) (*models.Mut
 	return mf, nil
 }
 
-func (s *MutualFundService) RecalculateAll(ctx context.Context) (int, error) {
-	funds, err := s.repo.GetAll(ctx)
+func (s *MutualFundService) RecalculateAll(ctx context.Context, userID string) (int, error) {
+	funds, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return 0, err
 	}
@@ -165,7 +166,7 @@ func (s *MutualFundService) RefreshNAV(ctx context.Context, id string) (*models.
 }
 
 func (s *MutualFundService) RefreshAllNAVs(ctx context.Context) ([]models.MutualFund, error) {
-	funds, err := s.repo.GetAll(ctx)
+	funds, err := s.repo.GetAll(ctx, "")
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +304,7 @@ func (s *MutualFundService) Update(ctx context.Context, id string, req models.Up
 	return mf, nil
 }
 
-func (s *MutualFundService) ImportFromCAS(ctx context.Context, req models.ImportCASRequest) (*models.ImportResult, error) {
+func (s *MutualFundService) ImportFromCAS(ctx context.Context, userID string, req models.ImportCASRequest) (*models.ImportResult, error) {
 	result := &models.ImportResult{}
 
 	for _, fund := range req.Funds {
@@ -313,7 +314,7 @@ func (s *MutualFundService) ImportFromCAS(ctx context.Context, req models.Import
 		})
 
 		// Try to find existing fund by folio number
-		existingMF, err := s.repo.GetByFolioNumber(ctx, fund.FolioNumber)
+		existingMF, err := s.repo.GetByFolioNumber(ctx, userID, fund.FolioNumber)
 
 		if err != nil {
 			// Fund doesn't exist, create it
@@ -322,6 +323,7 @@ func (s *MutualFundService) ImportFromCAS(ctx context.Context, req models.Import
 			amc := extractAMC(fund.FundName)
 
 			newMF := &models.MutualFund{
+				UserID:       userID,
 				FundName:     fund.FundName,
 				AMC:          amc,
 				FundType:     fundType,

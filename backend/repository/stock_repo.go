@@ -32,8 +32,12 @@ func (r *StockRepo) Create(ctx context.Context, stock *models.Stock) error {
 	return nil
 }
 
-func (r *StockRepo) GetAll(ctx context.Context) ([]models.Stock, error) {
-	cursor, err := r.collection.Find(ctx, bson.M{})
+func (r *StockRepo) GetAll(ctx context.Context, userID string) ([]models.Stock, error) {
+	filter := bson.M{}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
+	cursor, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}

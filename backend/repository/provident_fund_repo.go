@@ -32,8 +32,12 @@ func (r *ProvidentFundRepo) Create(ctx context.Context, pf *models.ProvidentFund
 	return nil
 }
 
-func (r *ProvidentFundRepo) GetAll(ctx context.Context) ([]models.ProvidentFund, error) {
-	cursor, err := r.collection.Find(ctx, bson.M{})
+func (r *ProvidentFundRepo) GetAll(ctx context.Context, userID string) ([]models.ProvidentFund, error) {
+	filter := bson.M{}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
+	cursor, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}

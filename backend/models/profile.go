@@ -8,6 +8,7 @@ import (
 
 type Profile struct {
 	ID           primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	UserID       string             `json:"user_id" bson:"user_id"`
 	Name         string             `json:"name" bson:"name"`
 	Relationship string             `json:"relationship" bson:"relationship"` // self, spouse, parent, child, sibling, other
 	Color        string             `json:"color" bson:"color"`               // hex color for UI

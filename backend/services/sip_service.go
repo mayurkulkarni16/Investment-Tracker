@@ -19,7 +19,7 @@ func NewSIPService(repo *repository.SIPRepo, mfRepo *repository.MutualFundRepo) 
 	return &SIPService{repo: repo, mfRepo: mfRepo}
 }
 
-func (s *SIPService) Create(ctx context.Context, req models.CreateSIPRequest) (*models.SIP, error) {
+func (s *SIPService) Create(ctx context.Context, userID string, req models.CreateSIPRequest) (*models.SIP, error) {
 	startDate, err := parseDate(req.StartDate)
 	if err != nil {
 		return nil, err
@@ -35,6 +35,7 @@ func (s *SIPService) Create(ctx context.Context, req models.CreateSIPRequest) (*
 	}
 
 	sip := &models.SIP{
+		UserID:       userID,
 		FundName:     req.FundName,
 		FundID:       req.FundID,
 		AMCCode:      req.AMCCode,
@@ -56,8 +57,8 @@ func (s *SIPService) Create(ctx context.Context, req models.CreateSIPRequest) (*
 	return sip, nil
 }
 
-func (s *SIPService) GetAll(ctx context.Context) ([]models.SIP, error) {
-	sips, err := s.repo.GetAll(ctx)
+func (s *SIPService) GetAll(ctx context.Context, userID string) ([]models.SIP, error) {
+	sips, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

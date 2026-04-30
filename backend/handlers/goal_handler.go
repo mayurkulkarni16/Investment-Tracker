@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"investment-tracker/models"
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +24,7 @@ func (h *GoalHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	goal, err := h.service.Create(c.Request.Context(), req)
+	goal, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -32,7 +33,7 @@ func (h *GoalHandler) Create(c *gin.Context) {
 }
 
 func (h *GoalHandler) GetAll(c *gin.Context) {
-	goals, err := h.service.GetAll(c.Request.Context())
+	goals, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -111,3 +112,7 @@ func (h *GoalHandler) UnlinkInvestment(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, goal)
 }
+
+
+
+

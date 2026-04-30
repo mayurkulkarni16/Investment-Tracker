@@ -31,7 +31,7 @@ func NewGoalService(
 	return &GoalService{repo: repo, mfRepo: mfRepo, stockRepo: stockRepo, fdRepo: fdRepo, pfRepo: pfRepo, npsRepo: npsRepo, bondRepo: bondRepo}
 }
 
-func (s *GoalService) Create(ctx context.Context, req models.CreateGoalRequest) (*models.Goal, error) {
+func (s *GoalService) Create(ctx context.Context, userID string, req models.CreateGoalRequest) (*models.Goal, error) {
 	targetDate, err := parseDate(req.TargetDate)
 	if err != nil {
 		return nil, err
@@ -51,6 +51,7 @@ func (s *GoalService) Create(ctx context.Context, req models.CreateGoalRequest) 
 	}
 
 	goal := &models.Goal{
+		UserID:            userID,
 		Name:              req.Name,
 		Category:          req.Category,
 		Icon:              icon,
@@ -70,8 +71,8 @@ func (s *GoalService) Create(ctx context.Context, req models.CreateGoalRequest) 
 	return goal, nil
 }
 
-func (s *GoalService) GetAll(ctx context.Context) ([]models.Goal, error) {
-	goals, err := s.repo.GetAll(ctx)
+func (s *GoalService) GetAll(ctx context.Context, userID string) ([]models.Goal, error) {
+	goals, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

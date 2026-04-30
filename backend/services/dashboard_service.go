@@ -104,7 +104,7 @@ type UpcomingPayout struct {
 	PayoutType string  `json:"payout_type"`
 }
 
-func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, error) {
+func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*DashboardData, error) {
 	dashboard := &DashboardData{
 		AssetAllocation: make(map[string]float64),
 		UpcomingPayouts: []UpcomingPayout{},
@@ -115,7 +115,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 	currentFYStart := getCurrentFYStart(now)
 
 	// Mutual Funds
-	funds, err := s.mfRepo.GetAll(ctx)
+	funds, err := s.mfRepo.GetAll(ctx, userID)
 	var allCashflows []Cashflow
 	var equityValue, debtValue float64
 	if err == nil {
@@ -152,7 +152,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 	}
 
 	// Corporate Bonds
-	bonds, err := s.bondRepo.GetAll(ctx)
+	bonds, err := s.bondRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, bond := range bonds {
 			dashboard.BondSummary.TotalInvested += bond.InvestmentAmount
@@ -199,7 +199,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 	}
 
 	// Fixed Deposits
-	fds, err := s.fdRepo.GetAll(ctx)
+	fds, err := s.fdRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, fd := range fds {
 			dashboard.FDSummary.TotalInvested += fd.PrincipalAmount
@@ -227,7 +227,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 	}
 
 	// Provident Fund
-	pfs, err := s.pfRepo.GetAll(ctx)
+	pfs, err := s.pfRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, pf := range pfs {
 			totalContrib := pf.TotalEmployeeContribution + pf.TotalEmployerContribution
@@ -252,7 +252,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 	}
 
 	// Stocks
-	stocks, err := s.stockRepo.GetAll(ctx)
+	stocks, err := s.stockRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, stock := range stocks {
 			dashboard.StockSummary.TotalInvested += stock.TotalInvested
@@ -273,7 +273,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 	}
 
 	// NPS
-	npsAccounts, err := s.npsRepo.GetAll(ctx)
+	npsAccounts, err := s.npsRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, nps := range npsAccounts {
 			dashboard.NPSSummary.TotalInvested += nps.TotalContribution
@@ -294,7 +294,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 	}
 
 	// Home Loans
-	loans, err := s.homeLoanRepo.GetAll(ctx)
+	loans, err := s.homeLoanRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, loan := range loans {
 			if loan.Status == "active" {
@@ -327,7 +327,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 	}
 
 	// Personal Loans
-	pLoans, err := s.personalLoanRepo.GetAll(ctx)
+	pLoans, err := s.personalLoanRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, pl := range pLoans {
 			if pl.Status == "active" {
@@ -359,7 +359,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (*DashboardData, er
 	}
 
 	// Credit Cards (liabilities, not assets)
-	creditCards, err := s.creditCardRepo.GetAll(ctx)
+	creditCards, err := s.creditCardRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, cc := range creditCards {
 			dashboard.CreditCardSummary.TotalOutstanding += cc.CurrentOutstanding
@@ -545,8 +545,8 @@ type RebalanceResponse struct {
 	Suggestions []RebalanceSuggestion `json:"suggestions"`
 }
 
-func (s *DashboardService) GetRebalanceSuggestions(ctx context.Context, targets map[string]float64) (*RebalanceResponse, error) {
-	dashboard, err := s.GetDashboard(ctx)
+func (s *DashboardService) GetRebalanceSuggestions(ctx context.Context, userID string, targets map[string]float64) (*RebalanceResponse, error) {
+	dashboard, err := s.GetDashboard(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

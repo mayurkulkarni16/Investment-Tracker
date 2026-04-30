@@ -79,18 +79,18 @@ func NewInsightsService(
 	}
 }
 
-func (s *InsightsService) GetInsights(ctx context.Context) (*InsightsResponse, error) {
+func (s *InsightsService) GetInsights(ctx context.Context, userID string) (*InsightsResponse, error) {
 	var insights []Insight
 
-	funds, _ := s.mfService.GetAll(ctx)
-	stocks, _ := s.stockService.GetAll(ctx)
-	bonds, _ := s.bondService.GetAll(ctx)
-	fds, _ := s.fdService.GetAll(ctx)
-	pfs, _ := s.pfService.GetAll(ctx)
-	homeLoans, _ := s.homeLoanRepo.GetAll(ctx)
-	personalLoans, _ := s.personalLoanRepo.GetAll(ctx)
-	npsAccounts, _ := s.npsService.GetAll(ctx)
-	goals, _ := s.goalService.GetAll(ctx)
+	funds, _ := s.mfService.GetAll(ctx, userID)
+	stocks, _ := s.stockService.GetAll(ctx, userID)
+	bonds, _ := s.bondService.GetAll(ctx, userID)
+	fds, _ := s.fdService.GetAll(ctx, userID)
+	pfs, _ := s.pfService.GetAll(ctx, userID)
+	homeLoans, _ := s.homeLoanRepo.GetAll(ctx, userID)
+	personalLoans, _ := s.personalLoanRepo.GetAll(ctx, userID)
+	npsAccounts, _ := s.npsService.GetAll(ctx, userID)
+	goals, _ := s.goalService.GetAll(ctx, userID)
 
 	// Compute totals
 	var totalEquity, totalDebt, totalAssets, totalLiabilities float64

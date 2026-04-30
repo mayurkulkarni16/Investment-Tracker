@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -17,10 +18,14 @@ func NewInsightsHandler(service *services.InsightsService) *InsightsHandler {
 }
 
 func (h *InsightsHandler) GetInsights(c *gin.Context) {
-	resp, err := h.service.GetInsights(c.Request.Context())
+	resp, err := h.service.GetInsights(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, resp)
 }
+
+
+
+

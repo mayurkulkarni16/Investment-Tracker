@@ -30,8 +30,12 @@ func (r *ProfileRepo) Create(ctx context.Context, profile *models.Profile) error
 	return nil
 }
 
-func (r *ProfileRepo) GetAll(ctx context.Context) ([]models.Profile, error) {
-	cursor, err := r.collection.Find(ctx, bson.M{})
+func (r *ProfileRepo) GetAll(ctx context.Context, userID string) ([]models.Profile, error) {
+	filter := bson.M{}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
+	cursor, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}

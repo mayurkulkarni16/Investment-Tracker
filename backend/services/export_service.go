@@ -38,38 +38,38 @@ func NewExportService(
 	}
 }
 
-func (s *ExportService) ExportCSV(ctx context.Context, module string) ([]byte, string, error) {
+func (s *ExportService) ExportCSV(ctx context.Context, userID string, module string) ([]byte, string, error) {
 	var buf bytes.Buffer
 	w := csv.NewWriter(&buf)
 	filename := fmt.Sprintf("investment_tracker_%s_%s.csv", module, time.Now().Format("20060102"))
 
 	switch module {
 	case "mutual_funds":
-		s.exportMutualFunds(ctx, w)
+		s.exportMutualFunds(ctx, userID, w)
 	case "stocks":
-		s.exportStocks(ctx, w)
+		s.exportStocks(ctx, userID, w)
 	case "fixed_deposits":
-		s.exportFDs(ctx, w)
+		s.exportFDs(ctx, userID, w)
 	case "home_loans":
-		s.exportHomeLoans(ctx, w)
+		s.exportHomeLoans(ctx, userID, w)
 	case "personal_loans":
-		s.exportPersonalLoans(ctx, w)
+		s.exportPersonalLoans(ctx, userID, w)
 	case "nps":
-		s.exportNPS(ctx, w)
+		s.exportNPS(ctx, userID, w)
 	case "all":
 		filename = fmt.Sprintf("investment_tracker_all_%s.csv", time.Now().Format("20060102"))
-		s.exportAll(ctx, w)
+		s.exportAll(ctx, userID, w)
 	default:
-		s.exportAll(ctx, w)
+		s.exportAll(ctx, userID, w)
 	}
 
 	w.Flush()
 	return buf.Bytes(), filename, nil
 }
 
-func (s *ExportService) exportMutualFunds(ctx context.Context, w *csv.Writer) {
+func (s *ExportService) exportMutualFunds(ctx context.Context, userID string, w *csv.Writer) {
 	w.Write([]string{"Type", "Fund Name", "AMC", "Fund Type", "Folio", "Total Invested", "Current Value", "Gain/Loss %", "Total Units", "NAV"})
-	mfs, _ := s.mfRepo.GetAll(ctx)
+	mfs, _ := s.mfRepo.GetAll(ctx, userID)
 	for _, mf := range mfs {
 		w.Write([]string{
 			"Mutual Fund", mf.FundName, mf.AMC, string(mf.FundType), mf.FolioNumber,
@@ -79,9 +79,9 @@ func (s *ExportService) exportMutualFunds(ctx context.Context, w *csv.Writer) {
 	}
 }
 
-func (s *ExportService) exportStocks(ctx context.Context, w *csv.Writer) {
+func (s *ExportService) exportStocks(ctx context.Context, userID string, w *csv.Writer) {
 	w.Write([]string{"Type", "Symbol", "Name", "Exchange", "Quantity", "Avg Buy Price", "Current Price", "Invested", "Current Value", "Gain %"})
-	stocks, _ := s.stockRepo.GetAll(ctx)
+	stocks, _ := s.stockRepo.GetAll(ctx, userID)
 	for _, stock := range stocks {
 		gainPct := 0.0
 		if stock.TotalInvested > 0 {
@@ -96,9 +96,9 @@ func (s *ExportService) exportStocks(ctx context.Context, w *csv.Writer) {
 	}
 }
 
-func (s *ExportService) exportFDs(ctx context.Context, w *csv.Writer) {
+func (s *ExportService) exportFDs(ctx context.Context, userID string, w *csv.Writer) {
 	w.Write([]string{"Type", "Bank", "FD Number", "Principal", "Interest Rate", "Maturity Amount", "Start Date", "Maturity Date", "Status"})
-	fds, _ := s.fdRepo.GetAll(ctx)
+	fds, _ := s.fdRepo.GetAll(ctx, userID)
 	for _, fd := range fds {
 		w.Write([]string{
 			"Fixed Deposit", fd.BankName, fd.FDNumber,
@@ -109,9 +109,9 @@ func (s *ExportService) exportFDs(ctx context.Context, w *csv.Writer) {
 	}
 }
 
-func (s *ExportService) exportHomeLoans(ctx context.Context, w *csv.Writer) {
+func (s *ExportService) exportHomeLoans(ctx context.Context, userID string, w *csv.Writer) {
 	w.Write([]string{"Type", "Bank", "Account", "Sanctioned", "Disbursed", "Outstanding", "Rate", "EMI", "Tenure", "Status"})
-	loans, _ := s.homeLoanRepo.GetAll(ctx)
+	loans, _ := s.homeLoanRepo.GetAll(ctx, userID)
 	for _, loan := range loans {
 		w.Write([]string{
 			"Home Loan", loan.BankName, loan.LoanAccountNumber,
@@ -123,9 +123,9 @@ func (s *ExportService) exportHomeLoans(ctx context.Context, w *csv.Writer) {
 	}
 }
 
-func (s *ExportService) exportPersonalLoans(ctx context.Context, w *csv.Writer) {
+func (s *ExportService) exportPersonalLoans(ctx context.Context, userID string, w *csv.Writer) {
 	w.Write([]string{"Type", "Lender", "Account", "Disbursed", "Outstanding", "Rate", "EMI", "Status"})
-	loans, _ := s.personalLoanRepo.GetAll(ctx)
+	loans, _ := s.personalLoanRepo.GetAll(ctx, userID)
 	for _, loan := range loans {
 		w.Write([]string{
 			"Personal Loan", loan.LenderName, loan.LoanAccountNumber,
@@ -136,9 +136,9 @@ func (s *ExportService) exportPersonalLoans(ctx context.Context, w *csv.Writer) 
 	}
 }
 
-func (s *ExportService) exportNPS(ctx context.Context, w *csv.Writer) {
+func (s *ExportService) exportNPS(ctx context.Context, userID string, w *csv.Writer) {
 	w.Write([]string{"Type", "Holder", "PRAN", "Account Type", "Fund Manager", "Total Contribution", "Current Value"})
-	accounts, _ := s.npsRepo.GetAll(ctx)
+	accounts, _ := s.npsRepo.GetAll(ctx, userID)
 	for _, nps := range accounts {
 		w.Write([]string{
 			"NPS", nps.AccountHolderName, nps.PRAN, string(nps.AccountType),
@@ -148,22 +148,22 @@ func (s *ExportService) exportNPS(ctx context.Context, w *csv.Writer) {
 	}
 }
 
-func (s *ExportService) exportAll(ctx context.Context, w *csv.Writer) {
+func (s *ExportService) exportAll(ctx context.Context, userID string, w *csv.Writer) {
 	w.Write([]string{"--- MUTUAL FUNDS ---"})
-	s.exportMutualFunds(ctx, w)
+	s.exportMutualFunds(ctx, userID, w)
 	w.Write([]string{""})
 	w.Write([]string{"--- STOCKS ---"})
-	s.exportStocks(ctx, w)
+	s.exportStocks(ctx, userID, w)
 	w.Write([]string{""})
 	w.Write([]string{"--- FIXED DEPOSITS ---"})
-	s.exportFDs(ctx, w)
+	s.exportFDs(ctx, userID, w)
 	w.Write([]string{""})
 	w.Write([]string{"--- HOME LOANS ---"})
-	s.exportHomeLoans(ctx, w)
+	s.exportHomeLoans(ctx, userID, w)
 	w.Write([]string{""})
 	w.Write([]string{"--- PERSONAL LOANS ---"})
-	s.exportPersonalLoans(ctx, w)
+	s.exportPersonalLoans(ctx, userID, w)
 	w.Write([]string{""})
 	w.Write([]string{"--- NPS ---"})
-	s.exportNPS(ctx, w)
+	s.exportNPS(ctx, userID, w)
 }

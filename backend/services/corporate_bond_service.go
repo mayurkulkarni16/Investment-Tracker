@@ -21,7 +21,7 @@ func NewCorporateBondService(repo *repository.CorporateBondRepo) *CorporateBondS
 	return &CorporateBondService{repo: repo}
 }
 
-func (s *CorporateBondService) Create(ctx context.Context, req models.CreateCorporateBondRequest) (*models.CorporateBond, error) {
+func (s *CorporateBondService) Create(ctx context.Context, userID string, req models.CreateCorporateBondRequest) (*models.CorporateBond, error) {
 	purchaseDate, err := parseDate(req.PurchaseDate)
 	if err != nil {
 		return nil, fmt.Errorf("invalid purchase_date: %w", err)
@@ -32,6 +32,7 @@ func (s *CorporateBondService) Create(ctx context.Context, req models.CreateCorp
 	}
 
 	bond := &models.CorporateBond{
+		UserID:             userID,
 		BondName:           req.BondName,
 		Issuer:             req.Issuer,
 		PurchaseDate:       purchaseDate,
@@ -155,8 +156,8 @@ func (s *CorporateBondService) calculateInterestByDays(principal, annualRate flo
 	return math.Round(interest*100) / 100
 }
 
-func (s *CorporateBondService) GetAll(ctx context.Context) ([]models.CorporateBond, error) {
-	bonds, err := s.repo.GetAll(ctx)
+func (s *CorporateBondService) GetAll(ctx context.Context, userID string) ([]models.CorporateBond, error) {
+	bonds, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

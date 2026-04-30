@@ -39,12 +39,12 @@ func NewNotificationService(
 	}
 }
 
-func (s *NotificationService) GetAll(ctx context.Context) ([]models.Notification, error) {
-	return s.repo.GetAll(ctx)
+func (s *NotificationService) GetAll(ctx context.Context, userID string) ([]models.Notification, error) {
+	return s.repo.GetAll(ctx, userID)
 }
 
-func (s *NotificationService) GetUnread(ctx context.Context) ([]models.Notification, error) {
-	return s.repo.GetUnread(ctx)
+func (s *NotificationService) GetUnread(ctx context.Context, userID string) ([]models.Notification, error) {
+	return s.repo.GetUnread(ctx, userID)
 }
 
 func (s *NotificationService) MarkRead(ctx context.Context, id string) error {
@@ -55,18 +55,18 @@ func (s *NotificationService) MarkRead(ctx context.Context, id string) error {
 	return s.repo.MarkRead(ctx, objID)
 }
 
-func (s *NotificationService) MarkAllRead(ctx context.Context) error {
-	return s.repo.MarkAllRead(ctx)
+func (s *NotificationService) MarkAllRead(ctx context.Context, userID string) error {
+	return s.repo.MarkAllRead(ctx, userID)
 }
 
 // GenerateNotifications scans all modules and creates upcoming reminders
-func (s *NotificationService) GenerateNotifications(ctx context.Context) ([]models.Notification, error) {
+func (s *NotificationService) GenerateNotifications(ctx context.Context, userID string) ([]models.Notification, error) {
 	now := time.Now()
 	upcoming := now.AddDate(0, 0, 7) // 7 days ahead
 	var generated []models.Notification
 
 	// Home Loan EMIs
-	homeLoans, _ := s.homeLoanRepo.GetAll(ctx)
+	homeLoans, _ := s.homeLoanRepo.GetAll(ctx, userID)
 	for _, loan := range homeLoans {
 		if loan.Status != "active" {
 			continue
@@ -91,7 +91,7 @@ func (s *NotificationService) GenerateNotifications(ctx context.Context) ([]mode
 	}
 
 	// Personal Loan EMIs
-	pLoans, _ := s.personalLoanRepo.GetAll(ctx)
+	pLoans, _ := s.personalLoanRepo.GetAll(ctx, userID)
 	for _, loan := range pLoans {
 		if loan.Status != "active" {
 			continue
@@ -114,7 +114,7 @@ func (s *NotificationService) GenerateNotifications(ctx context.Context) ([]mode
 	}
 
 	// FD Maturities
-	fds, _ := s.fdRepo.GetAll(ctx)
+	fds, _ := s.fdRepo.GetAll(ctx, userID)
 	for _, fd := range fds {
 		if fd.Status == "active" && !fd.MaturityDate.Before(now) && !fd.MaturityDate.After(now.AddDate(0, 0, 30)) {
 			generated = append(generated, models.Notification{
@@ -129,7 +129,7 @@ func (s *NotificationService) GenerateNotifications(ctx context.Context) ([]mode
 	}
 
 	// Bond Coupons
-	bonds, _ := s.bondRepo.GetAll(ctx)
+	bonds, _ := s.bondRepo.GetAll(ctx, userID)
 	for _, bond := range bonds {
 		for _, p := range bond.InterestPayouts {
 			if p.Status == "pending" && !p.ScheduledDate.Before(now) && !p.ScheduledDate.After(now.AddDate(0, 0, 30)) {
@@ -146,7 +146,7 @@ func (s *NotificationService) GenerateNotifications(ctx context.Context) ([]mode
 	}
 
 	// SIP Due Dates
-	sips, _ := s.sipRepo.GetAll(ctx)
+	sips, _ := s.sipRepo.GetAll(ctx, userID)
 	for _, sip := range sips {
 		if sip.Status != "active" {
 			continue
@@ -168,7 +168,7 @@ func (s *NotificationService) GenerateNotifications(ctx context.Context) ([]mode
 	}
 
 	// Credit Card Due Dates
-	cards, _ := s.creditCardRepo.GetAll(ctx)
+	cards, _ := s.creditCardRepo.GetAll(ctx, userID)
 	for _, card := range cards {
 		if card.Status != "active" {
 			continue
@@ -189,7 +189,7 @@ func (s *NotificationService) GenerateNotifications(ctx context.Context) ([]mode
 
 	// Goal Milestones
 	if s.goalService != nil {
-		goals, _ := s.goalService.GetAll(ctx)
+		goals, _ := s.goalService.GetAll(ctx, userID)
 		for _, g := range goals {
 			if g.Status != "active" {
 				continue
@@ -225,6 +225,7 @@ func (s *NotificationService) GenerateNotifications(ctx context.Context) ([]mode
 	// Store generated notifications
 	for i := range generated {
 		generated[i].ID = [12]byte{} // reset for insert
+		generated[i].UserID = userID
 		n := generated[i]
 		n.CreatedAt = time.Now()
 		uid := uuid.New().String()

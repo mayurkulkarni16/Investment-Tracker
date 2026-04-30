@@ -18,7 +18,7 @@ func NewPersonalLoanService(repo *repository.PersonalLoanRepo) *PersonalLoanServ
 	return &PersonalLoanService{repo: repo}
 }
 
-func (s *PersonalLoanService) Create(ctx context.Context, req models.CreatePersonalLoanRequest) (*models.PersonalLoan, error) {
+func (s *PersonalLoanService) Create(ctx context.Context, userID string, req models.CreatePersonalLoanRequest) (*models.PersonalLoan, error) {
 	emiStart, err := parseDate(req.EMIStartDate)
 	if err != nil {
 		return nil, err
@@ -32,6 +32,7 @@ func (s *PersonalLoanService) Create(ctx context.Context, req models.CreatePerso
 	endDate := emiStart.AddDate(0, req.TenureMonths, 0)
 
 	loan := &models.PersonalLoan{
+		UserID:                userID,
 		LenderName:            req.LenderName,
 		LoanAccountNumber:     req.LoanAccountNumber,
 		LoanPurpose:           req.LoanPurpose,
@@ -61,8 +62,8 @@ func (s *PersonalLoanService) Create(ctx context.Context, req models.CreatePerso
 	return loan, nil
 }
 
-func (s *PersonalLoanService) GetAll(ctx context.Context) ([]models.PersonalLoan, error) {
-	return s.repo.GetAll(ctx)
+func (s *PersonalLoanService) GetAll(ctx context.Context, userID string) ([]models.PersonalLoan, error) {
+	return s.repo.GetAll(ctx, userID)
 }
 
 func (s *PersonalLoanService) GetByID(ctx context.Context, id string) (*models.PersonalLoan, error) {

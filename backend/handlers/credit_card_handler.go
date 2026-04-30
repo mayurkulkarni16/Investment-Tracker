@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"investment-tracker/models"
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +24,7 @@ func (h *CreditCardHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	card, err := h.service.Create(c.Request.Context(), req)
+	card, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -32,7 +33,7 @@ func (h *CreditCardHandler) Create(c *gin.Context) {
 }
 
 func (h *CreditCardHandler) GetAll(c *gin.Context) {
-	cards, err := h.service.GetAll(c.Request.Context())
+	cards, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -143,3 +144,7 @@ func (h *CreditCardHandler) AddCreditScore(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, card)
 }
+
+
+
+

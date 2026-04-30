@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -25,7 +26,7 @@ func (h *CashflowHandler) GetMonthlyCashflows(c *gin.Context) {
 		}
 	}
 
-	cashflows, err := h.service.GetMonthlyCashflows(c.Request.Context(), months)
+	cashflows, err := h.service.GetMonthlyCashflows(c.Request.Context(), middleware.GetEffectiveUserID(c), months)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -36,10 +37,17 @@ func (h *CashflowHandler) GetMonthlyCashflows(c *gin.Context) {
 
 func (h *CashflowHandler) GetMonthDetail(c *gin.Context) {
 	month := c.Param("month")
-	details, err := h.service.GetMonthDetail(c.Request.Context(), month)
+	details, err := h.service.GetMonthDetail(c.Request.Context(), middleware.GetEffectiveUserID(c), month)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, details)
 }
+
+
+
+
+
+
+

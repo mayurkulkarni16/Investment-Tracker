@@ -83,6 +83,7 @@ type Prepayment struct {
 
 type HomeLoan struct {
 	ID                    primitive.ObjectID  `json:"id" bson:"_id,omitempty"`
+	UserID                string              `json:"user_id" bson:"user_id"`
 	BankName              string              `json:"bank_name" bson:"bank_name"`
 	LoanAccountNumber     string              `json:"loan_account_number" bson:"loan_account_number"`
 	PropertyAddress       string              `json:"property_address" bson:"property_address"`

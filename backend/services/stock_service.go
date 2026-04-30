@@ -20,8 +20,9 @@ func NewStockService(repo *repository.StockRepo, priceFetcher *StockPriceFetcher
 	return &StockService{repo: repo, priceFetcher: priceFetcher}
 }
 
-func (s *StockService) Create(ctx context.Context, req models.CreateStockRequest) (*models.Stock, error) {
+func (s *StockService) Create(ctx context.Context, userID string, req models.CreateStockRequest) (*models.Stock, error) {
 	stock := &models.Stock{
+		UserID:       userID,
 		StockName:    req.StockName,
 		Symbol:       req.Symbol,
 		Exchange:     req.Exchange,
@@ -35,8 +36,8 @@ func (s *StockService) Create(ctx context.Context, req models.CreateStockRequest
 	return stock, nil
 }
 
-func (s *StockService) GetAll(ctx context.Context) ([]models.Stock, error) {
-	stocks, err := s.repo.GetAll(ctx)
+func (s *StockService) GetAll(ctx context.Context, userID string) ([]models.Stock, error) {
+	stocks, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +131,7 @@ func (s *StockService) RefreshPrice(ctx context.Context, id string) (*models.Sto
 }
 
 func (s *StockService) RefreshAllPrices(ctx context.Context) ([]models.Stock, error) {
-	stocks, err := s.repo.GetAll(ctx)
+	stocks, err := s.repo.GetAll(ctx, "")
 	if err != nil {
 		return nil, err
 	}

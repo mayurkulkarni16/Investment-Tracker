@@ -32,8 +32,12 @@ func (r *MutualFundRepo) Create(ctx context.Context, mf *models.MutualFund) erro
 	return nil
 }
 
-func (r *MutualFundRepo) GetAll(ctx context.Context) ([]models.MutualFund, error) {
-	cursor, err := r.collection.Find(ctx, bson.M{})
+func (r *MutualFundRepo) GetAll(ctx context.Context, userID string) ([]models.MutualFund, error) {
+	filter := bson.M{}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
+	cursor, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -66,9 +70,9 @@ func (r *MutualFundRepo) Delete(ctx context.Context, id primitive.ObjectID) erro
 	return err
 }
 
-func (r *MutualFundRepo) GetByFolioNumber(ctx context.Context, folioNumber string) (*models.MutualFund, error) {
+func (r *MutualFundRepo) GetByFolioNumber(ctx context.Context, userID string, folioNumber string) (*models.MutualFund, error) {
 	var mf models.MutualFund
-	err := r.collection.FindOne(ctx, bson.M{"folio_number": folioNumber}).Decode(&mf)
+	err := r.collection.FindOne(ctx, bson.M{"folio_number": folioNumber, "user_id": userID}).Decode(&mf)
 	if err != nil {
 		return nil, err
 	}

@@ -19,7 +19,7 @@ func NewCreditCardService(repo *repository.CreditCardRepo) *CreditCardService {
 	return &CreditCardService{repo: repo}
 }
 
-func (s *CreditCardService) Create(ctx context.Context, req models.CreateCreditCardRequest) (*models.CreditCard, error) {
+func (s *CreditCardService) Create(ctx context.Context, userID string, req models.CreateCreditCardRequest) (*models.CreditCard, error) {
 	joinDate, err := parseDate(req.JoiningDate)
 	if err != nil {
 		return nil, err
@@ -31,6 +31,7 @@ func (s *CreditCardService) Create(ctx context.Context, req models.CreateCreditC
 	}
 
 	card := &models.CreditCard{
+		UserID:           userID,
 		CardName:         req.CardName,
 		BankName:         req.BankName,
 		CardNetwork:      req.CardNetwork,
@@ -57,8 +58,8 @@ func (s *CreditCardService) Create(ctx context.Context, req models.CreateCreditC
 	return card, nil
 }
 
-func (s *CreditCardService) GetAll(ctx context.Context) ([]models.CreditCard, error) {
-	cards, err := s.repo.GetAll(ctx)
+func (s *CreditCardService) GetAll(ctx context.Context, userID string) ([]models.CreditCard, error) {
+	cards, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,7 @@ type SIPInstallment struct {
 
 type SIP struct {
 	ID         primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	UserID     string             `json:"user_id" bson:"user_id"`
 	FundName   string             `json:"fund_name" bson:"fund_name"`
 	FundID     string             `json:"fund_id" bson:"fund_id"` // reference to MF ObjectID
 	AMCCode    string             `json:"amc_code" bson:"amc_code"`

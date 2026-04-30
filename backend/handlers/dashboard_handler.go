@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -17,7 +18,8 @@ func NewDashboardHandler(service *services.DashboardService) *DashboardHandler {
 }
 
 func (h *DashboardHandler) GetDashboard(c *gin.Context) {
-	dashboard, err := h.service.GetDashboard(c.Request.Context())
+	userID := middleware.GetEffectiveUserID(c)
+	dashboard, err := h.service.GetDashboard(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -26,6 +28,7 @@ func (h *DashboardHandler) GetDashboard(c *gin.Context) {
 }
 
 func (h *DashboardHandler) GetRebalanceSuggestions(c *gin.Context) {
+	userID := middleware.GetEffectiveUserID(c)
 	var req struct {
 		Targets map[string]float64 `json:"targets"` // category -> target percentage
 	}
@@ -33,7 +36,7 @@ func (h *DashboardHandler) GetRebalanceSuggestions(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	suggestions, err := h.service.GetRebalanceSuggestions(c.Request.Context(), req.Targets)
+	suggestions, err := h.service.GetRebalanceSuggestions(c.Request.Context(), userID, req.Targets)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

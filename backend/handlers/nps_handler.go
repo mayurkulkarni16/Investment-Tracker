@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"investment-tracker/models"
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +24,7 @@ func (h *NPSHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	account, err := h.service.Create(c.Request.Context(), req)
+	account, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -32,7 +33,7 @@ func (h *NPSHandler) Create(c *gin.Context) {
 }
 
 func (h *NPSHandler) GetAll(c *gin.Context) {
-	accounts, err := h.service.GetAll(c.Request.Context())
+	accounts, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -87,3 +88,7 @@ func (h *NPSHandler) AddContribution(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, account)
 }
+
+
+
+

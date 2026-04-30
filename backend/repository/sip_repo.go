@@ -30,8 +30,12 @@ func (r *SIPRepo) Create(ctx context.Context, sip *models.SIP) error {
 	return nil
 }
 
-func (r *SIPRepo) GetAll(ctx context.Context) ([]models.SIP, error) {
-	cursor, err := r.collection.Find(ctx, bson.M{})
+func (r *SIPRepo) GetAll(ctx context.Context, userID string) ([]models.SIP, error) {
+	filter := bson.M{}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
+	cursor, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}

@@ -32,8 +32,12 @@ func (r *CorporateBondRepo) Create(ctx context.Context, bond *models.CorporateBo
 	return nil
 }
 
-func (r *CorporateBondRepo) GetAll(ctx context.Context) ([]models.CorporateBond, error) {
-	cursor, err := r.collection.Find(ctx, bson.M{})
+func (r *CorporateBondRepo) GetAll(ctx context.Context, userID string) ([]models.CorporateBond, error) {
+	filter := bson.M{}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
+	cursor, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}

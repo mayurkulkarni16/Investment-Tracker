@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"investment-tracker/models"
+	"investment-tracker/middleware"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,7 @@ func (h *ProvidentFundHandler) Create(c *gin.Context) {
 		return
 	}
 
-	pf, err := h.service.Create(c.Request.Context(), req)
+	pf, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -33,7 +34,7 @@ func (h *ProvidentFundHandler) Create(c *gin.Context) {
 }
 
 func (h *ProvidentFundHandler) GetAll(c *gin.Context) {
-	pfs, err := h.service.GetAll(c.Request.Context())
+	pfs, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -105,3 +106,7 @@ func (h *ProvidentFundHandler) ImportFromPDF(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, result)
 }
+
+
+
+

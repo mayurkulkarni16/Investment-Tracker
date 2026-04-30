@@ -51,6 +51,7 @@ type MFTransaction struct {
 
 type MutualFund struct {
 	ID              primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	UserID          string             `json:"user_id" bson:"user_id"`
 	FundName        string             `json:"fund_name" bson:"fund_name"`
 	AMC             string             `json:"amc" bson:"amc"`
 	FundType        FundType           `json:"fund_type" bson:"fund_type"`

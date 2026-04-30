@@ -8,6 +8,7 @@ import (
 
 type Notification struct {
 	ID            primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	UserID        string             `json:"user_id" bson:"user_id"`
 	Type          string             `json:"type" bson:"type"` // emi_due, fd_maturity, sip_due, bond_coupon, credit_card_due, goal_milestone
 	Title         string             `json:"title" bson:"title"`
 	Message       string             `json:"message" bson:"message"`

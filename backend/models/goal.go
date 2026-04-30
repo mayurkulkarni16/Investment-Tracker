@@ -20,6 +20,7 @@ type GoalProjection struct {
 
 type Goal struct {
 	ID       primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	UserID   string             `json:"user_id" bson:"user_id"`
 	Name     string             `json:"name" bson:"name"`
 	Category string             `json:"category" bson:"category"` // retirement, education, house, car, wedding, emergency, travel, other
 	Icon     string             `json:"icon" bson:"icon"`         // emoji

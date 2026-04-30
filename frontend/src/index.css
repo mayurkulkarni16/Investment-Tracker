@@ -148,6 +148,26 @@ tr:hover { background: #f8f9fa; }
 .search-bar input[type="search"] { flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--card-bg); color: var(--text); }
 .search-bar input[type="search"]:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(26,115,232,0.15); }
 
+/* Auth pages */
+.auth-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg); padding: 20px; }
+.auth-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 40px; width: 100%; max-width: 400px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+.auth-card h1 { font-size: 20px; color: var(--primary); margin: 0 0 4px; text-align: center; }
+.auth-card h2 { font-size: 24px; margin: 0 0 24px; text-align: center; color: var(--text); }
+.auth-card p { text-align: center; color: var(--text-secondary); line-height: 1.5; }
+.auth-error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; }
+.auth-card .form-group { margin-bottom: 16px; }
+.auth-card .form-group label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+.auth-card .form-group input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--bg); color: var(--text); box-sizing: border-box; }
+.auth-card .form-group input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(26,115,232,0.15); }
+.btn-full { width: 100%; padding: 10px; font-size: 14px; margin-top: 8px; }
+.auth-links { margin-top: 20px; text-align: center; font-size: 13px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 8px; }
+.auth-links a { color: var(--primary); text-decoration: none; }
+.auth-links a:hover { text-decoration: underline; }
+
+/* View-only banner */
+.view-only-banner { background: #fef3c7; color: #92400e; padding: 8px 16px; text-align: center; font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 12px; }
+.view-only-banner button { background: #92400e; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+
 /* Tooltip */
 .info-tooltip { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--border); color: var(--text-secondary); font-size: 10px; font-weight: 700; cursor: help; margin-left: 4px; position: relative; }
 .info-tooltip:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: 400; white-space: nowrap; z-index: 1000; max-width: 280px; white-space: normal; line-height: 1.4; }

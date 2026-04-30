@@ -31,6 +31,7 @@ type FinancialYearEntry struct {
 
 type ProvidentFund struct {
 	ID                        primitive.ObjectID   `json:"id" bson:"_id,omitempty"`
+	UserID                    string               `json:"user_id" bson:"user_id"`
 	AccountType               PFAccountType        `json:"account_type" bson:"account_type"`
 	AccountNumber             string               `json:"account_number" bson:"account_number"`
 	EmployerName              string               `json:"employer_name" bson:"employer_name"`

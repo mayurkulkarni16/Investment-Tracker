@@ -55,6 +55,7 @@ type CreditScoreEntry struct {
 
 type CreditCard struct {
 	ID             primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	UserID         string             `json:"user_id" bson:"user_id"`
 	CardName       string             `json:"card_name" bson:"card_name"`
 	BankName       string             `json:"bank_name" bson:"bank_name"`
 	CardNetwork    string             `json:"card_network" bson:"card_network"` // visa, mastercard, rupay, amex

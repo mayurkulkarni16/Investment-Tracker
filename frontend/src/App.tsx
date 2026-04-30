@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './pages/DashboardPage';
 import MutualFundsPage from './pages/MutualFundsPage';
@@ -17,14 +17,26 @@ import TaxCenterPage from './pages/TaxCenterPage';
 import SettingsPage from './pages/SettingsPage';
 import CashflowPage from './pages/CashflowPage';
 import InsightsPage from './pages/InsightsPage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import { ConfirmProvider } from './components/ConfirmDialog';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { useKeyboardShortcuts } from './utils/shortcuts';
 import './index.css';
 
 function AppShell() {
   useKeyboardShortcuts();
+  const { isViewOnly, setViewAsUser } = useAuth();
   return (
     <div className="app">
+      {isViewOnly && (
+        <div className="view-only-banner">
+          <span>You are viewing another user's data (read-only mode)</span>
+          <button onClick={() => setViewAsUser(null)}>Exit View Mode</button>
+        </div>
+      )}
       <Sidebar />
       <main className="main-content">
         <Routes>
@@ -45,18 +57,43 @@ function AppShell() {
             <Route path="/cashflow" element={<CashflowPage />} />
             <Route path="/insights" element={<InsightsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>
   );
 }
 
+function AuthRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+}
+
+function AppRouter() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div className="auth-page"><div className="auth-card"><p>Loading...</p></div></div>;
+  }
+
+  return user ? <AppShell /> : <AuthRoutes />;
+}
+
 export default function App() {
   return (
+    <AuthProvider>
     <ConfirmProvider>
     <BrowserRouter>
-      <AppShell />
+      <AppRouter />
     </BrowserRouter>
     </ConfirmProvider>
+    </AuthProvider>
   );
 }

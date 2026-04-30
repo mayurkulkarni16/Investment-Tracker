@@ -32,6 +32,7 @@ type NPSContribution struct {
 
 type NPSAccount struct {
 	ID                primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	UserID            string             `json:"user_id" bson:"user_id"`
 	AccountHolderName string             `json:"account_holder_name" bson:"account_holder_name"`
 	PRAN              string             `json:"pran" bson:"pran"` // Permanent Retirement Account Number
 	AccountType       NPSAccountType     `json:"account_type" bson:"account_type"`

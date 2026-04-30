@@ -30,8 +30,12 @@ func (r *CreditCardRepo) Create(ctx context.Context, card *models.CreditCard) er
 	return nil
 }
 
-func (r *CreditCardRepo) GetAll(ctx context.Context) ([]models.CreditCard, error) {
-	cursor, err := r.collection.Find(ctx, bson.M{})
+func (r *CreditCardRepo) GetAll(ctx context.Context, userID string) ([]models.CreditCard, error) {
+	filter := bson.M{}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
+	cursor, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}

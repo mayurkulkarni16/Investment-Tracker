@@ -15,8 +15,9 @@ func NewProvidentFundService(repo *repository.ProvidentFundRepo) *ProvidentFundS
 	return &ProvidentFundService{repo: repo}
 }
 
-func (s *ProvidentFundService) Create(ctx context.Context, req models.CreateProvidentFundRequest) (*models.ProvidentFund, error) {
+func (s *ProvidentFundService) Create(ctx context.Context, userID string, req models.CreateProvidentFundRequest) (*models.ProvidentFund, error) {
 	pf := &models.ProvidentFund{
+		UserID:               userID,
 		AccountType:          req.AccountType,
 		AccountNumber:        req.AccountNumber,
 		EmployerName:         req.EmployerName,
@@ -31,8 +32,8 @@ func (s *ProvidentFundService) Create(ctx context.Context, req models.CreateProv
 	return pf, nil
 }
 
-func (s *ProvidentFundService) GetAll(ctx context.Context) ([]models.ProvidentFund, error) {
-	pfs, err := s.repo.GetAll(ctx)
+func (s *ProvidentFundService) GetAll(ctx context.Context, userID string) ([]models.ProvidentFund, error) {
+	pfs, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

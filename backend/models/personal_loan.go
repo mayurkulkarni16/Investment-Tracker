@@ -8,6 +8,7 @@ import (
 
 type PersonalLoan struct {
 	ID                    primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	UserID                string             `json:"user_id" bson:"user_id"`
 	LenderName            string             `json:"lender_name" bson:"lender_name"`
 	LoanAccountNumber     string             `json:"loan_account_number" bson:"loan_account_number"`
 	LoanPurpose           string             `json:"loan_purpose" bson:"loan_purpose"` // personal, education, vehicle, medical, wedding, travel, other

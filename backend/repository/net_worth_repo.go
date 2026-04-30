@@ -30,9 +30,13 @@ func (r *NetWorthRepo) Create(ctx context.Context, snapshot *models.NetWorthSnap
 	return nil
 }
 
-func (r *NetWorthRepo) GetAll(ctx context.Context) ([]models.NetWorthSnapshot, error) {
+func (r *NetWorthRepo) GetAll(ctx context.Context, userID string) ([]models.NetWorthSnapshot, error) {
+	filter := bson.M{}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
 	opts := options.Find().SetSort(bson.D{{Key: "date", Value: 1}})
-	cursor, err := r.collection.Find(ctx, bson.M{}, opts)
+	cursor, err := r.collection.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -43,9 +47,9 @@ func (r *NetWorthRepo) GetAll(ctx context.Context) ([]models.NetWorthSnapshot, e
 	return snapshots, nil
 }
 
-func (r *NetWorthRepo) GetByMonth(ctx context.Context, month string) (*models.NetWorthSnapshot, error) {
+func (r *NetWorthRepo) GetByMonth(ctx context.Context, userID string, month string) (*models.NetWorthSnapshot, error) {
 	var snapshot models.NetWorthSnapshot
-	if err := r.collection.FindOne(ctx, bson.M{"month": month}).Decode(&snapshot); err != nil {
+	if err := r.collection.FindOne(ctx, bson.M{"month": month, "user_id": userID}).Decode(&snapshot); err != nil {
 		return nil, err
 	}
 	return &snapshot, nil
@@ -54,7 +58,7 @@ func (r *NetWorthRepo) GetByMonth(ctx context.Context, month string) (*models.Ne
 func (r *NetWorthRepo) Upsert(ctx context.Context, snapshot *models.NetWorthSnapshot) error {
 	snapshot.CreatedAt = time.Now()
 	opts := options.Replace().SetUpsert(true)
-	_, err := r.collection.ReplaceOne(ctx, bson.M{"month": snapshot.Month}, snapshot, opts)
+	_, err := r.collection.ReplaceOne(ctx, bson.M{"month": snapshot.Month, "user_id": snapshot.UserID}, snapshot, opts)
 	return err
 }
 

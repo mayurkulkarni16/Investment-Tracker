@@ -16,7 +16,7 @@ func NewFixedDepositService(repo *repository.FixedDepositRepo) *FixedDepositServ
 	return &FixedDepositService{repo: repo}
 }
 
-func (s *FixedDepositService) Create(ctx context.Context, req models.CreateFixedDepositRequest) (*models.FixedDeposit, error) {
+func (s *FixedDepositService) Create(ctx context.Context, userID string, req models.CreateFixedDepositRequest) (*models.FixedDeposit, error) {
 	startDate, err := parseDate(req.StartDate)
 	if err != nil {
 		return nil, err
@@ -27,6 +27,7 @@ func (s *FixedDepositService) Create(ctx context.Context, req models.CreateFixed
 	}
 
 	fd := &models.FixedDeposit{
+		UserID:          userID,
 		BankName:        req.BankName,
 		FDNumber:        req.FDNumber,
 		PrincipalAmount: req.PrincipalAmount,
@@ -66,8 +67,8 @@ func (s *FixedDepositService) calculateMaturity(fd *models.FixedDeposit) {
 	}
 }
 
-func (s *FixedDepositService) GetAll(ctx context.Context) ([]models.FixedDeposit, error) {
-	fds, err := s.repo.GetAll(ctx)
+func (s *FixedDepositService) GetAll(ctx context.Context, userID string) ([]models.FixedDeposit, error) {
+	fds, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

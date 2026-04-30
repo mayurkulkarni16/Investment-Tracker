@@ -19,13 +19,14 @@ func NewNPSService(repo *repository.NPSRepo) *NPSService {
 	return &NPSService{repo: repo}
 }
 
-func (s *NPSService) Create(ctx context.Context, req models.CreateNPSAccountRequest) (*models.NPSAccount, error) {
+func (s *NPSService) Create(ctx context.Context, userID string, req models.CreateNPSAccountRequest) (*models.NPSAccount, error) {
 	doj, err := parseDate(req.DateOfJoining)
 	if err != nil {
 		return nil, err
 	}
 
 	account := &models.NPSAccount{
+		UserID:            userID,
 		AccountHolderName: req.AccountHolderName,
 		PRAN:              req.PRAN,
 		AccountType:       req.AccountType,
@@ -48,8 +49,8 @@ func (s *NPSService) Create(ctx context.Context, req models.CreateNPSAccountRequ
 	return account, nil
 }
 
-func (s *NPSService) GetAll(ctx context.Context) ([]models.NPSAccount, error) {
-	accounts, err := s.repo.GetAll(ctx)
+func (s *NPSService) GetAll(ctx context.Context, userID string) ([]models.NPSAccount, error) {
+	accounts, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

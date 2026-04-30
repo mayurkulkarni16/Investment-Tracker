@@ -69,19 +69,19 @@ type BackupData struct {
 	Profiles       interface{} `json:"profiles"`
 }
 
-func (s *BackupService) Export(ctx context.Context) ([]byte, error) {
-	mfs, _ := s.mfRepo.GetAll(ctx)
-	stocks, _ := s.stockRepo.GetAll(ctx)
-	fds, _ := s.fdRepo.GetAll(ctx)
-	pfs, _ := s.pfRepo.GetAll(ctx)
-	bonds, _ := s.bondRepo.GetAll(ctx)
-	homeLoans, _ := s.homeLoanRepo.GetAll(ctx)
-	personalLoans, _ := s.personalLoanRepo.GetAll(ctx)
-	nps, _ := s.npsRepo.GetAll(ctx)
-	creditCards, _ := s.creditCardRepo.GetAll(ctx)
-	goals, _ := s.goalRepo.GetAll(ctx)
-	sips, _ := s.sipRepo.GetAll(ctx)
-	profiles, _ := s.profileRepo.GetAll(ctx)
+func (s *BackupService) Export(ctx context.Context, userID string) ([]byte, error) {
+	mfs, _ := s.mfRepo.GetAll(ctx, userID)
+	stocks, _ := s.stockRepo.GetAll(ctx, userID)
+	fds, _ := s.fdRepo.GetAll(ctx, userID)
+	pfs, _ := s.pfRepo.GetAll(ctx, userID)
+	bonds, _ := s.bondRepo.GetAll(ctx, userID)
+	homeLoans, _ := s.homeLoanRepo.GetAll(ctx, userID)
+	personalLoans, _ := s.personalLoanRepo.GetAll(ctx, userID)
+	nps, _ := s.npsRepo.GetAll(ctx, userID)
+	creditCards, _ := s.creditCardRepo.GetAll(ctx, userID)
+	goals, _ := s.goalRepo.GetAll(ctx, userID)
+	sips, _ := s.sipRepo.GetAll(ctx, userID)
+	profiles, _ := s.profileRepo.GetAll(ctx, userID)
 
 	backup := BackupData{
 		Version:        "1.0",
@@ -108,7 +108,7 @@ type RestoreResult struct {
 }
 
 // Restore replaces all data from a backup JSON payload.
-func (s *BackupService) Restore(ctx context.Context, data []byte) (*RestoreResult, error) {
+func (s *BackupService) Restore(ctx context.Context, userID string, data []byte) (*RestoreResult, error) {
 	// Parse backup into a generic map to handle each collection
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {

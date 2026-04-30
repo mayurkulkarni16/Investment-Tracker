@@ -32,8 +32,12 @@ func (r *FixedDepositRepo) Create(ctx context.Context, fd *models.FixedDeposit) 
 	return nil
 }
 
-func (r *FixedDepositRepo) GetAll(ctx context.Context) ([]models.FixedDeposit, error) {
-	cursor, err := r.collection.Find(ctx, bson.M{})
+func (r *FixedDepositRepo) GetAll(ctx context.Context, userID string) ([]models.FixedDeposit, error) {
+	filter := bson.M{}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
+	cursor, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}

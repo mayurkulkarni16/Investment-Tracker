@@ -7,9 +7,10 @@ import (
 )
 
 type NetWorthSnapshot struct {
-	ID    primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	Date  time.Time          `json:"date" bson:"date"`
-	Month string             `json:"month" bson:"month"` // 2026-04
+	ID     primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	UserID string             `json:"user_id" bson:"user_id"`
+	Date   time.Time          `json:"date" bson:"date"`
+	Month  string             `json:"month" bson:"month"` // 2026-04
 
 	// Assets
 	MutualFunds    float64 `json:"mutual_funds" bson:"mutual_funds"`

@@ -1,13 +1,17 @@
 import { NavLink } from 'react-router-dom';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { getUnreadNotifications, generateNotifications, markNotificationRead, markAllNotificationsRead } from '../api/notifications';
+import { useAuth } from '../context/AuthContext';
+import { authApi, type User as AuthUser } from '../api/auth';
 import type { Notification } from '../types';
 
 export default function Sidebar() {
+  const { user, isAdmin, isViewOnly, viewAsUserId, logout, setViewAsUser } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showPanel, setShowPanel] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark');
+  const [allUsers, setAllUsers] = useState<AuthUser[]>([]);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const loadNotifications = () => {
@@ -19,6 +23,12 @@ export default function Sidebar() {
     const interval = setInterval(loadNotifications, 60000); // refresh every minute
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (isAdmin) {
+      authApi.getUsers().then(r => setAllUsers(r.data || [])).catch(() => {});
+    }
+  }, [isAdmin]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -175,6 +185,42 @@ export default function Sidebar() {
         <NavLink to="/insights">Insights</NavLink>
         <NavLink to="/settings">Settings</NavLink>
       </nav>
+
+      {/* Admin view-as dropdown */}
+      {isAdmin && allUsers.length > 0 && (
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
+          <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            View as User
+          </label>
+          <select
+            value={viewAsUserId || ''}
+            onChange={e => setViewAsUser(e.target.value || null)}
+            style={{
+              width: '100%', marginTop: 4, padding: '6px 8px', borderRadius: 6,
+              border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
+              fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            <option value="">My Data</option>
+            {allUsers.filter(u => u.id !== user?.id).map(u => (
+              <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* User info + logout */}
+      <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', marginTop: 'auto' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{user?.name}</div>
+        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>{user?.email}</div>
+        <button
+          onClick={logout}
+          className="btn btn-sm btn-outline"
+          style={{ width: '100%' }}
+        >
+          Sign Out
+        </button>
+      </div>
     </aside>
     </>
   );

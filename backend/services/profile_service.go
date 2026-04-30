@@ -15,13 +15,14 @@ func NewProfileService(repo *repository.ProfileRepo) *ProfileService {
 	return &ProfileService{repo: repo}
 }
 
-func (s *ProfileService) Create(ctx context.Context, req models.CreateProfileRequest) (*models.Profile, error) {
+func (s *ProfileService) Create(ctx context.Context, userID string, req models.CreateProfileRequest) (*models.Profile, error) {
 	color := req.Color
 	if color == "" {
 		color = "#4CAF50"
 	}
 
 	profile := &models.Profile{
+		UserID:       userID,
 		Name:         req.Name,
 		Relationship: req.Relationship,
 		Color:        color,
@@ -34,8 +35,8 @@ func (s *ProfileService) Create(ctx context.Context, req models.CreateProfileReq
 	return profile, nil
 }
 
-func (s *ProfileService) GetAll(ctx context.Context) ([]models.Profile, error) {
-	return s.repo.GetAll(ctx)
+func (s *ProfileService) GetAll(ctx context.Context, userID string) ([]models.Profile, error) {
+	return s.repo.GetAll(ctx, userID)
 }
 
 func (s *ProfileService) Update(ctx context.Context, id string, req models.UpdateProfileRequest) (*models.Profile, error) {

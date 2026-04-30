@@ -30,8 +30,12 @@ func (r *GoalRepo) Create(ctx context.Context, goal *models.Goal) error {
 	return nil
 }
 
-func (r *GoalRepo) GetAll(ctx context.Context) ([]models.Goal, error) {
-	cursor, err := r.collection.Find(ctx, bson.M{})
+func (r *GoalRepo) GetAll(ctx context.Context, userID string) ([]models.Goal, error) {
+	filter := bson.M{}
+	if userID != "" {
+		filter["user_id"] = userID
+	}
+	cursor, err := r.collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
