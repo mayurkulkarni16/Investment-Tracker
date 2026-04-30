@@ -4,5 +4,6 @@ frontend/dist
 *.md
 .git
 .env
+.env.*
 *.txt
 *.mjs
