@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getProjections } from '../api/projections';
 import type { ProjectionsResponse } from '../types';
 import { formatCurrency } from '../utils/format';
+import { useAuth } from '../context/AuthContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area, BarChart, Bar, Cell } from 'recharts';
 
 const COLORS = ['#1a73e8', '#0f9d58', '#f9ab00', '#ea4335', '#9c27b0', '#00bcd4', '#ff5722', '#607d8b', '#795548', '#3f51b5'];
@@ -23,6 +24,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default function ProjectionsPage() {
+  const { viewAsUserId } = useAuth();
   const [data, setData] = useState<ProjectionsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [years, setYears] = useState(5);
@@ -34,7 +36,7 @@ export default function ProjectionsPage() {
     getProjections(years, scenario).then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [years, scenario]);
+  useEffect(() => { load(); }, [years, scenario, viewAsUserId]);
 
   if (loading) return <div className="loading">Loading projections...</div>;
   if (!data || data.investments.length === 0) {

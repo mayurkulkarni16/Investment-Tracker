@@ -54,7 +54,7 @@ export interface AddMFTransactionRequest {
 }
 
 // Corporate Bond types
-export type PayoutFrequency = 'monthly' | 'quarterly' | 'biannually' | 'annually';
+export type PayoutFrequency = 'monthly' | 'quarterly' | 'biannually' | 'annually' | 'at_maturity';
 export type MaturityType = 'bullet' | 'staggered';
 export type PayoutStatus = 'pending' | 'received';
 export type BondStatus = 'active' | 'matured' | 'partially_matured';
@@ -131,6 +131,7 @@ export interface FixedDeposit {
   tenure_months: number;
   interest_type: InterestType;
   payout_frequency?: PayoutFrequency;
+  interest_payouts?: InterestPayout[];
   maturity_amount: number;
   interest_earned: number;
   xirr: number;

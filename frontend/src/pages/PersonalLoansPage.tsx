@@ -13,7 +13,7 @@ const PURPOSES: Record<string, string> = {
 };
 
 export default function PersonalLoansPage() {
-  const { isViewOnly } = useAuth();
+  const { isViewOnly, viewAsUserId } = useAuth();
   const [loans, setLoans] = useState<PersonalLoan[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -42,7 +42,7 @@ export default function PersonalLoansPage() {
   const load = () => {
     getPersonalLoans().then(r => setLoans(r.data || [])).catch(() => {}).finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [viewAsUserId]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

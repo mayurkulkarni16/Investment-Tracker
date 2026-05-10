@@ -8,7 +8,7 @@ import { useConfirm } from '../components/ConfirmDialog';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line } from 'recharts';
 
 export default function HomeLoansPage() {
-  const { isViewOnly } = useAuth();
+  const { isViewOnly, viewAsUserId } = useAuth();
   const [loans, setLoans] = useState<HomeLoan[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -41,7 +41,7 @@ export default function HomeLoansPage() {
     getHomeLoans().then(r => setLoans(r.data || [])).catch(() => {}).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [viewAsUserId]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

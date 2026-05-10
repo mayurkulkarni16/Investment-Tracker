@@ -9,7 +9,7 @@ import { extractPFFromPDF } from '../utils/pfParser';
 import type { ParsedPFData } from '../utils/pfParser';
 
 export default function ProvidentFundPage() {
-  const { isViewOnly } = useAuth();
+  const { isViewOnly, viewAsUserId } = useAuth();
   const [funds, setFunds] = useState<ProvidentFund[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -36,7 +36,7 @@ export default function ProvidentFundPage() {
     getProvidentFunds().then(r => setFunds(r.data || [])).catch(() => {}).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [viewAsUserId]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

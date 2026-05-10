@@ -3,6 +3,7 @@ import { getDashboard } from '../api/dashboard';
 import { getMutualFunds } from '../api/mutualFunds';
 import { getBenchmarks } from '../api/benchmarks';
 import { getInsights, type InsightsResponse } from '../api/insights';
+import { useAuth } from '../context/AuthContext';
 import { getStocks } from '../api/stocks';
 import type { DashboardSummary, MutualFund, BenchmarkData, Stock } from '../types';
 import { formatCurrency, formatPercent, formatDate } from '../utils/format';
@@ -22,6 +23,7 @@ const LABELS: Record<string, string> = {
 };
 
 export default function DashboardPage() {
+  const { viewAsUserId } = useAuth();
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [funds, setFunds] = useState<MutualFund[]>([]);
   const [stocks, setStocks] = useState<Stock[]>([]);
@@ -38,7 +40,7 @@ export default function DashboardPage() {
       getBenchmarks().then(r => setBenchmarks(r.data?.indices || [])).catch(() => {}),
       getInsights().then(r => setInsightsData(r)).catch(() => {}),
     ]).finally(() => setLoading(false));
-  }, []);
+  }, [viewAsUserId]);
 
   if (loading) return <div className="loading">Loading dashboard...</div>;
   if (!data) return <div className="empty-state"><h3>No data yet</h3><p>Add some investments to see your dashboard.</p></div>;

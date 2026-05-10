@@ -7,7 +7,7 @@ import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
 
 export default function CorporateBondsPage() {
-  const { isViewOnly } = useAuth();
+  const { isViewOnly, viewAsUserId } = useAuth();
   const [bonds, setBonds] = useState<CorporateBond[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -34,7 +34,7 @@ export default function CorporateBondsPage() {
     getCorporateBonds().then(r => setBonds(r.data || [])).catch(() => {}).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [viewAsUserId]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

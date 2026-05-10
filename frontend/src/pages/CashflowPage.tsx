@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { getMonthlyCashflows, getMonthDetail, type MonthlyCashflow, type CashflowDetail } from '../api/cashflow';
 import { formatCurrency } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../context/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
 export default function CashflowPage() {
+  const { viewAsUserId } = useAuth();
   const [data, setData] = useState<MonthlyCashflow[]>([]);
   const [months, setMonths] = useState(12);
   const [loading, setLoading] = useState(true);
@@ -25,7 +27,7 @@ export default function CashflowPage() {
     }
   };
 
-  useEffect(() => { load(); }, [months]);
+  useEffect(() => { load(); }, [months, viewAsUserId]);
 
   if (loading) return <div className="loading">Loading cashflow data...</div>;
 

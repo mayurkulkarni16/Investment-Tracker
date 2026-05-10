@@ -10,7 +10,7 @@ const EXCHANGES: StockExchange[] = ['NSE', 'BSE'];
 const REFRESH_INTERVAL_MS = 60_000; // Auto-refresh every 60s during market hours
 
 export default function StocksPage() {
-  const { isViewOnly } = useAuth();
+  const { isViewOnly, viewAsUserId } = useAuth();
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -34,7 +34,7 @@ export default function StocksPage() {
 
   const load = useCallback(() => {
     getStocks().then(r => setStocks(r.data || [])).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  }, [viewAsUserId]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

@@ -223,6 +223,19 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*Da
 					PayoutType: "maturity",
 				})
 			}
+
+			// Non-cumulative FD interest payouts
+			for _, p := range fd.InterestPayouts {
+				if p.Status == "pending" && !p.ScheduledDate.Before(now) && !p.ScheduledDate.After(thirtyDaysLater) {
+					dashboard.UpcomingPayouts = append(dashboard.UpcomingPayouts, UpcomingPayout{
+						Type:       "Fixed Deposit",
+						Name:       fd.BankName + " - " + fd.FDNumber,
+						Date:       p.ScheduledDate.Format("2006-01-02"),
+						Amount:     p.Amount,
+						PayoutType: "interest",
+					})
+				}
+			}
 		}
 	}
 

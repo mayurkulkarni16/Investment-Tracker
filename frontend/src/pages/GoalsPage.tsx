@@ -17,7 +17,7 @@ const CATEGORIES = ['retirement', 'education', 'house', 'car', 'wedding', 'emerg
 const ICONS: Record<string, string> = { retirement: '🏖️', education: '🎓', house: '🏠', car: '🚗', wedding: '💍', emergency: '🆘', travel: '✈️', other: '🎯' };
 
 export default function GoalsPage() {
-  const { isViewOnly } = useAuth();
+  const { isViewOnly, viewAsUserId } = useAuth();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -36,7 +36,7 @@ export default function GoalsPage() {
   const [loadingInv, setLoadingInv] = useState(false);
 
   const load = () => { getGoals().then(r => setGoals(r.data || [])).catch(() => {}).finally(() => setLoading(false)); };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [viewAsUserId]);
 
   const fetchInvestments = async (type: string) => {
     setLoadingInv(true);

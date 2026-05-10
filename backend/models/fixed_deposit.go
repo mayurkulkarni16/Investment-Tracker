@@ -33,6 +33,7 @@ type FixedDeposit struct {
 	TenureMonths    int                `json:"tenure_months" bson:"tenure_months"`
 	InterestType    InterestType       `json:"interest_type" bson:"interest_type"`
 	PayoutFrequency *PayoutFrequency   `json:"payout_frequency,omitempty" bson:"payout_frequency,omitempty"`
+	InterestPayouts []InterestPayout   `json:"interest_payouts,omitempty" bson:"interest_payouts,omitempty"`
 	MaturityAmount  float64            `json:"maturity_amount" bson:"maturity_amount"`
 	InterestEarned  float64            `json:"interest_earned" bson:"interest_earned"`
 	XIRR            float64            `json:"xirr" bson:"-"`

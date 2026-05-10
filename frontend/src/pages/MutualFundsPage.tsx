@@ -12,7 +12,7 @@ import type { ParsedCASFund } from '../utils/casParser';
 const FUND_TYPES: FundType[] = ['Equity', 'Debt', 'Hybrid', 'ELSS', 'Index', 'Liquid'];
 
 export default function MutualFundsPage() {
-  const { isViewOnly } = useAuth();
+  const { isViewOnly, viewAsUserId } = useAuth();
   const [funds, setFunds] = useState<MutualFund[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -65,7 +65,7 @@ export default function MutualFundsPage() {
     ]).catch(() => {}).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [viewAsUserId]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -13,6 +13,7 @@ const (
 	PayoutQuarterly  PayoutFrequency = "quarterly"
 	PayoutBiannually PayoutFrequency = "biannually"
 	PayoutAnnually   PayoutFrequency = "annually"
+	PayoutAtMaturity PayoutFrequency = "at_maturity"
 )
 
 type MaturityType string

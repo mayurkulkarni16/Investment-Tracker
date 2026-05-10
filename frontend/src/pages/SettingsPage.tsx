@@ -8,7 +8,7 @@ import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
 
 export default function SettingsPage() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, viewAsUserId } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -25,7 +25,7 @@ export default function SettingsPage() {
   const { confirm } = useConfirm();
 
   const load = () => { getProfiles().then(r => { const p = r.data?.[0] || null; setProfile(p); setForm(p ? { name: p.name, relationship: p.relationship, color: p.color } : {}); if (!p) setCreating(true); }).catch(() => {}).finally(() => setLoading(false)); };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [viewAsUserId]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

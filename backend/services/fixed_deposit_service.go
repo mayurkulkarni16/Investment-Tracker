@@ -3,9 +3,12 @@ package services
 import (
 	"context"
 	"math"
+	"time"
 
 	"investment-tracker/models"
 	"investment-tracker/repository"
+
+	"github.com/google/uuid"
 )
 
 type FixedDepositService struct {
@@ -43,6 +46,7 @@ func (s *FixedDepositService) Create(ctx context.Context, userID string, req mod
 	}
 
 	s.calculateMaturity(fd)
+	s.generateInterestSchedule(fd)
 
 	if err := s.repo.Create(ctx, fd); err != nil {
 		return nil, err
@@ -67,12 +71,93 @@ func (s *FixedDepositService) calculateMaturity(fd *models.FixedDeposit) {
 	}
 }
 
+func (s *FixedDepositService) generateInterestSchedule(fd *models.FixedDeposit) {
+	fd.InterestPayouts = nil
+
+	if fd.InterestType != models.InterestNonCumulative || fd.PayoutFrequency == nil {
+		return
+	}
+
+	freq := *fd.PayoutFrequency
+	if freq == models.PayoutAtMaturity {
+		// Single payout at maturity
+		fd.InterestPayouts = []models.InterestPayout{{
+			PayoutID:        uuid.New().String(),
+			ScheduledDate:   fd.MaturityDate,
+			PrincipalAtTime: fd.PrincipalAmount,
+			Amount:          fd.InterestEarned,
+			Status:          models.PayoutPending,
+		}}
+		s.autoMarkPastPayouts(fd)
+		return
+	}
+
+	months := frequencyToMonths(freq)
+	if months == 0 {
+		return
+	}
+
+	var payouts []models.InterestPayout
+	payoutDate := fd.StartDate.AddDate(0, months, 0)
+	prevDate := fd.StartDate
+
+	for !payoutDate.After(fd.MaturityDate) {
+		days := int(payoutDate.Sub(prevDate).Hours() / 24)
+		interest := fd.PrincipalAmount * (fd.InterestRate / 100) * float64(days) / 365.0
+		interest = math.Round(interest*100) / 100
+
+		payouts = append(payouts, models.InterestPayout{
+			PayoutID:        uuid.New().String(),
+			ScheduledDate:   payoutDate,
+			PrincipalAtTime: fd.PrincipalAmount,
+			Amount:          interest,
+			Status:          models.PayoutPending,
+		})
+
+		prevDate = payoutDate
+		payoutDate = payoutDate.AddDate(0, months, 0)
+	}
+
+	// Add final partial period payout if last payout didn't land on maturity
+	if len(payouts) > 0 && payouts[len(payouts)-1].ScheduledDate.Before(fd.MaturityDate) {
+		lastDate := payouts[len(payouts)-1].ScheduledDate
+		days := int(fd.MaturityDate.Sub(lastDate).Hours() / 24)
+		if days > 0 {
+			interest := fd.PrincipalAmount * (fd.InterestRate / 100) * float64(days) / 365.0
+			interest = math.Round(interest*100) / 100
+			payouts = append(payouts, models.InterestPayout{
+				PayoutID:        uuid.New().String(),
+				ScheduledDate:   fd.MaturityDate,
+				PrincipalAtTime: fd.PrincipalAmount,
+				Amount:          interest,
+				Status:          models.PayoutPending,
+			})
+		}
+	}
+
+	fd.InterestPayouts = payouts
+	s.autoMarkPastPayouts(fd)
+}
+
+func (s *FixedDepositService) autoMarkPastPayouts(fd *models.FixedDeposit) {
+	now := time.Now()
+	for i := range fd.InterestPayouts {
+		if fd.InterestPayouts[i].Status == models.PayoutPending &&
+			!fd.InterestPayouts[i].ScheduledDate.After(now) {
+			fd.InterestPayouts[i].Status = models.PayoutReceived
+			d := fd.InterestPayouts[i].ScheduledDate
+			fd.InterestPayouts[i].ReceivedDate = &d
+		}
+	}
+}
+
 func (s *FixedDepositService) GetAll(ctx context.Context, userID string) ([]models.FixedDeposit, error) {
 	fds, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	for i := range fds {
+		s.autoMarkPastPayouts(&fds[i])
 		fds[i].XIRR = ComputeFixedDepositXIRR(&fds[i])
 	}
 	return fds, nil
@@ -88,6 +173,7 @@ func (s *FixedDepositService) GetByID(ctx context.Context, id string) (*models.F
 		return nil, err
 	}
 	fd.XIRR = ComputeFixedDepositXIRR(fd)
+	s.autoMarkPastPayouts(fd)
 	return fd, nil
 }
 
@@ -124,6 +210,7 @@ func (s *FixedDepositService) Update(ctx context.Context, id string, req models.
 	fd.Notes = req.Notes
 
 	s.calculateMaturity(fd)
+	s.generateInterestSchedule(fd)
 
 	if err := s.repo.Update(ctx, fd); err != nil {
 		return nil, err

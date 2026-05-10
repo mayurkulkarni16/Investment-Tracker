@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getFixedDeposits, createFixedDeposit, deleteFixedDeposit, updateFixedDeposit } from '../api/fixedDeposits';
 import type { FixedDeposit, CreateFixedDepositRequest, InterestType, PayoutFrequency } from '../types';
 import { formatCurrency, formatDate, formatPercent, toInputDate } from '../utils/format';
@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
 
 export default function FixedDepositsPage() {
-  const { isViewOnly } = useAuth();
+  const { isViewOnly, viewAsUserId } = useAuth();
   const [fds, setFDs] = useState<FixedDeposit[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -16,6 +16,7 @@ export default function FixedDepositsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortCol, setSortCol] = useState<string>('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [expanded, setExpanded] = useState<string | null>(null);
   const { toast } = useToast();
   const { confirm } = useConfirm();
   const [form, setForm] = useState<CreateFixedDepositRequest>({
@@ -33,7 +34,7 @@ export default function FixedDepositsPage() {
     getFixedDeposits().then(r => setFDs(r.data || [])).catch(() => {}).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [viewAsUserId]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,7 +171,8 @@ export default function FixedDepositsPage() {
             </thead>
             <tbody>
               {sorted.map(fd => (
-                <tr key={fd.id}>
+                <React.Fragment key={fd.id}>
+                <tr style={{ cursor: fd.interest_type === 'non_cumulative' ? 'pointer' : undefined }} onClick={() => fd.interest_type === 'non_cumulative' && setExpanded(expanded === fd.id ? null : fd.id)}>
                   <td>{fd.bank_name}</td>
                   <td>{fd.fd_number || '-'}</td>
                   <td>{formatCurrency(fd.principal_amount)}</td>
@@ -183,12 +185,41 @@ export default function FixedDepositsPage() {
                   <td><span className={`badge badge-${fd.status}`}>{fd.status}</span></td>
                   <td className={fd.xirr >= 0 ? 'text-success' : 'text-danger'}>{formatPercent(fd.xirr)}</td>
                   {!isViewOnly && <td>
-                    <div style={{ display: 'flex', gap: 4 }}>
+                    <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
                       {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => openEdit(fd)}>Edit</button>}
                       {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(fd.id)}>Del</button>}
                     </div>
                   </td>}
                 </tr>
+                {expanded === fd.id && fd.interest_payouts && fd.interest_payouts.length > 0 && (
+                  <tr>
+                    <td colSpan={12} style={{ padding: '8px 16px', background: 'var(--bg-secondary)' }}>
+                      <h4 style={{ marginBottom: 8 }}>Interest Payouts ({fd.payout_frequency})</h4>
+                      <div className="table-container">
+                        <table>
+                          <thead><tr><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
+                          <tbody>
+                            {fd.interest_payouts.map(p => (
+                              <tr key={p.payout_id}>
+                                <td>{formatDate(p.scheduled_date)}</td>
+                                <td>{formatCurrency(p.amount)}</td>
+                                <td><span className={`badge badge-${p.status}`}>{p.status}</span></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr style={{ fontWeight: 'bold' }}>
+                              <td>Total</td>
+                              <td>{formatCurrency(fd.interest_payouts.reduce((s, p) => s + p.amount, 0))}</td>
+                              <td>{fd.interest_payouts.filter(p => p.status === 'received').length}/{fd.interest_payouts.length} received</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
@@ -250,7 +281,9 @@ export default function FixedDepositsPage() {
                     <select value={form.payout_frequency || 'quarterly'} onChange={e => setForm({ ...form, payout_frequency: e.target.value as PayoutFrequency })}>
                       <option value="monthly">Monthly</option>
                       <option value="quarterly">Quarterly</option>
+                      <option value="biannually">Bi-Annually</option>
                       <option value="annually">Annually</option>
+                      <option value="at_maturity">At Maturity</option>
                     </select>
                   </div>
                 )}
@@ -323,7 +356,9 @@ export default function FixedDepositsPage() {
                     <select value={editForm.payout_frequency || 'quarterly'} onChange={e => setEditForm({ ...editForm, payout_frequency: e.target.value as PayoutFrequency })}>
                       <option value="monthly">Monthly</option>
                       <option value="quarterly">Quarterly</option>
+                      <option value="biannually">Bi-Annually</option>
                       <option value="annually">Annually</option>
+                      <option value="at_maturity">At Maturity</option>
                     </select>
                   </div>
                 )}

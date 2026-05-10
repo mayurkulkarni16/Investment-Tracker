@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { getTaxSummary, getCapitalGains } from '../api/tax';
 import type { TaxSummary, CapitalGainsSummary } from '../types';
 import { formatCurrency } from '../utils/format';
+import { useAuth } from '../context/AuthContext';
 
 export default function TaxCenterPage() {
+  const { viewAsUserId } = useAuth();
   const [summary, setSummary] = useState<TaxSummary | null>(null);
   const [cg, setCG] = useState<CapitalGainsSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -14,7 +16,7 @@ export default function TaxCenterPage() {
       getTaxSummary().then(r => setSummary(r.data)),
       getCapitalGains().then(r => setCG(r.data)),
     ]).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  }, [viewAsUserId]);
 
   if (loading) return <div className="loading">Loading...</div>;
 

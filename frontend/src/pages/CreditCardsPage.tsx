@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
 
 export default function CreditCardsPage() {
-  const { isViewOnly } = useAuth();
+  const { isViewOnly, viewAsUserId } = useAuth();
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -35,7 +35,7 @@ export default function CreditCardsPage() {
   const [txnForm, setTxnForm] = useState<AddCardTransactionRequest>({ statement_id: '', date: '', description: '', amount: 0, category: '' });
 
   const load = () => { getCreditCards().then(r => setCards(r.data || [])).catch(() => {}).finally(() => setLoading(false)); };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [viewAsUserId]);
 
   const handleAdd = async (e: React.FormEvent) => { e.preventDefault(); try { await createCreditCard(form); setShowAdd(false); toast('Card added'); load(); } catch { toast('Failed to add card', 'error'); } };
   const handleDelete = async (id: string) => { if (!await confirm({ message: 'Delete this card?', danger: true, confirmLabel: 'Delete' })) return; try { await deleteCreditCard(id); toast('Card deleted'); load(); } catch { toast('Failed to delete', 'error'); } };

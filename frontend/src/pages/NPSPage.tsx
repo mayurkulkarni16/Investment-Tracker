@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
 
 export default function NPSPage() {
-  const { isViewOnly } = useAuth();
+  const { isViewOnly, viewAsUserId } = useAuth();
   const [accounts, setAccounts] = useState<NPSAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -30,7 +30,7 @@ export default function NPSPage() {
   const load = () => {
     getNPSAccounts().then(r => setAccounts(r.data || [])).catch(() => {}).finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [viewAsUserId]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

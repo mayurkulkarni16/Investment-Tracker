@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Brush } from 'recharts';
 
 export default function NetWorthPage() {
-  const { isViewOnly } = useAuth();
+  const { isViewOnly, viewAsUserId } = useAuth();
   const [current, setCurrent] = useState<NetWorthCurrent | null>(null);
   const [history, setHistory] = useState<NetWorthSnapshot[]>([]);
   const [benchmarks, setBenchmarks] = useState<BenchmarkData[]>([]);
@@ -23,7 +23,7 @@ export default function NetWorthPage() {
       getBenchmarks('5y').then(r => setBenchmarks(r.data?.indices || [])).catch(() => {}),
     ]).catch(() => {}).finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [viewAsUserId]);
 
   const handleSnapshot = async () => {
     try { await takeNetWorthSnapshot(); toast('Snapshot taken'); load(); }
