@@ -3,11 +3,15 @@ package services
 import (
 	"context"
 	"math"
+	"math/rand"
+	"sort"
 	"time"
 
 	"investment-tracker/models"
 	"investment-tracker/repository"
 )
+
+const monteCarloSimulations = 2000
 
 type ProjectionService struct {
 	mfRepo    *repository.MutualFundRepo
@@ -15,6 +19,8 @@ type ProjectionService struct {
 	pfRepo    *repository.ProvidentFundRepo
 	stockRepo *repository.StockRepo
 	bondRepo  *repository.CorporateBondRepo
+	npsRepo   *repository.NPSRepo
+	sipRepo   *repository.SIPRepo
 }
 
 func NewProjectionService(
@@ -23,6 +29,8 @@ func NewProjectionService(
 	pfRepo *repository.ProvidentFundRepo,
 	stockRepo *repository.StockRepo,
 	bondRepo *repository.CorporateBondRepo,
+	npsRepo *repository.NPSRepo,
+	sipRepo *repository.SIPRepo,
 ) *ProjectionService {
 	return &ProjectionService{
 		mfRepo:    mfRepo,
@@ -30,6 +38,8 @@ func NewProjectionService(
 		pfRepo:    pfRepo,
 		stockRepo: stockRepo,
 		bondRepo:  bondRepo,
+		npsRepo:   npsRepo,
+		sipRepo:   sipRepo,
 	}
 }
 
@@ -60,14 +70,24 @@ func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, user
 	}
 
 	// Mutual Funds — use historical CAGR per fund, fallback 12% for equity, 8% for debt
+	// Look up active SIPs to model recurring monthly contributions
 	funds, err := s.mfRepo.GetAll(ctx, userID)
+	activeSIPs, _ := s.sipRepo.GetAll(ctx, userID)
+	sipByFundID := make(map[string]float64)
+	for _, sip := range activeSIPs {
+		if sip.Status == "active" && sip.FundID != "" {
+			sipByFundID[sip.FundID] += sip.Amount
+		}
+	}
 	if err == nil {
 		for _, mf := range funds {
 			if mf.CurrentValue <= 0 {
 				continue
 			}
 			rate := estimateMFRate(&mf) * rateMultiplier
-			proj := projectGrowth(mf.FundName, "mutual_fund", mf.CurrentValue, rate, totalMonths, now)
+			vol := estimateMFVolatility(&mf)
+			monthlySIP := sipByFundID[mf.ID.Hex()]
+			proj := projectGrowthWithSIP(mf.FundName, "mutual_fund", mf.CurrentValue, rate, vol, totalMonths, now, monthlySIP)
 			resp.Investments = append(resp.Investments, proj)
 		}
 	}
@@ -84,7 +104,7 @@ func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, user
 		}
 	}
 
-	// Provident Fund — use current PF rate (default 8.25%)
+	// Provident Fund — use current PF rate (default 8.25%), model ongoing monthly contributions
 	pfs, err := s.pfRepo.GetAll(ctx, userID)
 	if err == nil {
 		for _, pf := range pfs {
@@ -96,7 +116,21 @@ func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, user
 				rate = 8.25
 			}
 			rate *= rateMultiplier
-			proj := projectGrowth(pf.EmployerName+" - "+string(pf.AccountType), "provident_fund", pf.CurrentBalance, rate, totalMonths, now)
+
+			// Estimate monthly contribution from the latest FY's data
+			monthlyContrib := 0.0
+			if len(pf.FinancialYearEntries) > 0 {
+				latestFY := pf.FinancialYearEntries[len(pf.FinancialYearEntries)-1]
+				if len(latestFY.MonthlyContributions) > 0 {
+					totalContrib := 0.0
+					for _, mc := range latestFY.MonthlyContributions {
+						totalContrib += mc.EmployeeContribution + mc.EmployerContribution
+					}
+					monthlyContrib = totalContrib / float64(len(latestFY.MonthlyContributions))
+				}
+			}
+
+			proj := projectGrowthWithSIP(pf.EmployerName+" - "+string(pf.AccountType), "provident_fund", pf.CurrentBalance, rate, 1.0, totalMonths, now, monthlyContrib)
 			resp.Investments = append(resp.Investments, proj)
 		}
 	}
@@ -114,7 +148,8 @@ func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, user
 				rate = estimateStockCAGR(&stock)
 			}
 			rate *= rateMultiplier
-			proj := projectGrowth(stock.StockName, "stock", stock.CurrentValue, rate, totalMonths, now)
+			vol := estimateStockVolatility(&stock)
+			proj := projectGrowth(stock.StockName, "stock", stock.CurrentValue, rate, vol, totalMonths, now)
 			resp.Investments = append(resp.Investments, proj)
 		}
 	}
@@ -126,11 +161,50 @@ func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, user
 			if bond.Status == "matured" {
 				continue
 			}
-			proj := projectGrowth(bond.BondName, "corporate_bond", bond.RemainingPrincipal, bond.CouponRate*rateMultiplier, totalMonths, now)
+			proj := projectGrowth(bond.BondName, "corporate_bond", bond.RemainingPrincipal, bond.CouponRate*rateMultiplier, 3.0, totalMonths, now)
 			resp.Investments = append(resp.Investments, proj)
 		}
 	}
 
+	// NPS — blended return based on equity/debt allocation, model ongoing contributions
+	npsAccounts, err := s.npsRepo.GetAll(ctx, userID)
+	if err == nil {
+		for _, nps := range npsAccounts {
+			if nps.CurrentValue <= 0 || nps.Status != "active" {
+				continue
+			}
+			// Blended return: equity 12%, corporate bond 9%, govt sec 7.5%, alternate 10%
+			blendedRate := (nps.EquityPct*12.0 + nps.CorporateBondPct*9.0 + nps.GovtSecPct*7.5 + nps.AlternatePct*10.0) / 100.0
+			if blendedRate <= 0 {
+				blendedRate = 10.0 // fallback
+			}
+			blendedRate *= rateMultiplier
+			// Blended volatility: equity 18%, debt 3%, govt 2%, alternate 8%
+			blendedVol := (nps.EquityPct*18.0 + nps.CorporateBondPct*3.0 + nps.GovtSecPct*2.0 + nps.AlternatePct*8.0) / 100.0
+			if blendedVol <= 0 {
+				blendedVol = 8.0
+			}
+
+			// Estimate monthly contribution from contributions in the last 12 months
+			monthlyContrib := 0.0
+			twelveMonthsAgo := now.AddDate(-1, 0, 0)
+			recentTotal := 0.0
+			recentCount := 0
+			for _, c := range nps.Contributions {
+				if !c.Date.Before(twelveMonthsAgo) {
+					recentTotal += c.Amount
+					recentCount++
+				}
+			}
+			if recentCount > 0 {
+				monthlyContrib = recentTotal / 12.0
+			}
+
+			name := nps.AccountHolderName + " NPS (" + string(nps.AccountType) + ")"
+			proj := projectGrowthWithSIP(name, "nps", nps.CurrentValue, blendedRate, blendedVol, totalMonths, now, monthlyContrib)
+			resp.Investments = append(resp.Investments, proj)
+		}
+	}
 	// Aggregate monthly projections
 	resp.AggregateMonthly = aggregateProjections(resp.Investments, totalMonths, now)
 
@@ -143,47 +217,78 @@ func (s *ProjectionService) GetProjectionsWithScenario(ctx context.Context, user
 		for _, pt := range resp.AggregateMonthly {
 			monthsFromNow := (pt.Year-now.Year())*12 + (pt.Month - int(now.Month()))
 			if monthsFromNow == 12 {
-				resp.TotalProjected1Y = pt.Value
+				resp.TotalProjected1Y = pt.P50
+				resp.Projected1YRange = &models.ProjectedRange{P10: pt.P10, P50: pt.P50, P90: pt.P90}
 			}
 			if monthsFromNow == 36 {
-				resp.TotalProjected3Y = pt.Value
+				resp.TotalProjected3Y = pt.P50
+				resp.Projected3YRange = &models.ProjectedRange{P10: pt.P10, P50: pt.P50, P90: pt.P90}
 			}
 			if monthsFromNow == 60 {
-				resp.TotalProjected5Y = pt.Value
+				resp.TotalProjected5Y = pt.P50
+				resp.Projected5YRange = &models.ProjectedRange{P10: pt.P10, P50: pt.P50, P90: pt.P90}
 			}
 		}
 		// If projection period is shorter, use last available
 		last := resp.AggregateMonthly[len(resp.AggregateMonthly)-1]
 		if resp.TotalProjected5Y == 0 && years >= 5 {
-			resp.TotalProjected5Y = last.Value
+			resp.TotalProjected5Y = last.P50
+			resp.Projected5YRange = &models.ProjectedRange{P10: last.P10, P50: last.P50, P90: last.P90}
 		}
 		if resp.TotalProjected3Y == 0 && years >= 3 {
-			resp.TotalProjected3Y = last.Value
+			resp.TotalProjected3Y = last.P50
+			resp.Projected3YRange = &models.ProjectedRange{P10: last.P10, P50: last.P50, P90: last.P90}
 		}
 		if resp.TotalProjected1Y == 0 && years >= 1 {
-			resp.TotalProjected1Y = last.Value
+			resp.TotalProjected1Y = last.P50
+			resp.Projected1YRange = &models.ProjectedRange{P10: last.P10, P50: last.P50, P90: last.P90}
 		}
 	}
 
 	return resp, nil
 }
 
-func projectGrowth(name, category string, currentVal, annualRate float64, months int, now time.Time) models.InvestmentProjection {
+func projectGrowth(name, category string, currentVal, annualRate, annualVolatility float64, months int, now time.Time) models.InvestmentProjection {
 	monthlyRate := annualRate / 100 / 12
-	points := make([]models.ProjectionPoint, 0, months+1)
+	monthlyVol := annualVolatility / 100 / math.Sqrt(12)
 
-	// Add current point
-	points = append(points, models.ProjectionPoint{
-		Year: now.Year(), Month: int(now.Month()), Value: math.Round(currentVal),
-	})
+	// Run Monte Carlo simulations
+	allPaths := make([][]float64, monteCarloSimulations)
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	val := currentVal
-	for m := 1; m <= months; m++ {
-		val *= (1 + monthlyRate)
+	for s := 0; s < monteCarloSimulations; s++ {
+		path := make([]float64, months+1)
+		path[0] = currentVal
+		val := currentVal
+		for m := 1; m <= months; m++ {
+			// Geometric Brownian Motion: drift + random shock
+			shock := rng.NormFloat64() * monthlyVol
+			val *= (1 + monthlyRate + shock)
+			if val < 0 {
+				val = 0
+			}
+			path[m] = val
+		}
+		allPaths[s] = path
+	}
+
+	// Extract percentiles at each month
+	points := make([]models.ProjectionPoint, months+1)
+	for m := 0; m <= months; m++ {
+		vals := make([]float64, monteCarloSimulations)
+		for s := 0; s < monteCarloSimulations; s++ {
+			vals[s] = allPaths[s][m]
+		}
+		sort.Float64s(vals)
 		t := now.AddDate(0, m, 0)
-		points = append(points, models.ProjectionPoint{
-			Year: t.Year(), Month: int(t.Month()), Value: math.Round(val),
-		})
+		points[m] = models.ProjectionPoint{
+			Year:  t.Year(),
+			Month: int(t.Month()),
+			Value: math.Round(vals[len(vals)/2]),      // median (P50)
+			P10:   math.Round(vals[len(vals)*10/100]), // pessimistic
+			P50:   math.Round(vals[len(vals)*50/100]), // expected
+			P90:   math.Round(vals[len(vals)*90/100]), // optimistic
+		}
 	}
 
 	return models.InvestmentProjection{
@@ -191,10 +296,68 @@ func projectGrowth(name, category string, currentVal, annualRate float64, months
 		Category:       category,
 		CurrentValue:   currentVal,
 		AssumedRatePct: annualRate,
+		VolatilityPct:  annualVolatility,
 		Projections:    points,
 	}
 }
 
+// projectGrowthWithSIP is like projectGrowth but adds a monthly recurring contribution (SIP, EPF, NPS).
+// When monthlySIP is 0, it behaves identically to projectGrowth.
+func projectGrowthWithSIP(name, category string, currentVal, annualRate, annualVolatility float64, months int, now time.Time, monthlySIP float64) models.InvestmentProjection {
+	if monthlySIP <= 0 {
+		return projectGrowth(name, category, currentVal, annualRate, annualVolatility, months, now)
+	}
+
+	monthlyRate := annualRate / 100 / 12
+	monthlyVol := annualVolatility / 100 / math.Sqrt(12)
+
+	allPaths := make([][]float64, monteCarloSimulations)
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	for s := 0; s < monteCarloSimulations; s++ {
+		path := make([]float64, months+1)
+		path[0] = currentVal
+		val := currentVal
+		for m := 1; m <= months; m++ {
+			// Add monthly contribution first, then apply growth + shock
+			val += monthlySIP
+			shock := rng.NormFloat64() * monthlyVol
+			val *= (1 + monthlyRate + shock)
+			if val < 0 {
+				val = 0
+			}
+			path[m] = val
+		}
+		allPaths[s] = path
+	}
+
+	points := make([]models.ProjectionPoint, months+1)
+	for m := 0; m <= months; m++ {
+		vals := make([]float64, monteCarloSimulations)
+		for s := 0; s < monteCarloSimulations; s++ {
+			vals[s] = allPaths[s][m]
+		}
+		sort.Float64s(vals)
+		t := now.AddDate(0, m, 0)
+		points[m] = models.ProjectionPoint{
+			Year:  t.Year(),
+			Month: int(t.Month()),
+			Value: math.Round(vals[len(vals)/2]),
+			P10:   math.Round(vals[len(vals)*10/100]),
+			P50:   math.Round(vals[len(vals)*50/100]),
+			P90:   math.Round(vals[len(vals)*90/100]),
+		}
+	}
+
+	return models.InvestmentProjection{
+		Name:           name,
+		Category:       category,
+		CurrentValue:   currentVal,
+		AssumedRatePct: annualRate,
+		VolatilityPct:  annualVolatility,
+		Projections:    points,
+	}
+}
 func projectFD(fd models.FixedDeposit, months int, now time.Time) models.InvestmentProjection {
 	points := make([]models.ProjectionPoint, 0, months+1)
 	monthlyRate := fd.InterestRate / 100 / 12
@@ -207,6 +370,7 @@ func projectFD(fd models.FixedDeposit, months int, now time.Time) models.Investm
 
 	points = append(points, models.ProjectionPoint{
 		Year: now.Year(), Month: int(now.Month()), Value: math.Round(startVal),
+		P10: math.Round(startVal), P50: math.Round(startVal), P90: math.Round(startVal),
 	})
 
 	val := startVal
@@ -216,12 +380,13 @@ func projectFD(fd models.FixedDeposit, months int, now time.Time) models.Investm
 		if fd.InterestType == "cumulative" && t.Before(maturity) {
 			val *= (1 + monthlyRate)
 		} else if fd.InterestType == "cumulative" && !t.Before(maturity) {
-			// After maturity, value stays at maturity amount
 			val = fd.MaturityAmount
 		}
-		// For non-cumulative, principal stays same
+		rounded := math.Round(val)
+		// FDs are deterministic — P10/P50/P90 are all the same
 		points = append(points, models.ProjectionPoint{
-			Year: t.Year(), Month: int(t.Month()), Value: math.Round(val),
+			Year: t.Year(), Month: int(t.Month()), Value: rounded,
+			P10: rounded, P50: rounded, P90: rounded,
 		})
 	}
 
@@ -235,8 +400,99 @@ func projectFD(fd models.FixedDeposit, months int, now time.Time) models.Investm
 		Category:       "fixed_deposit",
 		CurrentValue:   startVal,
 		AssumedRatePct: fd.InterestRate,
+		VolatilityPct:  0,
 		Projections:    points,
 	}
+}
+
+func estimateMFVolatility(mf *models.MutualFund) float64 {
+	// Estimate annual volatility from transaction-implied returns
+	// If we have enough transactions with varying values, compute std dev
+	if len(mf.Transactions) >= 4 {
+		returns := computeTransactionReturns(mf.Transactions, func(t models.MFTransaction) (time.Time, float64) {
+			return t.Date, t.NAVAtPurchase
+		})
+		if vol := annualizedVolatility(returns); vol > 0 {
+			return vol
+		}
+	}
+	// Fallback by fund type
+	switch mf.FundType {
+	case "Equity", "ELSS":
+		return 18.0
+	case "Index":
+		return 15.0
+	case "Debt", "Liquid":
+		return 3.0
+	case "Hybrid":
+		return 10.0
+	default:
+		return 12.0
+	}
+}
+
+func estimateStockVolatility(stock *models.Stock) float64 {
+	if len(stock.Transactions) >= 4 {
+		returns := computeTransactionReturns(stock.Transactions, func(t models.StockTransaction) (time.Time, float64) {
+			return t.Date, t.PricePerShare
+		})
+		if vol := annualizedVolatility(returns); vol > 0 {
+			return vol
+		}
+	}
+	return 22.0 // Default stock volatility
+}
+
+// computeTransactionReturns calculates period-over-period returns from transaction prices
+func computeTransactionReturns[T any](txns []T, extract func(T) (time.Time, float64)) []float64 {
+	type pricePoint struct {
+		date  time.Time
+		price float64
+	}
+	points := make([]pricePoint, 0, len(txns))
+	for _, t := range txns {
+		d, p := extract(t)
+		if p > 0 {
+			points = append(points, pricePoint{date: d, price: p})
+		}
+	}
+	if len(points) < 2 {
+		return nil
+	}
+	sort.Slice(points, func(i, j int) bool { return points[i].date.Before(points[j].date) })
+
+	returns := make([]float64, 0, len(points)-1)
+	for i := 1; i < len(points); i++ {
+		ret := (points[i].price - points[i-1].price) / points[i-1].price
+		returns = append(returns, ret)
+	}
+	return returns
+}
+
+// annualizedVolatility computes annualized volatility from periodic returns
+func annualizedVolatility(returns []float64) float64 {
+	if len(returns) < 2 {
+		return 0
+	}
+	mean := 0.0
+	for _, r := range returns {
+		mean += r
+	}
+	mean /= float64(len(returns))
+
+	variance := 0.0
+	for _, r := range returns {
+		variance += (r - mean) * (r - mean)
+	}
+	variance /= float64(len(returns) - 1)
+	stdDev := math.Sqrt(variance)
+
+	// Annualize: assume monthly-ish intervals — scale by sqrt(12)
+	annual := stdDev * math.Sqrt(12) * 100
+	if annual > 60 {
+		annual = 60
+	}
+	return math.Round(annual*10) / 10
 }
 
 func estimateMFRate(mf *models.MutualFund) float64 {
@@ -298,7 +554,7 @@ func aggregateProjections(investments []models.InvestmentProjection, months int,
 	for m := 0; m <= months; m++ {
 		t := now.AddDate(0, m, 0)
 		points[m] = models.ProjectionPoint{
-			Year: t.Year(), Month: int(t.Month()), Value: 0,
+			Year: t.Year(), Month: int(t.Month()), Value: 0, P10: 0, P50: 0, P90: 0,
 		}
 	}
 
@@ -306,6 +562,9 @@ func aggregateProjections(investments []models.InvestmentProjection, months int,
 		for i, pt := range inv.Projections {
 			if i < len(points) {
 				points[i].Value += pt.Value
+				points[i].P10 += pt.P10
+				points[i].P50 += pt.P50
+				points[i].P90 += pt.P90
 			}
 		}
 	}
@@ -313,6 +572,9 @@ func aggregateProjections(investments []models.InvestmentProjection, months int,
 	// Round aggregates
 	for i := range points {
 		points[i].Value = math.Round(points[i].Value)
+		points[i].P10 = math.Round(points[i].P10)
+		points[i].P50 = math.Round(points[i].P50)
+		points[i].P90 = math.Round(points[i].P90)
 	}
 
 	return points

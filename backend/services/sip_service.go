@@ -126,6 +126,11 @@ func (s *SIPService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, objID)
 }
 
+// UpdateRaw saves a SIP document directly without recalculating derived fields.
+func (s *SIPService) UpdateRaw(ctx context.Context, sip *models.SIP) error {
+	return s.repo.Update(ctx, sip)
+}
+
 func (s *SIPService) RecordInstallment(ctx context.Context, id string, req models.RecordSIPInstallmentRequest) (*models.SIP, error) {
 	objID, err := parseObjectID(id)
 	if err != nil {
@@ -150,6 +155,11 @@ func (s *SIPService) RecordInstallment(ctx context.Context, id string, req model
 		Status:        req.Status,
 	}
 
+	// Auto-calculate units from amount/NAV if not provided
+	if installment.Units == 0 && installment.NAV > 0 {
+		installment.Units = installment.Amount / installment.NAV
+	}
+
 	sip.Installments = append(sip.Installments, installment)
 	sip.TotalInstallments++
 
@@ -164,10 +174,7 @@ func (s *SIPService) RecordInstallment(ctx context.Context, id string, req model
 			if err == nil {
 				mf, err := s.mfRepo.GetByID(ctx, fundObjID)
 				if err == nil {
-					units := req.Units
-					if units == 0 && req.NAV > 0 {
-						units = req.Amount / req.NAV
-					}
+					units := installment.Units
 
 					txn := models.MFTransaction{
 						TransactionID: uuid.New().String(),

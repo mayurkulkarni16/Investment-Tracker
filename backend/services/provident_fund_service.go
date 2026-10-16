@@ -200,6 +200,7 @@ func (s *ProvidentFundService) ImportFromPDF(ctx context.Context, id string, req
 				Month:                contrib.Month,
 				EmployeeContribution: contrib.EmployeeContribution,
 				EmployerContribution: contrib.EmployerContribution,
+				InterestEarned:       contrib.InterestEarned,
 				Total:                contrib.EmployeeContribution + contrib.EmployerContribution,
 			}
 			pf.FinancialYearEntries[fyIdx].MonthlyContributions = append(

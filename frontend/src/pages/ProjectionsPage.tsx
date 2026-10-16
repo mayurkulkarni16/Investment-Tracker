@@ -59,6 +59,9 @@ export default function ProjectionsPage() {
     .map(pt => ({
       label: `${MONTH_NAMES[pt.month]} ${pt.year}`,
       value: pt.value,
+      p10: pt.p10,
+      p50: pt.p50,
+      p90: pt.p90,
     }));
 
   // Per-category aggregate data
@@ -139,12 +142,24 @@ export default function ProjectionsPage() {
           <div className="stat-card">
             <div className="label">Projected (1Y)</div>
             <div className="value positive">{formatCurrency(data.total_projected_1y)}</div>
+            {data.projected_1y_range && (
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                {formatCurrency(data.projected_1y_range.p10)} — {formatCurrency(data.projected_1y_range.p90)}
+                <span style={{ marginLeft: 4, opacity: 0.7 }}>(80% confidence)</span>
+              </div>
+            )}
           </div>
         )}
         {data.total_projected_3y > 0 && (
           <div className="stat-card">
             <div className="label">Projected (3Y)</div>
             <div className="value positive">{formatCurrency(data.total_projected_3y)}</div>
+            {data.projected_3y_range && (
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                {formatCurrency(data.projected_3y_range.p10)} — {formatCurrency(data.projected_3y_range.p90)}
+                <span style={{ marginLeft: 4, opacity: 0.7 }}>(80% confidence)</span>
+              </div>
+            )}
           </div>
         )}
         {data.total_projected_5y > 0 && (
@@ -156,6 +171,12 @@ export default function ProjectionsPage() {
                 (+{projectedGrowth.toFixed(1)}%)
               </span>
             </div>
+            {data.projected_5y_range && (
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                {formatCurrency(data.projected_5y_range.p10)} — {formatCurrency(data.projected_5y_range.p90)}
+                <span style={{ marginLeft: 4, opacity: 0.7 }}>(80% confidence)</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -172,22 +193,29 @@ export default function ProjectionsPage() {
 
       {/* Charts Row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-        {/* Total Portfolio Growth Area Chart */}
+        {/* Total Portfolio Growth Area Chart with Confidence Bands */}
         <div className="card">
-          <h3 style={{ marginBottom: 16 }}>Total Portfolio Growth</h3>
+          <h3 style={{ marginBottom: 4 }}>Total Portfolio Growth</h3>
+          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 12, marginTop: 0 }}>
+            Shaded area shows 80% confidence interval (Monte Carlo simulation)
+          </p>
           <ResponsiveContainer width="100%" height={320}>
             <AreaChart data={aggregateChartData}>
               <defs>
-                <linearGradient id="growthGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#1a73e8" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#1a73e8" stopOpacity={0} />
+                <linearGradient id="confidenceBand" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#1a73e8" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#1a73e8" stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} angle={-45} textAnchor="end" height={60} interval={Math.floor(aggregateChartData.length / 8)} />
               <YAxis tickFormatter={v => `₹${(v / 100000).toFixed(1)}L`} fontSize={11} />
-              <Tooltip formatter={(val) => formatCurrency(val as number)} />
-              <Area type="monotone" dataKey="value" name="Portfolio Value" stroke="#1a73e8" fill="url(#growthGradient)" strokeWidth={2} />
+              <Tooltip formatter={(val, name) => [formatCurrency(val as number), name === 'p90' ? 'Optimistic (P90)' : name === 'p10' ? 'Pessimistic (P10)' : name === 'p50' ? 'Expected (P50)' : name]} />
+              <Area type="monotone" dataKey="p90" name="p90" stroke="none" fill="url(#confidenceBand)" />
+              <Area type="monotone" dataKey="p10" name="p10" stroke="none" fill="#fff" fillOpacity={1} />
+              <Area type="monotone" dataKey="p90" name="Optimistic (P90)" stroke="#1a73e8" strokeDasharray="4 4" fill="none" strokeWidth={1} strokeOpacity={0.5} />
+              <Area type="monotone" dataKey="p10" name="Pessimistic (P10)" stroke="#ea4335" strokeDasharray="4 4" fill="none" strokeWidth={1} strokeOpacity={0.5} />
+              <Area type="monotone" dataKey="p50" name="Expected (P50)" stroke="#1a73e8" fill="none" strokeWidth={2.5} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -293,24 +321,26 @@ export default function ProjectionsPage() {
       <div className="card">
         <h3 style={{ marginBottom: 12 }}>Projection Assumptions</h3>
         <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
-          Projections are based on historical CAGR where available, otherwise category-specific defaults. These are estimates — actual returns may vary.
+          Projections use Monte Carlo simulation with {(2000).toLocaleString()} paths based on historical returns and volatility. The P10–P90 range represents 80% confidence.
         </p>
         <table style={{ fontSize: 13 }}>
           <thead>
-            <tr><th>Investment</th><th>Category</th><th>Current Value</th><th>Assumed Rate</th><th>Projected ({years}Y)</th><th>Expected Growth</th></tr>
+            <tr><th>Investment</th><th>Category</th><th>Current Value</th><th>Assumed Rate</th><th>Volatility</th><th>Projected ({years}Y, P50)</th><th>P10–P90 Range</th></tr>
           </thead>
           <tbody>
             {data.investments.map((inv, i) => {
               const last = inv.projections[inv.projections.length - 1];
-              const growth = last ? last.value - inv.current_value : 0;
               return (
                 <tr key={i}>
                   <td>{inv.name}</td>
                   <td><span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: CATEGORY_COLORS[inv.category] + '22', color: CATEGORY_COLORS[inv.category] }}>{CATEGORY_LABELS[inv.category] || inv.category}</span></td>
                   <td>{formatCurrency(inv.current_value)}</td>
                   <td>{inv.assumed_rate_pct}% p.a.</td>
-                  <td>{last ? formatCurrency(last.value) : '-'}</td>
-                  <td className={growth >= 0 ? 'positive' : 'negative'}>{formatCurrency(growth)}</td>
+                  <td>{inv.volatility_pct > 0 ? `${inv.volatility_pct}%` : '—'}</td>
+                  <td>{last ? formatCurrency(last.p50) : '-'}</td>
+                  <td style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                    {last ? `${formatCurrency(last.p10)} — ${formatCurrency(last.p90)}` : '-'}
+                  </td>
                 </tr>
               );
             })}

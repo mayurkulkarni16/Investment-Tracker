@@ -18,6 +18,7 @@ type MonthlyContribution struct {
 	Month                string  `json:"month" bson:"month"`
 	EmployeeContribution float64 `json:"employee_contribution" bson:"employee_contribution"`
 	EmployerContribution float64 `json:"employer_contribution" bson:"employer_contribution"`
+	InterestEarned       float64 `json:"interest_earned" bson:"interest_earned"`
 	Total                float64 `json:"total" bson:"total"`
 }
 
@@ -66,6 +67,7 @@ type ImportPFContribution struct {
 	Month                string  `json:"month"`
 	EmployeeContribution float64 `json:"employee_contribution"`
 	EmployerContribution float64 `json:"employer_contribution"`
+	InterestEarned       float64 `json:"interest_earned"`
 }
 
 type ImportPFYear struct {

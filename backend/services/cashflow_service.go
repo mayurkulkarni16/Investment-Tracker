@@ -11,12 +11,15 @@ import (
 )
 
 type CashflowService struct {
-	mfRepo    *repository.MutualFundRepo
-	bondRepo  *repository.CorporateBondRepo
-	fdRepo    *repository.FixedDepositRepo
-	pfRepo    *repository.ProvidentFundRepo
-	stockRepo *repository.StockRepo
-	npsRepo   *repository.NPSRepo
+	mfRepo           *repository.MutualFundRepo
+	bondRepo         *repository.CorporateBondRepo
+	fdRepo           *repository.FixedDepositRepo
+	pfRepo           *repository.ProvidentFundRepo
+	stockRepo        *repository.StockRepo
+	npsRepo          *repository.NPSRepo
+	homeLoanRepo     *repository.HomeLoanRepo
+	personalLoanRepo *repository.PersonalLoanRepo
+	creditCardRepo   *repository.CreditCardRepo
 }
 
 type MonthlyCashflow struct {
@@ -28,15 +31,15 @@ type MonthlyCashflow struct {
 
 type CashflowDetail struct {
 	Date      string  `json:"date"`
-	Category  string  `json:"category"` // Mutual Fund, Stock, Corporate Bond, Fixed Deposit, Provident Fund
+	Category  string  `json:"category"`
 	Name      string  `json:"name"`
-	Type      string  `json:"type"` // purchase, sip, redemption, buy, sell, interest, etc.
+	Type      string  `json:"type"`
 	Amount    float64 `json:"amount"`
-	Direction string  `json:"direction"` // inflow, outflow
+	Direction string  `json:"direction"`
 }
 
-func NewCashflowService(mfRepo *repository.MutualFundRepo, bondRepo *repository.CorporateBondRepo, fdRepo *repository.FixedDepositRepo, pfRepo *repository.ProvidentFundRepo, stockRepo *repository.StockRepo, npsRepo *repository.NPSRepo) *CashflowService {
-	return &CashflowService{mfRepo: mfRepo, bondRepo: bondRepo, fdRepo: fdRepo, pfRepo: pfRepo, stockRepo: stockRepo, npsRepo: npsRepo}
+func NewCashflowService(mfRepo *repository.MutualFundRepo, bondRepo *repository.CorporateBondRepo, fdRepo *repository.FixedDepositRepo, pfRepo *repository.ProvidentFundRepo, stockRepo *repository.StockRepo, npsRepo *repository.NPSRepo, homeLoanRepo *repository.HomeLoanRepo, personalLoanRepo *repository.PersonalLoanRepo, creditCardRepo *repository.CreditCardRepo) *CashflowService {
+	return &CashflowService{mfRepo: mfRepo, bondRepo: bondRepo, fdRepo: fdRepo, pfRepo: pfRepo, stockRepo: stockRepo, npsRepo: npsRepo, homeLoanRepo: homeLoanRepo, personalLoanRepo: personalLoanRepo, creditCardRepo: creditCardRepo}
 }
 
 func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, userID string, months int) ([]MonthlyCashflow, error) {
@@ -190,6 +193,94 @@ func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, userID string
 		}
 	}
 
+	// 7. Stock dividends (inflow)
+	if err == nil {
+		for _, stock := range stocks {
+			for _, div := range stock.Dividends {
+				if div.Date.Before(cutoff) {
+					continue
+				}
+				key := monthKey(div.Date)
+				fp := getOrCreate(key)
+				fp.inflow += div.TotalAmount
+			}
+		}
+	}
+
+	// 8. FD interest payouts — non-cumulative FDs (inflow)
+	if err == nil {
+		for _, fd := range fds {
+			for _, p := range fd.InterestPayouts {
+				if p.ScheduledDate.Before(cutoff) || p.Status != "received" {
+					continue
+				}
+				key := monthKey(p.ScheduledDate)
+				fp := getOrCreate(key)
+				fp.inflow += p.Amount
+			}
+		}
+	}
+
+	// 9. Home Loan EMIs and prepayments (outflow)
+	homeLoans, err := s.homeLoanRepo.GetAll(ctx, userID)
+	if err == nil {
+		for _, loan := range homeLoans {
+			for _, emi := range loan.EMIsPaid {
+				if emi.PaidDate == nil || emi.PaidDate.Before(cutoff) {
+					continue
+				}
+				key := monthKey(*emi.PaidDate)
+				fp := getOrCreate(key)
+				fp.outflow += emi.EMIAmount
+			}
+			for _, prep := range loan.Prepayments {
+				if prep.Date.Before(cutoff) {
+					continue
+				}
+				key := monthKey(prep.Date)
+				fp := getOrCreate(key)
+				fp.outflow += prep.Amount
+			}
+		}
+	}
+
+	// 10. Personal Loan EMIs and prepayments (outflow)
+	personalLoans, err := s.personalLoanRepo.GetAll(ctx, userID)
+	if err == nil {
+		for _, loan := range personalLoans {
+			for _, emi := range loan.EMIsPaid {
+				if emi.PaidDate == nil || emi.PaidDate.Before(cutoff) {
+					continue
+				}
+				key := monthKey(*emi.PaidDate)
+				fp := getOrCreate(key)
+				fp.outflow += emi.EMIAmount
+			}
+			for _, prep := range loan.Prepayments {
+				if prep.Date.Before(cutoff) {
+					continue
+				}
+				key := monthKey(prep.Date)
+				fp := getOrCreate(key)
+				fp.outflow += prep.Amount
+			}
+		}
+	}
+
+	// 11. Credit Card statement payments (outflow)
+	creditCards, err := s.creditCardRepo.GetAll(ctx, userID)
+	if err == nil {
+		for _, cc := range creditCards {
+			for _, stmt := range cc.Statements {
+				if !stmt.IsPaid || stmt.PaidDate == nil || stmt.PaidDate.Before(cutoff) {
+					continue
+				}
+				key := monthKey(*stmt.PaidDate)
+				fp := getOrCreate(key)
+				fp.outflow += stmt.AmountPaid
+			}
+		}
+	}
 	// Convert map to sorted slice
 	result := make([]MonthlyCashflow, 0, len(flows))
 	for month, fp := range flows {
@@ -396,7 +487,130 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, userID string, mon
 		}
 	}
 
-	// Sort by date
+	// 7. Stock dividends (inflow)
+	if err == nil {
+		for _, stock := range stocks {
+			for _, div := range stock.Dividends {
+				if !inMonth(div.Date) {
+					continue
+				}
+				details = append(details, CashflowDetail{
+					Date:      div.Date.Format("2006-01-02"),
+					Category:  "Stock",
+					Name:      stock.Symbol,
+					Type:      "dividend",
+					Amount:    div.TotalAmount,
+					Direction: "inflow",
+				})
+			}
+		}
+	}
+
+	// 8. FD interest payouts (inflow)
+	if err == nil {
+		for _, fd := range fds {
+			for _, p := range fd.InterestPayouts {
+				if p.Status != "received" || !inMonth(p.ScheduledDate) {
+					continue
+				}
+				details = append(details, CashflowDetail{
+					Date:      p.ScheduledDate.Format("2006-01-02"),
+					Category:  "Fixed Deposit",
+					Name:      fd.BankName + " FD",
+					Type:      "interest payout",
+					Amount:    p.Amount,
+					Direction: "inflow",
+				})
+			}
+		}
+	}
+
+	// 9. Home Loan EMIs and prepayments (outflow)
+	homeLoans, err := s.homeLoanRepo.GetAll(ctx, userID)
+	if err == nil {
+		for _, loan := range homeLoans {
+			for _, emi := range loan.EMIsPaid {
+				if emi.PaidDate == nil || !inMonth(*emi.PaidDate) {
+					continue
+				}
+				details = append(details, CashflowDetail{
+					Date:      emi.PaidDate.Format("2006-01-02"),
+					Category:  "Home Loan",
+					Name:      loan.BankName + " EMI",
+					Type:      "emi",
+					Amount:    emi.EMIAmount,
+					Direction: "outflow",
+				})
+			}
+			for _, prep := range loan.Prepayments {
+				if !inMonth(prep.Date) {
+					continue
+				}
+				details = append(details, CashflowDetail{
+					Date:      prep.Date.Format("2006-01-02"),
+					Category:  "Home Loan",
+					Name:      loan.BankName + " Prepayment",
+					Type:      "prepayment",
+					Amount:    prep.Amount,
+					Direction: "outflow",
+				})
+			}
+		}
+	}
+
+	// 10. Personal Loan EMIs and prepayments (outflow)
+	personalLoans, err := s.personalLoanRepo.GetAll(ctx, userID)
+	if err == nil {
+		for _, loan := range personalLoans {
+			for _, emi := range loan.EMIsPaid {
+				if emi.PaidDate == nil || !inMonth(*emi.PaidDate) {
+					continue
+				}
+				details = append(details, CashflowDetail{
+					Date:      emi.PaidDate.Format("2006-01-02"),
+					Category:  "Personal Loan",
+					Name:      loan.LenderName + " EMI",
+					Type:      "emi",
+					Amount:    emi.EMIAmount,
+					Direction: "outflow",
+				})
+			}
+			for _, prep := range loan.Prepayments {
+				if !inMonth(prep.Date) {
+					continue
+				}
+				details = append(details, CashflowDetail{
+					Date:      prep.Date.Format("2006-01-02"),
+					Category:  "Personal Loan",
+					Name:      loan.LenderName + " Prepayment",
+					Type:      "prepayment",
+					Amount:    prep.Amount,
+					Direction: "outflow",
+				})
+			}
+		}
+	}
+
+	// 11. Credit Card statement payments (outflow)
+	creditCards, err := s.creditCardRepo.GetAll(ctx, userID)
+	if err == nil {
+		for _, cc := range creditCards {
+			for _, stmt := range cc.Statements {
+				if !stmt.IsPaid || stmt.PaidDate == nil || !inMonth(*stmt.PaidDate) {
+					continue
+				}
+				details = append(details, CashflowDetail{
+					Date:      stmt.PaidDate.Format("2006-01-02"),
+					Category:  "Credit Card",
+					Name:      cc.CardName + " Payment",
+					Type:      "bill payment",
+					Amount:    stmt.AmountPaid,
+					Direction: "outflow",
+				})
+			}
+		}
+	}
+
 	sort.Slice(details, func(i, j int) bool {
 		return details[i].Date < details[j].Date
 	})

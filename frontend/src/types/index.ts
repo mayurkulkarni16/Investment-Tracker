@@ -163,6 +163,7 @@ export interface MonthlyContribution {
   month: string;
   employee_contribution: number;
   employer_contribution: number;
+  interest_earned: number;
   total: number;
 }
 
@@ -594,6 +595,9 @@ export interface ProjectionPoint {
   year: number;
   month: number;
   value: number;
+  p10: number;
+  p50: number;
+  p90: number;
 }
 
 export interface InvestmentProjection {
@@ -601,7 +605,14 @@ export interface InvestmentProjection {
   category: string;
   current_value: number;
   assumed_rate_pct: number;
+  volatility_pct: number;
   projections: ProjectionPoint[];
+}
+
+export interface ProjectedRange {
+  p10: number;
+  p50: number;
+  p90: number;
 }
 
 export interface ProjectionsResponse {
@@ -611,6 +622,9 @@ export interface ProjectionsResponse {
   total_projected_1y: number;
   total_projected_3y: number;
   total_projected_5y: number;
+  projected_1y_range?: ProjectedRange;
+  projected_3y_range?: ProjectedRange;
+  projected_5y_range?: ProjectedRange;
   scenario: string;
 }
 

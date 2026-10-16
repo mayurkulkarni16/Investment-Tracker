@@ -30,6 +30,7 @@ export default function ProvidentFundPage() {
   const [importProgress, setImportProgress] = useState('');
   const [importStep, setImportStep] = useState<'upload' | 'preview'>('upload');
   const [parsedPF, setParsedPF] = useState<ParsedPFData | null>(null);
+  const [selectedYearIndices, setSelectedYearIndices] = useState<Set<number>>(new Set());
   const [importMessage, setImportMessage] = useState('');
 
   const load = () => {
@@ -87,6 +88,7 @@ export default function ProvidentFundPage() {
         setImportMessage('No contributions found in the PDF. OCR may have failed to read the document.');
       } else {
         setParsedPF(data);
+        setSelectedYearIndices(new Set(data.years.map((_, i) => i)));
         setImportStep('preview');
       }
     } catch (err: unknown) {
@@ -101,8 +103,12 @@ export default function ProvidentFundPage() {
   const handleImportPF = async () => {
     if (!showImport || !parsedPF) return;
     setImportLoading(true);
+    const filteredData: ParsedPFData = {
+      ...parsedPF,
+      years: parsedPF.years.filter((_, i) => selectedYearIndices.has(i)),
+    };
     try {
-      const res = await importPFFromPDF(showImport, parsedPF);
+      const res = await importPFFromPDF(showImport, filteredData);
       const r = res.data as { years_added: number; contributions_added: number; errors?: string[] };
       setImportMessage(`Imported: ${r.years_added} years, ${r.contributions_added} contributions.${r.errors?.length ? ' Errors: ' + r.errors.join('; ') : ''}`);
       setImportStep('upload');
@@ -119,6 +125,7 @@ export default function ProvidentFundPage() {
     setShowImport(null);
     setImportStep('upload');
     setParsedPF(null);
+    setSelectedYearIndices(new Set());
     setImportFile(null);
     setImportMessage('');
     setImportProgress('');
@@ -218,13 +225,14 @@ export default function ProvidentFundPage() {
                     {fy.monthly_contributions && fy.monthly_contributions.length > 0 && (
                       <div className="table-container">
                         <table>
-                          <thead><tr><th>Month</th><th>Employee</th><th>Employer</th><th>Total</th></tr></thead>
+                          <thead><tr><th>Month</th><th>Employee</th><th>Employer</th><th>Interest</th><th>Total</th></tr></thead>
                           <tbody>
                             {fy.monthly_contributions.map(mc => (
                               <tr key={mc.month}>
                                 <td>{mc.month}</td>
                                 <td>{formatCurrency(mc.employee_contribution)}</td>
                                 <td>{formatCurrency(mc.employer_contribution)}</td>
+                                <td style={{ color: 'var(--success)' }}>{mc.interest_earned > 0 ? formatCurrency(mc.interest_earned) : '—'}</td>
                                 <td>{formatCurrency(mc.total)}</td>
                               </tr>
                             ))}
@@ -382,18 +390,29 @@ export default function ProvidentFundPage() {
               <div>
                 {parsedPF.account_number && <p style={{ marginBottom: 4 }}><strong>Account:</strong> {parsedPF.account_number}</p>}
                 {parsedPF.employer_name && <p style={{ marginBottom: 12 }}><strong>Employer:</strong> {parsedPF.employer_name}</p>}
-                <p style={{ marginBottom: 12 }}>Found <strong>{parsedPF.years.length}</strong> financial years with <strong>{parsedPF.years.reduce((s, y) => s + y.contributions.length, 0)}</strong> monthly contributions:</p>
+                <p style={{ marginBottom: 12 }}>Found <strong>{parsedPF.years.length}</strong> financial years with <strong>{parsedPF.years.reduce((s, y) => s + y.contributions.length, 0)}</strong> monthly contributions. Select years to import:</p>
                 <div style={{ maxHeight: 400, overflow: 'auto', marginBottom: 16 }}>
                   {parsedPF.years.map((yr, yi) => (
                     <div key={yi} style={{ marginBottom: 16 }}>
-                      <h4 style={{ margin: '0 0 4px' }}>FY {yr.financial_year}</h4>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedYearIndices.has(yi)}
+                          onChange={e => {
+                            const next = new Set(selectedYearIndices);
+                            if (e.target.checked) next.add(yi); else next.delete(yi);
+                            setSelectedYearIndices(next);
+                          }}
+                        />
+                        <h4 style={{ margin: 0 }}>FY {yr.financial_year}</h4>
+                      </label>
                       <div className="text-muted" style={{ fontSize: 12, marginBottom: 8 }}>
                         Opening: {formatCurrency(yr.opening_balance)} | Interest: {formatCurrency(yr.interest_earned)} | Closing: {formatCurrency(yr.closing_balance)}
                       </div>
                       {yr.contributions.length > 0 && (
                         <table style={{ fontSize: 12 }}>
                           <thead>
-                            <tr><th>Month</th><th>Employee</th><th>Employer</th><th>Total</th></tr>
+                            <tr><th>Month</th><th>Employee</th><th>Employer</th><th>Interest</th><th>Total</th></tr>
                           </thead>
                           <tbody>
                             {yr.contributions.map((c, ci) => (
@@ -401,6 +420,7 @@ export default function ProvidentFundPage() {
                                 <td>{c.month}</td>
                                 <td>{formatCurrency(c.employee_contribution)}</td>
                                 <td>{formatCurrency(c.employer_contribution)}</td>
+                                <td style={{ color: 'var(--success)' }}>{c.interest_earned > 0 ? formatCurrency(c.interest_earned) : '—'}</td>
                                 <td>{formatCurrency(c.employee_contribution + c.employer_contribution)}</td>
                               </tr>
                             ))}
@@ -413,8 +433,8 @@ export default function ProvidentFundPage() {
                 {importMessage && <div className="text-success" style={{ marginBottom: 12 }}>{importMessage}</div>}
                 <div className="modal-actions">
                   <button className="btn btn-outline" onClick={() => { setImportStep('upload'); setParsedPF(null); }}>Back</button>
-                  <button className="btn btn-primary" onClick={handleImportPF} disabled={importLoading}>
-                    {importLoading ? 'Importing...' : `Import ${parsedPF.years.reduce((s, y) => s + y.contributions.length, 0)} Contributions`}
+                  <button className="btn btn-primary" onClick={handleImportPF} disabled={importLoading || selectedYearIndices.size === 0}>
+                    {importLoading ? 'Importing...' : `Import ${parsedPF.years.filter((_, i) => selectedYearIndices.has(i)).reduce((s, y) => s + y.contributions.length, 0)} Contributions`}
                   </button>
                 </div>
               </div>
