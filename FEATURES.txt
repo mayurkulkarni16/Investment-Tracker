@@ -1,0 +1,154 @@
+INVESTMENT TRACKER - COMPLETE FEATURE LIST
+==========================================
+
+1. AUTHENTICATION & USER MANAGEMENT
+------------------------------------
+- Signup (email/password with bcrypt hashing)
+- Login (JWT-based authentication)
+- Forgot Password (reset token generation)
+- Reset Password (token-based)
+- Change Password (authenticated)
+- Profile / Account management
+- Admin seed account (auto-created on startup)
+- Admin: List all users
+- Admin: View-as / impersonate user (read-only, via X-View-As-User header)
+
+2. DASHBOARD & PORTFOLIO OVERVIEW
+----------------------------------
+- Portfolio summary (total invested, current value, total gains, overall return %)
+- Portfolio XIRR (time-weighted return across all investments)
+- Asset allocation pie chart (by investment category)
+- Per-category summaries (MF, Stocks, Bonds, FD, PF, NPS — invested/current/XIRR)
+- Loan summaries (home loan + personal loan outstanding, EMI, prepayments)
+- Credit card summary (outstanding, total limit, avg utilization)
+- Risk metrics (equity/debt ratio, risk score, diversification, loan-to-asset ratio, concentration risk)
+- Upcoming payouts (next 30 days — bond interest, FD maturity, principal repayments)
+- ELSS tax saving (Section 80C ELSS total in current FY)
+- Rebalancing suggestions (user provides target allocation, system suggests buy/sell)
+
+3. INVESTMENT MODULES
+---------------------
+
+3a. Mutual Funds
+  - CRUD for fund holdings
+  - Transaction tracking (purchase, SIP, redemption, switch-in, switch-out)
+  - CAS PDF import (Consolidated Account Statement bulk import)
+  - Auto NAV fetch from AMFI API (by scheme code)
+  - Bulk NAV refresh for all funds
+  - Recalculate all fund totals
+  - ELSS 3-year lock-in tracking per transaction
+
+3b. Stocks
+  - CRUD for stock holdings
+  - Buy/sell transaction tracking
+  - Dividend recording
+  - Live price fetch via Yahoo Finance API
+  - Auto-refresh every 60 seconds during market hours (Mon-Fri 9:15 AM - 3:30 PM IST)
+  - Market status check (Indian stock market open/closed)
+  - Average cost calculation (running avg cost method)
+
+3c. Corporate Bonds
+  - CRUD for bond holdings
+  - Auto-generated interest payout schedules (monthly/quarterly/biannually/annually)
+  - Principal repayment schedules (bullet or staggered maturity)
+  - Mark interest/principal payouts as received
+  - Dynamic recalculation when principal reduces (staggered bonds)
+
+3d. Fixed Deposits
+  - CRUD for FD records
+  - Maturity amount calculation (cumulative compound / non-cumulative simple interest)
+  - Auto-renewal tracking
+
+3e. Provident Fund (EPF / VPF / PPF)
+  - CRUD for PF accounts
+  - Monthly contribution tracking by financial year (employee + employer split)
+  - PF passbook PDF import (bulk import with OCR)
+  - Interest calculation (monthly running balance method per EPFO rules)
+
+3f. Home Loans
+  - CRUD for home loans
+  - EMI payment recording
+  - Lump-sum prepayment tracking
+  - Interest rate change recording (floating rate loans)
+  - Full amortization schedule generation
+  - Under-construction support (tranche disbursements, pre-EMI interest, mark construction complete)
+  - Recalculate after changes
+
+3g. Personal Loans
+  - CRUD for personal loans
+  - EMI payment recording
+  - Prepayment tracking
+  - Interest rate change recording
+  - Full amortization schedule generation
+
+3h. NPS (National Pension System)
+  - CRUD for NPS accounts (Tier 1 / Tier 2)
+  - Contribution tracking with date
+  - Asset allocation tracking (equity, corporate bond, govt securities, alternate assets)
+  - Fund manager tracking (SBI, LIC, HDFC, etc.)
+
+3i. Credit Cards
+  - CRUD for credit cards
+  - Monthly billing statement recording
+  - Statement payment tracking
+  - Individual card transaction recording
+  - Card EMI conversion tracking
+  - Credit score history recording
+
+3j. SIPs (Systematic Investment Plans)
+  - CRUD for SIP plans
+  - Installment payment tracking
+  - Link SIPs to mutual fund holdings
+  - Frequency and SIP date tracking
+
+4. ANALYTICS & INTELLIGENCE
+----------------------------
+- Investment Projections (Monte Carlo simulation — 2000 paths, P10/P50/P90 confidence bands, 1-30 year horizon, bull/bear/base scenarios)
+- Cashflow Analysis (monthly inflow/outflow aggregation across all investments, month drilldown)
+- Insights Engine (portfolio analysis — risk, performance, tax, diversification, loan, goal, and opportunity insights with severity levels: critical/warning/info/positive)
+- Benchmark Comparison (compare portfolio against Nifty 50 and Sensex via Yahoo Finance, 1m-10y periods)
+- Tax Center (Section 80C: EPF + ELSS + home loan principal + PPF + NPS; Section 24b: home loan interest; Section 80CCD: NPS; capital gains tracking)
+- Net Worth Tracking (real-time assets minus liabilities, daily snapshots, historical trends)
+- Financial Goals (target amount/date, link investments to goals, progress tracking, assumed return rate, batch linking)
+
+5. NOTIFICATIONS
+-----------------
+- Auto-generated notifications (scans all modules for upcoming events within 7 days — EMIs, FD maturity, bond payouts, SIP dates, credit card due dates, goal deadlines)
+- List all / unread notifications
+- Mark individual or all notifications as read
+
+6. DATA MANAGEMENT
+-------------------
+- CSV export (per-module or all investments)
+- Full backup as JSON (all 12 collections)
+- Restore from backup JSON
+- Profile management (multi-profile support with name, relationship, color)
+
+7. BACKGROUND SERVICES & AUTOMATION
+------------------------------------
+- Daily scheduler (runs at 20:00 IST — refreshes MF NAVs, stock prices, takes net worth snapshot)
+- NAV fetcher service (AMFI API integration via api.mfapi.in)
+- Stock price fetcher service (Yahoo Finance API — NSE .NS / BSE .BO suffix)
+
+8. FRONTEND PAGES (21 total)
+------------------------------
+- LoginPage, SignupPage, ForgotPasswordPage, ResetPasswordPage
+- DashboardPage
+- MutualFundsPage
+- StocksPage
+- CorporateBondsPage
+- FixedDepositsPage
+- ProvidentFundPage
+- HomeLoansPage
+- PersonalLoansPage
+- NPSPage
+- CreditCardsPage
+- GoalsPage
+- NetWorthPage
+- ProjectionsPage
+- CashflowPage
+- InsightsPage
+- TaxCenterPage
+- SettingsPage (Profile, Backup, Export, Account)
+
+TOTAL: ~80 features across 8 categories
