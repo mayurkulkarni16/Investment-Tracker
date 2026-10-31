@@ -38,6 +38,16 @@ type Container struct {
 	CashflowHandler      *handlers.CashflowHandler
 	InsightsHandler      *handlers.InsightsHandler
 
+	// Personal finance
+	AccountHandler      *handlers.AccountHandler
+	InsuranceHandler    *handlers.InsuranceHandler
+	GoldHandler         *handlers.GoldHandler
+	PropertyHandler     *handlers.PropertyHandler
+	PlanningHandler     *handlers.PlanningHandler
+	MessagingHandler    *handlers.MessagingHandler
+	DocumentHandler     *handlers.DocumentHandler
+	BrokerImportHandler *handlers.BrokerImportHandler
+
 	// Services exposed for use in main (seeding, scheduling, etc.)
 	AuthService     *services.AuthService
 	MFService       *services.MutualFundService
@@ -67,6 +77,14 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 	profileRepo := repository.NewProfileRepo(db)
 	vehicleRentalRepo := repository.NewVehicleRentalRepo(db)
 	ledgerRepo := repository.NewLedgerRepo(db)
+	bankRepo := repository.NewBankAccountRepo(db)
+	budgetRepo := repository.NewBudgetRepo(db)
+	insuranceRepo := repository.NewInsuranceRepo(db)
+	goldRepo := repository.NewGoldRepo(db)
+	propertyRepo := repository.NewPropertyRepo(db)
+	assignmentRepo := repository.NewProfileAssignmentRepo(db)
+	notifSettingsRepo := repository.NewNotificationSettingsRepo(db)
+	documentRepo := repository.NewDocumentRepo(db)
 
 	// Services
 	authService := services.NewAuthService(userRepo, cfg)
@@ -86,16 +104,39 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 	vehicleRentalService := services.NewVehicleRentalService(vehicleRentalRepo)
 	creditCardService := services.NewCreditCardService(creditCardRepo)
 	goalService := services.NewGoalService(goalRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo, sipRepo)
-	netWorthService := services.NewNetWorthService(netWorthRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo, homeLoanRepo, personalLoanRepo, creditCardRepo)
+	netWorthService := services.NewNetWorthService(netWorthRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo, homeLoanRepo, personalLoanRepo, creditCardRepo, vehicleRentalRepo)
 	sipService := services.NewSIPService(sipRepo, mfRepo)
-	notificationService := services.NewNotificationService(notificationRepo, homeLoanRepo, personalLoanRepo, fdRepo, bondRepo, sipRepo, creditCardRepo, goalService)
+	notificationService := services.NewNotificationService(notificationRepo, homeLoanRepo, personalLoanRepo, fdRepo, bondRepo, sipRepo, creditCardRepo, vehicleRentalRepo, goalService)
 	profileService := services.NewProfileService(profileRepo)
 	benchmarkService := services.NewBenchmarkService()
-	exportService := services.NewExportService(mfRepo, stockRepo, fdRepo, pfRepo, bondRepo, homeLoanRepo, personalLoanRepo, npsRepo)
-	backupService := services.NewBackupService(db, mfRepo, stockRepo, fdRepo, pfRepo, bondRepo, homeLoanRepo, personalLoanRepo, npsRepo, creditCardRepo, goalRepo, sipRepo, profileRepo)
+	exportService := services.NewExportService(mfRepo, stockRepo, fdRepo, pfRepo, bondRepo, homeLoanRepo, personalLoanRepo, npsRepo, vehicleRentalRepo)
+	backupService := services.NewBackupService(db, mfRepo, stockRepo, fdRepo, pfRepo, bondRepo, homeLoanRepo, personalLoanRepo, npsRepo, creditCardRepo, goalRepo, sipRepo, profileRepo, vehicleRentalRepo)
 	cashflowService := services.NewCashflowService(mfRepo, bondRepo, fdRepo, pfRepo, stockRepo, npsRepo, homeLoanRepo, personalLoanRepo, creditCardRepo, vehicleRentalRepo)
 	insightsService := services.NewInsightsService(mfService, stockService, bondService, fdService, pfService, homeLoanRepo, personalLoanRepo, npsService, goalService, taxService, vehicleRentalRepo)
-	scheduler := services.NewScheduler(mfService, stockService, netWorthService)
+	scheduler := services.NewScheduler(userRepo, mfService, stockService, netWorthService, notificationService)
+
+	// Personal finance: cash, budgets, insurance, gold, real estate, family,
+	// FIRE planning, reminders by email/Telegram, documents and broker imports.
+	accountService := services.NewAccountService(bankRepo, ledgerRepo)
+	budgetService := services.NewBudgetService(budgetRepo, ledgerRepo)
+	insuranceService := services.NewInsuranceService(insuranceRepo, ledgerRepo, homeLoanRepo, personalLoanRepo)
+	goldService := services.NewGoldService(goldRepo, priceFetcher)
+	propertyService := services.NewPropertyService(propertyRepo, homeLoanRepo)
+	netWorthService.SetPersonalFinanceRepos(bankRepo, goldRepo, propertyRepo, insuranceRepo)
+	exportService.SetPersonalFinanceRepos(bankRepo, goldRepo, propertyRepo, insuranceRepo)
+	taxService.SetInsuranceRepo(insuranceRepo)
+	notificationService.SetFinanceSources(insuranceRepo, budgetService, documentRepo)
+	familyService := services.NewFamilyService(netWorthService, profileRepo, assignmentRepo)
+	fireService := services.NewFIREService(netWorthService, ledgerRepo, sipRepo)
+	financeService := services.NewFinanceService(netWorthService, netWorthRepo, bankRepo, budgetService, insuranceService, ledgerRepo)
+	messagingService := services.NewMessagingService(cfg, notifSettingsRepo, notificationRepo, userRepo)
+	authService.SetMailer(messagingService)
+	scheduler.SetMessaging(messagingService)
+	documentService, err := services.NewDocumentService(db, documentRepo)
+	if err != nil {
+		panic("document storage: " + err.Error())
+	}
+	brokerImportService := services.NewBrokerImportService(stockService, stockRepo)
 
 	// Handlers
 	return &Container{
@@ -124,6 +165,15 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 		BackupHandler:        handlers.NewBackupHandler(backupService),
 		CashflowHandler:      handlers.NewCashflowHandler(cashflowService),
 		InsightsHandler:      handlers.NewInsightsHandler(insightsService),
+
+		AccountHandler:      handlers.NewAccountHandler(accountService, budgetService),
+		InsuranceHandler:    handlers.NewInsuranceHandler(insuranceService),
+		GoldHandler:         handlers.NewGoldHandler(goldService),
+		PropertyHandler:     handlers.NewPropertyHandler(propertyService),
+		PlanningHandler:     handlers.NewPlanningHandler(familyService, fireService, financeService),
+		MessagingHandler:    handlers.NewMessagingHandler(messagingService),
+		DocumentHandler:     handlers.NewDocumentHandler(documentService),
+		BrokerImportHandler: handlers.NewBrokerImportHandler(brokerImportService),
 
 		AuthService:     authService,
 		MFService:       mfService,

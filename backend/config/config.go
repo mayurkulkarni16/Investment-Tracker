@@ -12,6 +12,14 @@ type Config struct {
 	AdminEmail    string
 	AdminPassword string
 	FrontendURL   string
+
+	// Optional outbound reminders and password-reset emails.
+	SMTPHost         string
+	SMTPPort         string
+	SMTPUsername     string
+	SMTPPassword     string
+	SMTPFrom         string
+	TelegramBotToken string
 }
 
 func Load() *Config {
@@ -23,6 +31,13 @@ func Load() *Config {
 		AdminEmail:    getEnv("ADMIN_EMAIL", "admin@investtrack.com"),
 		AdminPassword: getEnv("ADMIN_PASSWORD", "admin123"),
 		FrontendURL:   getEnv("FRONTEND_URL", "http://localhost:5173"),
+
+		SMTPHost:         os.Getenv("SMTP_HOST"),
+		SMTPPort:         getEnv("SMTP_PORT", "587"),
+		SMTPUsername:     os.Getenv("SMTP_USERNAME"),
+		SMTPPassword:     os.Getenv("SMTP_PASSWORD"),
+		SMTPFrom:         os.Getenv("SMTP_FROM"),
+		TelegramBotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
 	}
 }
 

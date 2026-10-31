@@ -17,7 +17,43 @@ type NotificationRepo struct {
 }
 
 func NewNotificationRepo(db *mongo.Database) *NotificationRepo {
-	return &NotificationRepo{collection: db.Collection("notifications")}
+	coll := db.Collection("notifications")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	// Partial so that legacy notifications without a dedupe key don't conflict.
+	_, _ = coll.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "dedupe_key", Value: 1}},
+		Options: options.Index().SetUnique(true).
+			SetPartialFilterExpression(bson.M{"dedupe_key": bson.M{"$exists": true}}),
+	})
+	return &NotificationRepo{collection: coll}
+}
+
+// Upsert inserts the notification unless one with the same user and dedupe key
+// already exists (read or unread). Returns true if a new notification was created.
+func (r *NotificationRepo) Upsert(ctx context.Context, notif *models.Notification) (bool, error) {
+	if notif.DedupeKey == "" {
+		return true, r.Create(ctx, notif)
+	}
+	notif.CreatedAt = time.Now()
+	doc := *notif
+	doc.ID = primitive.NilObjectID
+	res, err := r.collection.UpdateOne(ctx,
+		bson.M{"user_id": notif.UserID, "dedupe_key": notif.DedupeKey},
+		bson.M{"$setOnInsert": doc},
+		options.Update().SetUpsert(true),
+	)
+	if mongo.IsDuplicateKeyError(err) {
+		return false, nil // concurrent scan inserted it first
+	}
+	if err != nil {
+		return false, err
+	}
+	if id, ok := res.UpsertedID.(primitive.ObjectID); ok {
+		notif.ID = id
+		return true, nil
+	}
+	return false, nil
 }
 
 func (r *NotificationRepo) Create(ctx context.Context, notif *models.Notification) error {
@@ -36,7 +72,7 @@ func (r *NotificationRepo) GetAll(ctx context.Context, userID string) ([]models.
 		filter["user_id"] = userID
 	}
 	opts := options.Find().SetSort(bson.D{{Key: "date", Value: -1}}).SetLimit(100)
-	cursor, err := r.collection.Find(ctx, filter, opts)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter), opts)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +89,7 @@ func (r *NotificationRepo) GetUnread(ctx context.Context, userID string) ([]mode
 		filter["user_id"] = userID
 	}
 	opts := options.Find().SetSort(bson.D{{Key: "date", Value: -1}})
-	cursor, err := r.collection.Find(ctx, filter, opts)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter), opts)
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +101,11 @@ func (r *NotificationRepo) GetUnread(ctx context.Context, userID string) ([]mode
 }
 
 func (r *NotificationRepo) MarkRead(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{"is_read": true}})
-	return err
+	res, err := r.collection.UpdateOne(ctx, scoped(ctx, bson.M{"_id": id}), bson.M{"$set": bson.M{"is_read": true}})
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.MatchedCount)
 }
 
 func (r *NotificationRepo) MarkAllRead(ctx context.Context, userID string) error {
@@ -74,7 +113,7 @@ func (r *NotificationRepo) MarkAllRead(ctx context.Context, userID string) error
 	if userID != "" {
 		filter["user_id"] = userID
 	}
-	_, err := r.collection.UpdateMany(ctx, filter, bson.M{"$set": bson.M{"is_read": true}})
+	_, err := r.collection.UpdateMany(ctx, scoped(ctx, filter), bson.M{"$set": bson.M{"is_read": true}})
 	return err
 }
 

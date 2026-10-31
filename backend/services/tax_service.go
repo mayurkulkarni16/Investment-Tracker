@@ -20,6 +20,7 @@ type TaxService struct {
 	homeLoanRepo     *repository.HomeLoanRepo
 	personalLoanRepo *repository.PersonalLoanRepo
 	stockRepo        *repository.StockRepo
+	insuranceRepo    *repository.InsuranceRepo
 }
 
 func NewTaxService(
@@ -41,6 +42,9 @@ func NewTaxService(
 
 // parseFYRange parses a financial year string like "2025-2026" or "2025-26" into start and end dates.
 // Returns (2025-04-01, 2026-04-01) for FY 2025-2026. Falls back to current FY if empty or invalid.
+// SetInsuranceRepo counts insurance premiums under 80C (life) and 80D (health).
+func (s *TaxService) SetInsuranceRepo(r *repository.InsuranceRepo) { s.insuranceRepo = r }
+
 func parseFYRange(fy string) (time.Time, time.Time) {
 	if fy != "" {
 		parts := strings.Split(fy, "-")
@@ -95,7 +99,8 @@ func (s *TaxService) GetTaxSummary(ctx context.Context, userID string, fy string
 	for _, mf := range mfs {
 		if mf.IsELSS {
 			for _, txn := range mf.Transactions {
-				if !txn.Date.Before(fyStart) && txn.Date.Before(fyEnd) && txn.Type == "purchase" {
+				isInvestment := txn.Type == models.TransactionPurchase || txn.Type == models.TransactionSIP
+				if !txn.Date.Before(fyStart) && txn.Date.Before(fyEnd) && isInvestment {
 					summary.Section80C.ELSSInvestment += txn.Amount
 				}
 			}
@@ -111,6 +116,13 @@ func (s *TaxService) GetTaxSummary(ctx context.Context, userID string, fy string
 			}
 		}
 	}
+
+	summary.Section80D.Limit = 25000
+	if s.insuranceRepo != nil {
+		policies, _ := s.insuranceRepo.GetAll(ctx, userID)
+		summary.Section80C.LifeInsurance, summary.Section80D.HealthInsurance = PremiumsInRange(policies, fyStart, fyEnd)
+	}
+	summary.Section80D.Deduction = math.Min(summary.Section80D.HealthInsurance, summary.Section80D.Limit)
 
 	summary.Section80C.Total = summary.Section80C.EPFContribution +
 		summary.Section80C.ELSSInvestment +
@@ -153,32 +165,29 @@ func (s *TaxService) GetTaxSummary(ctx context.Context, userID string, fy string
 		summary.Section80CCD.NPS80CCD1B = summary.Section80CCD.NPS80CCD1
 	}
 
-	// Interest income from FDs and Bonds
+	// Interest income from FDs and bonds for the whole FY (taxable as it accrues /
+	// is paid, so future payouts within the FY are included as an estimate).
 	fds, _ := s.fdRepo.GetAll(ctx, userID)
-	for _, fd := range fds {
-		if fd.InterestType == "monthly" || fd.InterestType == "quarterly" {
-			// Estimate interest for FY
-			monthsInFY := 12.0
-			if fd.Status == "active" {
-				summary.InterestIncome += fd.PrincipalAmount * fd.InterestRate / 100 / 12 * monthsInFY
-			}
-		}
+	for i := range fds {
+		summary.InterestIncome += FixedDepositInterestBetween(&fds[i], fyStart, fyEnd)
 	}
 
 	bonds, _ := s.bondRepo.GetAll(ctx, userID)
 	for _, bond := range bonds {
 		for _, p := range bond.InterestPayouts {
-			if p.Status == "received" && !p.ScheduledDate.Before(fyStart) && p.ScheduledDate.Before(fyEnd) {
+			if !p.ScheduledDate.Before(fyStart) && p.ScheduledDate.Before(fyEnd) {
 				summary.InterestIncome += p.Amount
 			}
 		}
 	}
+	summary.InterestIncome = math.Round(summary.InterestIncome*100) / 100
 
 	// Total deductions
 	summary.TotalDeductions = summary.Section80C.Deduction +
 		summary.Section80CCD.NPS80CCD1B +
 		summary.Section80CCD.NPS80CCD2 +
-		summary.Section24b.Deduction
+		summary.Section24b.Deduction +
+		summary.Section80D.Deduction
 
 	return summary, nil
 }

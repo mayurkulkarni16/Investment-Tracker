@@ -22,6 +22,27 @@ type AuthService struct {
 	userRepo  *repository.UserRepo
 	jwtSecret []byte
 	cfg       *config.Config
+	mailer    *MessagingService
+}
+
+// SetMailer lets password-reset links be emailed when SMTP is configured.
+func (s *AuthService) SetMailer(m *MessagingService) { s.mailer = m }
+
+// Refresh issues a new token for an already-authenticated user.
+func (s *AuthService) Refresh(ctx context.Context, userID string) (*models.AuthResponse, error) {
+	oid, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return nil, errors.New("invalid user")
+	}
+	user, err := s.userRepo.GetByID(ctx, oid)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+	token, err := s.generateToken(user)
+	if err != nil {
+		return nil, err
+	}
+	return &models.AuthResponse{Token: token, User: *user}, nil
 }
 
 func NewAuthService(userRepo *repository.UserRepo, cfg *config.Config) *AuthService {
@@ -99,6 +120,14 @@ func (s *AuthService) ForgotPassword(ctx context.Context, req models.ForgotPassw
 	}
 
 	resetURL := fmt.Sprintf("%s/reset-password?token=%s", s.cfg.FrontendURL, resetToken)
+	if s.mailer != nil && s.mailer.EmailAvailable() {
+		body := fmt.Sprintf("Hi %s,\n\nUse this link within an hour to reset your Investment Tracker password:\n%s\n\nIf you didn't ask for this, you can ignore this email.", user.Name, resetURL)
+		if err := s.mailer.SendEmail(user.Email, "Reset your password", body); err == nil {
+			return nil
+		} else {
+			log.Printf("Password reset email failed for %s: %v", user.Email, err)
+		}
+	}
 	log.Printf("=== PASSWORD RESET LINK ===\nUser: %s\nURL: %s\n===========================", user.Email, resetURL)
 
 	return nil

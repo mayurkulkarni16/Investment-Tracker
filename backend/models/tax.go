@@ -7,10 +7,17 @@ type Section80CBreakdown struct {
 	PPFContribution   float64 `json:"ppf_contribution"` // if tracked
 	ELSSInvestment    float64 `json:"elss_investment"`
 	HomeLoanPrincipal float64 `json:"home_loan_principal"`
-	LifeInsurance     float64 `json:"life_insurance"` // placeholder
+	LifeInsurance     float64 `json:"life_insurance"` // premiums of life/term/ULIP policies due this FY
 	Total             float64 `json:"total"`
 	Limit             float64 `json:"limit"` // 150000
 	Deduction         float64 `json:"deduction"`
+}
+
+// Section80DBreakdown covers health insurance premiums (self, spouse, children).
+type Section80DBreakdown struct {
+	HealthInsurance float64 `json:"health_insurance"`
+	Limit           float64 `json:"limit"` // 25000 (50000 if a senior citizen)
+	Deduction       float64 `json:"deduction"`
 }
 
 type Section80CCDBreakdown struct {
@@ -57,6 +64,7 @@ type TaxSummary struct {
 	FY                string                `json:"fy"` // 2025-26
 	Section80C        Section80CBreakdown   `json:"section_80c"`
 	Section80CCD      Section80CCDBreakdown `json:"section_80ccd"`
+	Section80D        Section80DBreakdown   `json:"section_80d"`
 	Section24b        Section24bBreakdown   `json:"section_24b"`
 	CapitalGains      CapitalGainsSummary   `json:"capital_gains"`
 	InterestIncome    float64               `json:"interest_income"` // FD + bonds

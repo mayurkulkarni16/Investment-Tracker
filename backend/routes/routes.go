@@ -28,6 +28,7 @@ func Register(r *gin.Engine, c *container.Container, cfg *config.Config) {
 		api.GET("/auth/me", c.AuthHandler.GetProfile)
 		api.PUT("/auth/me", c.AuthHandler.UpdateProfile)
 		api.PUT("/auth/change-password", c.AuthHandler.ChangePassword)
+		api.POST("/auth/refresh", c.AuthHandler.Refresh)
 		api.GET("/auth/users", middleware.AdminOnly(), c.AuthHandler.GetAllUsers)
 
 		// Dashboard & Projections
@@ -35,6 +36,8 @@ func Register(r *gin.Engine, c *container.Container, cfg *config.Config) {
 		api.POST("/ledger", c.LedgerHandler.Save)
 		api.PUT("/ledger/:id", c.LedgerHandler.Save)
 		api.GET("/ledger/export", c.LedgerHandler.Export)
+		api.GET("/ledger/summary", c.AccountHandler.LedgerSummary)
+		api.DELETE("/ledger/:id", c.AccountHandler.DeleteLedgerEntry)
 		api.GET("/dashboard", c.DashboardHandler.GetDashboard)
 		api.POST("/dashboard/rebalance", c.DashboardHandler.GetRebalanceSuggestions)
 		api.GET("/projections", c.ProjectionHandler.GetProjections)
@@ -89,6 +92,9 @@ func Register(r *gin.Engine, c *container.Container, cfg *config.Config) {
 
 		// Tax
 		registerTaxRoutes(api, c)
+
+		// Bank & cash, budgets, insurance, gold, real estate, family, FIRE, documents
+		registerPersonalFinanceRoutes(api, c)
 
 		// Benchmarks
 		api.GET("/benchmarks", c.BenchmarkHandler.GetBenchmarks)
@@ -163,6 +169,7 @@ func registerStockRoutes(api *gin.RouterGroup, c *container.Container) {
 		stocks.POST("", c.StockHandler.Create)
 		stocks.GET("/market-status", c.StockHandler.MarketStatus)
 		stocks.POST("/refresh-prices", c.StockHandler.RefreshPrice)
+		stocks.POST("/import-broker", c.BrokerImportHandler.Import)
 		stocks.GET("/:id", c.StockHandler.GetByID)
 		stocks.PUT("/:id", c.StockHandler.Update)
 		stocks.DELETE("/:id", c.StockHandler.Delete)
@@ -293,6 +300,9 @@ func registerNotificationRoutes(api *gin.RouterGroup, c *container.Container) {
 		notif.POST("/generate", c.NotificationHandler.Generate)
 		notif.PUT("/:id/read", c.NotificationHandler.MarkRead)
 		notif.PUT("/read-all", c.NotificationHandler.MarkAllRead)
+		notif.GET("/settings", c.MessagingHandler.GetSettings)
+		notif.PUT("/settings", c.MessagingHandler.UpdateSettings)
+		notif.POST("/test", c.MessagingHandler.Test)
 	}
 }
 

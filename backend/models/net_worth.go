@@ -19,6 +19,11 @@ type NetWorthSnapshot struct {
 	ProvidentFund  float64 `json:"provident_fund" bson:"provident_fund"`
 	NPS            float64 `json:"nps" bson:"nps"`
 	CorporateBonds float64 `json:"corporate_bonds" bson:"corporate_bonds"`
+	VehicleRentals float64 `json:"vehicle_rentals" bson:"vehicle_rentals"`
+	BankCash       float64 `json:"bank_cash" bson:"bank_cash"`
+	Gold           float64 `json:"gold" bson:"gold"`
+	RealEstate     float64 `json:"real_estate" bson:"real_estate"`
+	Insurance      float64 `json:"insurance" bson:"insurance"`
 	OtherAssets    float64 `json:"other_assets" bson:"other_assets"`
 	TotalAssets    float64 `json:"total_assets" bson:"total_assets"`
 

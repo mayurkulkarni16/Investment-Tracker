@@ -11,14 +11,16 @@ import (
 )
 
 type ExportService struct {
-	mfRepo           *repository.MutualFundRepo
-	stockRepo        *repository.StockRepo
-	fdRepo           *repository.FixedDepositRepo
-	pfRepo           *repository.ProvidentFundRepo
-	bondRepo         *repository.CorporateBondRepo
-	homeLoanRepo     *repository.HomeLoanRepo
-	personalLoanRepo *repository.PersonalLoanRepo
-	npsRepo          *repository.NPSRepo
+	mfRepo            *repository.MutualFundRepo
+	stockRepo         *repository.StockRepo
+	fdRepo            *repository.FixedDepositRepo
+	pfRepo            *repository.ProvidentFundRepo
+	bondRepo          *repository.CorporateBondRepo
+	homeLoanRepo      *repository.HomeLoanRepo
+	personalLoanRepo  *repository.PersonalLoanRepo
+	npsRepo           *repository.NPSRepo
+	vehicleRentalRepo *repository.VehicleRentalRepo
+	finance           *financeExportRepos
 }
 
 func NewExportService(
@@ -30,11 +32,12 @@ func NewExportService(
 	homeLoanRepo *repository.HomeLoanRepo,
 	personalLoanRepo *repository.PersonalLoanRepo,
 	npsRepo *repository.NPSRepo,
+	vehicleRentalRepo *repository.VehicleRentalRepo,
 ) *ExportService {
 	return &ExportService{
 		mfRepo: mfRepo, stockRepo: stockRepo, fdRepo: fdRepo, pfRepo: pfRepo,
 		bondRepo: bondRepo, homeLoanRepo: homeLoanRepo, personalLoanRepo: personalLoanRepo,
-		npsRepo: npsRepo,
+		npsRepo: npsRepo, vehicleRentalRepo: vehicleRentalRepo,
 	}
 }
 
@@ -56,6 +59,16 @@ func (s *ExportService) ExportCSV(ctx context.Context, userID string, module str
 		s.exportPersonalLoans(ctx, userID, w)
 	case "nps":
 		s.exportNPS(ctx, userID, w)
+	case "vehicle_rentals":
+		s.exportVehicleRentals(ctx, userID, w)
+	case "bank_accounts":
+		s.exportBankAccounts(ctx, userID, w)
+	case "gold":
+		s.exportGold(ctx, userID, w)
+	case "real_estate":
+		s.exportRealEstate(ctx, userID, w)
+	case "insurance":
+		s.exportInsurance(ctx, userID, w)
 	case "all":
 		filename = fmt.Sprintf("investment_tracker_all_%s.csv", time.Now().Format("20060102"))
 		s.exportAll(ctx, userID, w)
@@ -99,7 +112,10 @@ func (s *ExportService) exportStocks(ctx context.Context, userID string, w *csv.
 func (s *ExportService) exportFDs(ctx context.Context, userID string, w *csv.Writer) {
 	w.Write([]string{"Type", "Bank", "FD Number", "Principal", "Interest Rate", "Maturity Amount", "Start Date", "Maturity Date", "Status"})
 	fds, _ := s.fdRepo.GetAll(ctx, userID)
-	for _, fd := range fds {
+	now := time.Now()
+	for i := range fds {
+		fd := &fds[i]
+		NormalizeFixedDeposit(fd, now)
 		w.Write([]string{
 			"Fixed Deposit", fd.BankName, fd.FDNumber,
 			fmt.Sprintf("%.2f", fd.PrincipalAmount), fmt.Sprintf("%.2f", fd.InterestRate),
@@ -148,6 +164,25 @@ func (s *ExportService) exportNPS(ctx context.Context, userID string, w *csv.Wri
 	}
 }
 
+func (s *ExportService) exportVehicleRentals(ctx context.Context, userID string, w *csv.Writer) {
+	w.Write([]string{"Type", "Provider", "Vehicle Model", "Units", "Invested", "Monthly Payout", "Payouts Received", "Received Count", "Total Payouts", "Overdue Count", "Overdue Amount", "Book Value", "Total Return", "XIRR %", "Purchase Date", "Agreement End", "Status"})
+	rentals, _ := s.vehicleRentalRepo.GetAll(ctx, userID)
+	now := time.Now()
+	for i := range rentals {
+		vr := &rentals[i]
+		ComputeVehicleRental(vr, now)
+		w.Write([]string{
+			"Vehicle Rental", vr.Provider, vr.VehicleModel, fmt.Sprintf("%d", vr.Units),
+			fmt.Sprintf("%.2f", vr.InvestmentAmount), fmt.Sprintf("%.2f", vr.MonthlyPayout),
+			fmt.Sprintf("%.2f", vr.TotalPayoutsReceived), fmt.Sprintf("%d", vr.PayoutsReceivedCount),
+			fmt.Sprintf("%d", len(vr.Payouts)), fmt.Sprintf("%d", vr.OverdueCount),
+			fmt.Sprintf("%.2f", vr.OverdueAmount), fmt.Sprintf("%.2f", vr.CurrentValue),
+			fmt.Sprintf("%.2f", vr.TotalReturn), fmt.Sprintf("%.2f", vr.XIRR),
+			vr.PurchaseDate.Format("2006-01-02"), vr.AgreementEndDate.Format("2006-01-02"), string(vr.Status),
+		})
+	}
+}
+
 func (s *ExportService) exportAll(ctx context.Context, userID string, w *csv.Writer) {
 	w.Write([]string{"--- MUTUAL FUNDS ---"})
 	s.exportMutualFunds(ctx, userID, w)
@@ -166,4 +201,8 @@ func (s *ExportService) exportAll(ctx context.Context, userID string, w *csv.Wri
 	w.Write([]string{""})
 	w.Write([]string{"--- NPS ---"})
 	s.exportNPS(ctx, userID, w)
+	w.Write([]string{""})
+	w.Write([]string{"--- VEHICLE RENTALS ---"})
+	s.exportVehicleRentals(ctx, userID, w)
+	s.exportFinance(ctx, userID, w)
 }
