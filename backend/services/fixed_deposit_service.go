@@ -51,6 +51,8 @@ func (s *FixedDepositService) Create(ctx context.Context, userID string, req mod
 	if err := s.repo.Create(ctx, fd); err != nil {
 		return nil, err
 	}
+	NormalizeFixedDeposit(fd, time.Now())
+	fd.XIRR = ComputeFixedDepositXIRR(fd)
 	return fd, nil
 }
 
@@ -140,15 +142,7 @@ func (s *FixedDepositService) generateInterestSchedule(fd *models.FixedDeposit) 
 }
 
 func (s *FixedDepositService) autoMarkPastPayouts(fd *models.FixedDeposit) {
-	now := time.Now()
-	for i := range fd.InterestPayouts {
-		if fd.InterestPayouts[i].Status == models.PayoutPending &&
-			!fd.InterestPayouts[i].ScheduledDate.After(now) {
-			fd.InterestPayouts[i].Status = models.PayoutReceived
-			d := fd.InterestPayouts[i].ScheduledDate
-			fd.InterestPayouts[i].ReceivedDate = &d
-		}
-	}
+	markPastFDPayouts(fd, time.Now())
 }
 
 func (s *FixedDepositService) GetAll(ctx context.Context, userID string) ([]models.FixedDeposit, error) {
@@ -156,8 +150,9 @@ func (s *FixedDepositService) GetAll(ctx context.Context, userID string) ([]mode
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now()
 	for i := range fds {
-		s.autoMarkPastPayouts(&fds[i])
+		NormalizeFixedDeposit(&fds[i], now)
 		fds[i].XIRR = ComputeFixedDepositXIRR(&fds[i])
 	}
 	return fds, nil
@@ -172,8 +167,8 @@ func (s *FixedDepositService) GetByID(ctx context.Context, id string) (*models.F
 	if err != nil {
 		return nil, err
 	}
+	NormalizeFixedDeposit(fd, time.Now())
 	fd.XIRR = ComputeFixedDepositXIRR(fd)
-	s.autoMarkPastPayouts(fd)
 	return fd, nil
 }
 
@@ -215,6 +210,8 @@ func (s *FixedDepositService) Update(ctx context.Context, id string, req models.
 	if err := s.repo.Update(ctx, fd); err != nil {
 		return nil, err
 	}
+	NormalizeFixedDeposit(fd, time.Now())
+	fd.XIRR = ComputeFixedDepositXIRR(fd)
 	return fd, nil
 }
 

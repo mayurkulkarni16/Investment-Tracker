@@ -31,7 +31,16 @@ func (h *ProjectionHandler) GetProjections(c *gin.Context) {
 		scenario = "base"
 	}
 
-	projections, err := h.service.GetProjectionsWithScenario(c.Request.Context(), middleware.GetEffectiveUserID(c), years, scenario)
+	inflation := 0.0
+	if iStr := c.Query("inflation"); iStr != "" {
+		if v, err := strconv.ParseFloat(iStr, 64); err == nil && v >= 0 && v <= 20 {
+			inflation = v
+		}
+	}
+
+	projections, err := h.service.GetProjections(c.Request.Context(), middleware.GetEffectiveUserID(c), services.ProjectionOptions{
+		Years: years, Scenario: scenario, InflationRate: inflation,
+	})
 	if err != nil {
 		respondError(c, err)
 		return

@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sort"
 	"time"
@@ -11,15 +10,16 @@ import (
 )
 
 type CashflowService struct {
-	mfRepo           *repository.MutualFundRepo
-	bondRepo         *repository.CorporateBondRepo
-	fdRepo           *repository.FixedDepositRepo
-	pfRepo           *repository.ProvidentFundRepo
-	stockRepo        *repository.StockRepo
-	npsRepo          *repository.NPSRepo
-	homeLoanRepo     *repository.HomeLoanRepo
-	personalLoanRepo *repository.PersonalLoanRepo
-	creditCardRepo   *repository.CreditCardRepo
+	mfRepo            *repository.MutualFundRepo
+	bondRepo          *repository.CorporateBondRepo
+	fdRepo            *repository.FixedDepositRepo
+	pfRepo            *repository.ProvidentFundRepo
+	stockRepo         *repository.StockRepo
+	npsRepo           *repository.NPSRepo
+	homeLoanRepo      *repository.HomeLoanRepo
+	personalLoanRepo  *repository.PersonalLoanRepo
+	creditCardRepo    *repository.CreditCardRepo
+	vehicleRentalRepo *repository.VehicleRentalRepo
 }
 
 type MonthlyCashflow struct {
@@ -38,8 +38,8 @@ type CashflowDetail struct {
 	Direction string  `json:"direction"`
 }
 
-func NewCashflowService(mfRepo *repository.MutualFundRepo, bondRepo *repository.CorporateBondRepo, fdRepo *repository.FixedDepositRepo, pfRepo *repository.ProvidentFundRepo, stockRepo *repository.StockRepo, npsRepo *repository.NPSRepo, homeLoanRepo *repository.HomeLoanRepo, personalLoanRepo *repository.PersonalLoanRepo, creditCardRepo *repository.CreditCardRepo) *CashflowService {
-	return &CashflowService{mfRepo: mfRepo, bondRepo: bondRepo, fdRepo: fdRepo, pfRepo: pfRepo, stockRepo: stockRepo, npsRepo: npsRepo, homeLoanRepo: homeLoanRepo, personalLoanRepo: personalLoanRepo, creditCardRepo: creditCardRepo}
+func NewCashflowService(mfRepo *repository.MutualFundRepo, bondRepo *repository.CorporateBondRepo, fdRepo *repository.FixedDepositRepo, pfRepo *repository.ProvidentFundRepo, stockRepo *repository.StockRepo, npsRepo *repository.NPSRepo, homeLoanRepo *repository.HomeLoanRepo, personalLoanRepo *repository.PersonalLoanRepo, creditCardRepo *repository.CreditCardRepo, vehicleRentalRepo *repository.VehicleRentalRepo) *CashflowService {
+	return &CashflowService{mfRepo: mfRepo, bondRepo: bondRepo, fdRepo: fdRepo, pfRepo: pfRepo, stockRepo: stockRepo, npsRepo: npsRepo, homeLoanRepo: homeLoanRepo, personalLoanRepo: personalLoanRepo, creditCardRepo: creditCardRepo, vehicleRentalRepo: vehicleRentalRepo}
 }
 
 func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, userID string, months int) ([]MonthlyCashflow, error) {
@@ -118,6 +118,9 @@ func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, userID string
 	// 3. Corporate Bond interest payouts
 	bonds, err := s.bondRepo.GetAll(ctx, userID)
 	if err == nil {
+		for i := range bonds {
+			NormalizeCorporateBond(&bonds[i])
+		}
 		for _, bond := range bonds {
 			if bond.PurchaseDate.After(cutoff) || bond.PurchaseDate.Equal(cutoff) {
 				key := monthKey(bond.PurchaseDate)
@@ -146,6 +149,10 @@ func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, userID string
 	// 4. Fixed Deposits
 	fds, err := s.fdRepo.GetAll(ctx, userID)
 	if err == nil {
+		now := time.Now()
+		for i := range fds {
+			NormalizeFixedDeposit(&fds[i], now)
+		}
 		for _, fd := range fds {
 			if fd.StartDate.After(cutoff) || fd.StartDate.Equal(cutoff) {
 				key := monthKey(fd.StartDate)
@@ -281,6 +288,24 @@ func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, userID string
 			}
 		}
 	}
+	// 12. Vehicle rentals: purchase (outflow), received payouts and buyback (inflow)
+	rentals, err := s.vehicleRentalRepo.GetAll(ctx, userID)
+	if err == nil {
+		for i := range rentals {
+			for _, cf := range VehicleRentalCashflows(&rentals[i]) {
+				if cf.Date.Before(cutoff) {
+					continue
+				}
+				fp := getOrCreate(monthKey(cf.Date))
+				if cf.Amount < 0 {
+					fp.outflow += -cf.Amount
+				} else {
+					fp.inflow += cf.Amount
+				}
+			}
+		}
+	}
+
 	// Convert map to sorted slice
 	result := make([]MonthlyCashflow, 0, len(flows))
 	for month, fp := range flows {
@@ -303,7 +328,7 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, userID string, mon
 	// Parse month to get start/end
 	start, err := time.Parse("2006-01", month)
 	if err != nil {
-		return nil, fmt.Errorf("invalid month format, expected YYYY-MM")
+		return nil, invalidf("invalid month format, expected YYYY-MM")
 	}
 	end := start.AddDate(0, 1, 0)
 
@@ -366,6 +391,9 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, userID string, mon
 	// 3. Corporate Bonds
 	bonds, err := s.bondRepo.GetAll(ctx, userID)
 	if err == nil {
+		for i := range bonds {
+			NormalizeCorporateBond(&bonds[i])
+		}
 		for _, bond := range bonds {
 			if inMonth(bond.PurchaseDate) {
 				details = append(details, CashflowDetail{
@@ -407,6 +435,10 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, userID string, mon
 	// 4. Fixed Deposits
 	fds, err := s.fdRepo.GetAll(ctx, userID)
 	if err == nil {
+		now := time.Now()
+		for i := range fds {
+			NormalizeFixedDeposit(&fds[i], now)
+		}
 		for _, fd := range fds {
 			if inMonth(fd.StartDate) {
 				details = append(details, CashflowDetail{
@@ -606,6 +638,50 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, userID string, mon
 					Type:      "bill payment",
 					Amount:    stmt.AmountPaid,
 					Direction: "outflow",
+				})
+			}
+		}
+	}
+
+	// 12. Vehicle rentals
+	rentals, err := s.vehicleRentalRepo.GetAll(ctx, userID)
+	if err == nil {
+		for _, vr := range rentals {
+			name := vr.Provider
+			if vr.VehicleModel != "" {
+				name += " - " + vr.VehicleModel
+			}
+			if inMonth(vr.PurchaseDate) {
+				details = append(details, CashflowDetail{
+					Date:      vr.PurchaseDate.Format("2006-01-02"),
+					Category:  "Vehicle Rental",
+					Name:      name,
+					Type:      "purchase",
+					Amount:    vr.InvestmentAmount,
+					Direction: "outflow",
+				})
+			}
+			for _, p := range vr.Payouts {
+				if p.Status != "received" || p.ReceivedDate == nil || !inMonth(*p.ReceivedDate) {
+					continue
+				}
+				details = append(details, CashflowDetail{
+					Date:      p.ReceivedDate.Format("2006-01-02"),
+					Category:  "Vehicle Rental",
+					Name:      name,
+					Type:      "rental payout",
+					Amount:    p.ReceivedAmount,
+					Direction: "inflow",
+				})
+			}
+			if vr.BuybackStatus == "received" && vr.BuybackReceivedDate != nil && inMonth(*vr.BuybackReceivedDate) {
+				details = append(details, CashflowDetail{
+					Date:      vr.BuybackReceivedDate.Format("2006-01-02"),
+					Category:  "Vehicle Rental",
+					Name:      name,
+					Type:      "buyback",
+					Amount:    vr.BuybackReceived,
+					Direction: "inflow",
 				})
 			}
 		}

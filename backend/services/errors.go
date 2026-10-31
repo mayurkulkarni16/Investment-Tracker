@@ -23,7 +23,7 @@ func IsNotFound(err error) bool {
 
 // IsInvalidInput reports whether err is a client-side input error.
 func IsInvalidInput(err error) bool {
-	return errors.Is(err, ErrInvalidInput)
+	return errors.Is(err, ErrInvalidInput) || errors.Is(err, ErrGoalAllocation)
 }
 
 func notFoundf(format string, args ...any) error {

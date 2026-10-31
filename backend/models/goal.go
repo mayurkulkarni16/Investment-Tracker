@@ -28,19 +28,25 @@ type Goal struct {
 
 	TargetAmount      float64   `json:"target_amount" bson:"target_amount"`
 	TargetDate        time.Time `json:"target_date" bson:"target_date"`
-	AssumedReturnRate float64   `json:"assumed_return_rate" bson:"assumed_return_rate"` // annual %
+	AssumedReturnRate float64   `json:"assumed_return_rate" bson:"assumed_return_rate"` // annual %; 0 = derive from linked investments
+	InflationRate     float64   `json:"inflation_rate" bson:"inflation_rate"`           // annual %; target is in today's money
 
 	LinkedInvestments []LinkedInvestment `json:"linked_investments" bson:"linked_investments"`
 
 	// Computed (not stored)
-	CurrentValue     float64          `json:"current_value" bson:"-"`
-	ProgressPct      float64          `json:"progress_pct" bson:"-"`
-	MonthlyNeeded    float64          `json:"monthly_needed" bson:"-"`
-	MonthsRemaining  int              `json:"months_remaining" bson:"-"`
-	OnTrack          bool             `json:"on_track" bson:"-"`
-	ProjectedDate    *time.Time       `json:"projected_date,omitempty" bson:"-"`
-	Shortfall        float64          `json:"shortfall" bson:"-"`
-	ProjectionPoints []GoalProjection `json:"projection_points,omitempty" bson:"-"`
+	CurrentValue            float64          `json:"current_value" bson:"-"`
+	InflatedTarget          float64          `json:"inflated_target" bson:"-"` // target in money of the target date
+	EffectiveReturnRate     float64          `json:"effective_return_rate" bson:"-"`
+	MonthlyContribution     float64          `json:"monthly_contribution" bson:"-"` // from active SIPs/contributions of linked investments
+	ProjectedValue          float64          `json:"projected_value" bson:"-"`      // at target date on the current trajectory
+	ProgressPct             float64          `json:"progress_pct" bson:"-"`
+	MonthlyNeeded           float64          `json:"monthly_needed" bson:"-"` // total monthly investment required
+	AdditionalMonthlyNeeded float64          `json:"additional_monthly_needed" bson:"-"`
+	MonthsRemaining         int              `json:"months_remaining" bson:"-"`
+	OnTrack                 bool             `json:"on_track" bson:"-"`
+	ProjectedDate           *time.Time       `json:"projected_date,omitempty" bson:"-"`
+	Shortfall               float64          `json:"shortfall" bson:"-"`
+	ProjectionPoints        []GoalProjection `json:"projection_points,omitempty" bson:"-"`
 
 	Status    string    `json:"status" bson:"status"` // active, achieved, abandoned
 	Notes     string    `json:"notes" bson:"notes"`
@@ -55,29 +61,32 @@ type CreateGoalRequest struct {
 	Priority          string  `json:"priority"`
 	TargetAmount      float64 `json:"target_amount" binding:"required"`
 	TargetDate        string  `json:"target_date" binding:"required"`
-	AssumedReturnRate float64 `json:"assumed_return_rate"`
+	AssumedReturnRate float64 `json:"assumed_return_rate" binding:"min=0,max=50"`
+	InflationRate     float64 `json:"inflation_rate" binding:"min=0,max=20"`
 	Notes             string  `json:"notes"`
 }
 
 type UpdateGoalRequest struct {
-	Name              string  `json:"name"`
-	Category          string  `json:"category"`
-	Icon              string  `json:"icon"`
-	Priority          string  `json:"priority"`
-	TargetAmount      float64 `json:"target_amount"`
-	TargetDate        string  `json:"target_date"`
-	AssumedReturnRate float64 `json:"assumed_return_rate"`
-	Status            string  `json:"status"`
-	Notes             string  `json:"notes"`
+	Name         string  `json:"name"`
+	Category     string  `json:"category"`
+	Icon         string  `json:"icon"`
+	Priority     string  `json:"priority"`
+	TargetAmount float64 `json:"target_amount"`
+	TargetDate   string  `json:"target_date"`
+	// Pointers so that 0 can be set explicitly (0 return = auto, 0 inflation = none).
+	AssumedReturnRate *float64 `json:"assumed_return_rate" binding:"omitempty,min=0,max=50"`
+	InflationRate     *float64 `json:"inflation_rate" binding:"omitempty,min=0,max=20"`
+	Status            string   `json:"status"`
+	Notes             string   `json:"notes"`
 }
 
 type LinkInvestmentRequest struct {
 	InvestmentType string  `json:"investment_type" binding:"required"`
 	InvestmentID   string  `json:"investment_id" binding:"required"`
 	InvestmentName string  `json:"investment_name" binding:"required"`
-	AllocatedPct   float64 `json:"allocated_pct" binding:"required"`
+	AllocatedPct   float64 `json:"allocated_pct" binding:"required,gt=0,max=100"`
 }
 
 type BatchLinkInvestmentRequest struct {
-	Investments []LinkInvestmentRequest `json:"investments" binding:"required"`
+	Investments []LinkInvestmentRequest `json:"investments" binding:"required,dive"`
 }

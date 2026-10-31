@@ -96,31 +96,14 @@ func ComputeCorporateBondXIRR(bond *models.CorporateBond) float64 {
 	return xirr * 100
 }
 
-// ComputeFixedDepositXIRR computes XIRR for a fixed deposit.
+// ComputeFixedDepositXIRR computes XIRR for a fixed deposit from its actual cash
+// movements (principal out, interest payouts and maturity proceeds in) plus the
+// accrued value still held. Call NormalizeFixedDeposit first.
 func ComputeFixedDepositXIRR(fd *models.FixedDeposit) float64 {
-	var cashflows []Cashflow
-
-	// Principal as outflow at start
-	cashflows = append(cashflows, Cashflow{Date: fd.StartDate, Amount: -fd.PrincipalAmount})
-
-	// Terminal value
-	if fd.Status == "matured" {
-		cashflows = append(cashflows, Cashflow{Date: fd.MaturityDate, Amount: fd.MaturityAmount})
-	} else {
-		// For active FDs, use current accrued value
-		now := time.Now()
-		if now.After(fd.MaturityDate) {
-			cashflows = append(cashflows, Cashflow{Date: fd.MaturityDate, Amount: fd.MaturityAmount})
-		} else {
-			// Pro-rata accrued value
-			totalDays := fd.MaturityDate.Sub(fd.StartDate).Hours() / 24
-			elapsedDays := now.Sub(fd.StartDate).Hours() / 24
-			if totalDays > 0 {
-				fraction := elapsedDays / totalDays
-				accruedValue := fd.PrincipalAmount + (fd.MaturityAmount-fd.PrincipalAmount)*fraction
-				cashflows = append(cashflows, Cashflow{Date: now, Amount: accruedValue})
-			}
-		}
+	now := time.Now()
+	cashflows := FixedDepositCashflows(fd)
+	if v := FixedDepositCurrentValue(fd, now); v > 0 {
+		cashflows = append(cashflows, Cashflow{Date: now, Amount: v})
 	}
 
 	if len(cashflows) < 2 {

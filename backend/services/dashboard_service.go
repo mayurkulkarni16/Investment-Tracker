@@ -8,15 +8,17 @@ import (
 )
 
 type DashboardService struct {
-	mfRepo           *repository.MutualFundRepo
-	bondRepo         *repository.CorporateBondRepo
-	fdRepo           *repository.FixedDepositRepo
-	pfRepo           *repository.ProvidentFundRepo
-	stockRepo        *repository.StockRepo
-	homeLoanRepo     *repository.HomeLoanRepo
-	personalLoanRepo *repository.PersonalLoanRepo
-	npsRepo          *repository.NPSRepo
-	creditCardRepo   *repository.CreditCardRepo
+	mfRepo            *repository.MutualFundRepo
+	bondRepo          *repository.CorporateBondRepo
+	fdRepo            *repository.FixedDepositRepo
+	pfRepo            *repository.ProvidentFundRepo
+	stockRepo         *repository.StockRepo
+	homeLoanRepo      *repository.HomeLoanRepo
+	personalLoanRepo  *repository.PersonalLoanRepo
+	npsRepo           *repository.NPSRepo
+	creditCardRepo    *repository.CreditCardRepo
+	vehicleRentalRepo *repository.VehicleRentalRepo
+	taxService        *TaxService
 }
 
 func NewDashboardService(
@@ -29,40 +31,48 @@ func NewDashboardService(
 	personalLoanRepo *repository.PersonalLoanRepo,
 	npsRepo *repository.NPSRepo,
 	creditCardRepo *repository.CreditCardRepo,
+	vehicleRentalRepo *repository.VehicleRentalRepo,
+	taxService *TaxService,
 ) *DashboardService {
 	return &DashboardService{
-		mfRepo:           mfRepo,
-		bondRepo:         bondRepo,
-		fdRepo:           fdRepo,
-		pfRepo:           pfRepo,
-		stockRepo:        stockRepo,
-		homeLoanRepo:     homeLoanRepo,
-		personalLoanRepo: personalLoanRepo,
-		npsRepo:          npsRepo,
-		creditCardRepo:   creditCardRepo,
+		mfRepo:            mfRepo,
+		bondRepo:          bondRepo,
+		fdRepo:            fdRepo,
+		pfRepo:            pfRepo,
+		stockRepo:         stockRepo,
+		homeLoanRepo:      homeLoanRepo,
+		personalLoanRepo:  personalLoanRepo,
+		npsRepo:           npsRepo,
+		creditCardRepo:    creditCardRepo,
+		vehicleRentalRepo: vehicleRentalRepo,
+		taxService:        taxService,
 	}
 }
 
 type DashboardData struct {
-	TotalInvested       float64            `json:"total_invested"`
-	CurrentValue        float64            `json:"current_value"`
-	TotalGains          float64            `json:"total_gains"`
-	OverallReturnPct    float64            `json:"overall_return_percent"`
-	PortfolioXIRR       float64            `json:"portfolio_xirr"`
-	ELSSTaxSaving       float64            `json:"elss_tax_saving"`
-	AssetAllocation     map[string]float64 `json:"asset_allocation"`
-	UpcomingPayouts     []UpcomingPayout   `json:"upcoming_payouts"`
-	MFSummary           CategorySummary    `json:"mutual_fund_summary"`
-	BondSummary         CategorySummary    `json:"corporate_bond_summary"`
-	FDSummary           CategorySummary    `json:"fixed_deposit_summary"`
-	PFSummary           CategorySummary    `json:"provident_fund_summary"`
-	StockSummary        CategorySummary    `json:"stock_summary"`
-	NPSSummary          CategorySummary    `json:"nps_summary"`
-	HomeLoanSummary     LoanSummary        `json:"home_loan_summary"`
-	PersonalLoanSummary LoanSummary        `json:"personal_loan_summary"`
-	CreditCardSummary   CreditCardSummary  `json:"credit_card_summary"`
-	RiskMetrics         RiskMetrics        `json:"risk_metrics"`
-	DataSources         map[string]string  `json:"data_sources,omitempty"`
+	TotalInvested    float64 `json:"total_invested"`
+	CurrentValue     float64 `json:"current_value"`
+	TotalGains       float64 `json:"total_gains"`
+	OverallReturnPct float64 `json:"overall_return_percent"`
+	PortfolioXIRR    float64 `json:"portfolio_xirr"`
+	// ELSSTaxSaving is ELSS invested this FY (counts towards 80C); see Tax80C for the full picture.
+	ELSSTaxSaving        float64            `json:"elss_tax_saving"`
+	Tax80C               *Tax80CSummary     `json:"tax_80c,omitempty"`
+	DataFreshness        DataFreshness      `json:"data_freshness"`
+	AssetAllocation      map[string]float64 `json:"asset_allocation"`
+	UpcomingPayouts      []UpcomingPayout   `json:"upcoming_payouts"`
+	MFSummary            CategorySummary    `json:"mutual_fund_summary"`
+	BondSummary          CategorySummary    `json:"corporate_bond_summary"`
+	FDSummary            CategorySummary    `json:"fixed_deposit_summary"`
+	PFSummary            CategorySummary    `json:"provident_fund_summary"`
+	StockSummary         CategorySummary    `json:"stock_summary"`
+	NPSSummary           CategorySummary    `json:"nps_summary"`
+	VehicleRentalSummary CategorySummary    `json:"vehicle_rental_summary"`
+	HomeLoanSummary      LoanSummary        `json:"home_loan_summary"`
+	PersonalLoanSummary  LoanSummary        `json:"personal_loan_summary"`
+	CreditCardSummary    CreditCardSummary  `json:"credit_card_summary"`
+	RiskMetrics          RiskMetrics        `json:"risk_metrics"`
+	DataSources          map[string]string  `json:"data_sources,omitempty"`
 }
 
 type CategorySummary struct {
@@ -70,6 +80,9 @@ type CategorySummary struct {
 	CurrentValue  float64 `json:"current_value"`
 	XIRR          float64 `json:"xirr"`
 	Count         int     `json:"count"`
+	// IncomeReceived is cash already paid out by the holding (e.g. rental payouts),
+	// which is part of its return but not of its current value.
+	IncomeReceived float64 `json:"income_received,omitempty"`
 }
 
 type RiskMetrics struct {
@@ -78,6 +91,51 @@ type RiskMetrics struct {
 	Diversification   float64 `json:"diversification"`
 	LoanToAssetRatio  float64 `json:"loan_to_asset_ratio"`
 	ConcentrationRisk string  `json:"concentration_risk"`
+}
+
+type Tax80CSummary struct {
+	FY                string  `json:"fy"`
+	Used              float64 `json:"used"`
+	Limit             float64 `json:"limit"`
+	ELSS              float64 `json:"elss"`
+	EPF               float64 `json:"epf"`
+	HomeLoanPrincipal float64 `json:"home_loan_principal"`
+}
+
+// DataFreshness reports the oldest market data among current holdings, so the
+// dashboard can show how up to date its values are. Nil times mean no holdings
+// of that kind; the "Missing" counts are holdings whose price was never fetched.
+type DataFreshness struct {
+	NAVsAsOf       *time.Time `json:"navs_as_of,omitempty"`
+	PricesAsOf     *time.Time `json:"prices_as_of,omitempty"`
+	NAVsMissing    int        `json:"navs_missing"`
+	PricesMissing  int        `json:"prices_missing"`
+	HasMutualFunds bool       `json:"has_mutual_funds"`
+	HasStocks      bool       `json:"has_stocks"`
+}
+
+func (f *DataFreshness) trackNAV(t *time.Time) {
+	f.HasMutualFunds = true
+	if t == nil {
+		f.NAVsMissing++
+		return
+	}
+	if f.NAVsAsOf == nil || t.Before(*f.NAVsAsOf) {
+		v := *t
+		f.NAVsAsOf = &v
+	}
+}
+
+func (f *DataFreshness) trackPrice(t *time.Time) {
+	f.HasStocks = true
+	if t == nil {
+		f.PricesMissing++
+		return
+	}
+	if f.PricesAsOf == nil || t.Before(*f.PricesAsOf) {
+		v := *t
+		f.PricesAsOf = &v
+	}
 }
 
 type LoanSummary struct {
@@ -112,7 +170,6 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*Da
 
 	now := time.Now()
 	thirtyDaysLater := now.AddDate(0, 0, 30)
-	currentFYStart := getCurrentFYStart(now)
 
 	// Mutual Funds
 	funds, err := s.mfRepo.GetAll(ctx, userID)
@@ -125,15 +182,9 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*Da
 			dashboard.MFSummary.Count++
 
 			// Classify equity vs debt
-			switch mf.FundType {
-			case "Equity", "ELSS", "Index", "Small Cap", "Mid Cap", "Large Cap", "Multi Cap", "Flexi Cap", "Sectoral", "Thematic":
-				equityValue += mf.CurrentValue
-			case "Debt", "Liquid", "Gilt", "Corporate Bond", "Dynamic Bond", "Overnight", "Money Market":
-				debtValue += mf.CurrentValue
-			case "Hybrid":
-				equityValue += mf.CurrentValue * 0.65
-				debtValue += mf.CurrentValue * 0.35
-			}
+			prof := MutualFundProfile(mf.FundType)
+			equityValue += mf.CurrentValue * prof.EquityShare
+			debtValue += mf.CurrentValue * (1 - prof.EquityShare)
 
 			// Collect cashflows for portfolio XIRR
 			for _, txn := range mf.Transactions {
@@ -143,20 +194,23 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*Da
 				case "redemption", "switch_out":
 					allCashflows = append(allCashflows, Cashflow{Date: txn.Date, Amount: txn.Amount})
 				}
+			}
 
-				if mf.IsELSS && !txn.Date.Before(currentFYStart) {
-					dashboard.ELSSTaxSaving += txn.Amount
-				}
+			if mf.TotalUnits > 0 {
+				dashboard.DataFreshness.trackNAV(mf.NAVLastUpdated)
 			}
 		}
 	}
 
-	// Corporate Bonds
+	// Corporate Bonds (normalized: past payouts/repayments count as received)
 	bonds, err := s.bondRepo.GetAll(ctx, userID)
 	if err == nil {
-		for _, bond := range bonds {
+		for i := range bonds {
+			bond := &bonds[i]
+			NormalizeCorporateBond(bond)
 			dashboard.BondSummary.TotalInvested += bond.InvestmentAmount
 			dashboard.BondSummary.CurrentValue += bond.RemainingPrincipal
+			dashboard.BondSummary.IncomeReceived += CorporateBondCashReturned(bond)
 			dashboard.BondSummary.Count++
 			debtValue += bond.RemainingPrincipal
 
@@ -198,21 +252,21 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*Da
 		}
 	}
 
-	// Fixed Deposits
+	// Fixed Deposits (accrued value while active; maturity proceeds and payouts count as cash returned)
 	fds, err := s.fdRepo.GetAll(ctx, userID)
 	if err == nil {
-		for _, fd := range fds {
+		for i := range fds {
+			fd := &fds[i]
+			NormalizeFixedDeposit(fd, now)
+			value := FixedDepositCurrentValue(fd, now)
 			dashboard.FDSummary.TotalInvested += fd.PrincipalAmount
-			if fd.InterestType == "cumulative" {
-				dashboard.FDSummary.CurrentValue += fd.MaturityAmount
-			} else {
-				dashboard.FDSummary.CurrentValue += fd.PrincipalAmount
-			}
+			dashboard.FDSummary.CurrentValue += value
+			dashboard.FDSummary.IncomeReceived += FixedDepositCashReturned(fd)
 			dashboard.FDSummary.Count++
-			debtValue += fd.PrincipalAmount
+			debtValue += value
 
 			// Cashflows for portfolio XIRR
-			allCashflows = append(allCashflows, Cashflow{Date: fd.StartDate, Amount: -fd.PrincipalAmount})
+			allCashflows = append(allCashflows, FixedDepositCashflows(fd)...)
 
 			if fd.Status == "active" && !fd.MaturityDate.Before(now) && !fd.MaturityDate.After(thirtyDaysLater) {
 				dashboard.UpcomingPayouts = append(dashboard.UpcomingPayouts, UpcomingPayout{
@@ -272,6 +326,9 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*Da
 			dashboard.StockSummary.CurrentValue += stock.CurrentValue
 			dashboard.StockSummary.Count++
 			equityValue += stock.CurrentValue
+			if stock.TotalQuantity > 0 {
+				dashboard.DataFreshness.trackPrice(stock.PriceLastUpdated)
+			}
 
 			// Cashflows for portfolio XIRR
 			for _, txn := range stock.Transactions {
@@ -303,6 +360,56 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*Da
 			for _, c := range nps.Contributions {
 				allCashflows = append(allCashflows, Cashflow{Date: c.Date, Amount: -c.Amount})
 			}
+		}
+	}
+
+	// Vehicle Rentals (EV fleet leasing): value is straight-line book value,
+	// rental payouts received are counted as income.
+	rentals, err := s.vehicleRentalRepo.GetAll(ctx, userID)
+	if err == nil && len(rentals) > 0 {
+		var rentalFlows []Cashflow
+		for i := range rentals {
+			vr := &rentals[i]
+			ComputeVehicleRental(vr, now)
+			dashboard.VehicleRentalSummary.TotalInvested += vr.InvestmentAmount
+			dashboard.VehicleRentalSummary.CurrentValue += vr.CurrentValue
+			dashboard.VehicleRentalSummary.IncomeReceived += vr.TotalPayoutsReceived + vr.BuybackReceived
+			dashboard.VehicleRentalSummary.Count++
+
+			flows := VehicleRentalCashflows(vr)
+			allCashflows = append(allCashflows, flows...)
+			rentalFlows = append(rentalFlows, flows...)
+
+			name := vr.Provider
+			if vr.VehicleModel != "" {
+				name += " - " + vr.VehicleModel
+			}
+			for _, p := range vr.Payouts {
+				if p.Status == "pending" && !p.ScheduledDate.Before(now) && !p.ScheduledDate.After(thirtyDaysLater) {
+					dashboard.UpcomingPayouts = append(dashboard.UpcomingPayouts, UpcomingPayout{
+						Type:       "Vehicle Rental",
+						Name:       name,
+						Date:       p.ScheduledDate.Format("2006-01-02"),
+						Amount:     p.Amount,
+						PayoutType: "rental",
+					})
+				}
+			}
+			if vr.BuybackAmount > 0 && vr.BuybackStatus == "pending" && !vr.AgreementEndDate.Before(now) && !vr.AgreementEndDate.After(thirtyDaysLater) {
+				dashboard.UpcomingPayouts = append(dashboard.UpcomingPayouts, UpcomingPayout{
+					Type:       "Vehicle Rental",
+					Name:       name,
+					Date:       vr.AgreementEndDate.Format("2006-01-02"),
+					Amount:     vr.BuybackAmount,
+					PayoutType: "buyback",
+				})
+			}
+		}
+		if dashboard.VehicleRentalSummary.CurrentValue > 0 {
+			rentalFlows = append(rentalFlows, Cashflow{Date: now, Amount: dashboard.VehicleRentalSummary.CurrentValue})
+		}
+		if xirr, err := CalculateXIRR(rentalFlows); err == nil {
+			dashboard.VehicleRentalSummary.XIRR = xirr * 100
 		}
 	}
 
@@ -390,23 +497,38 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*Da
 		dashboard.FDSummary.TotalInvested +
 		dashboard.PFSummary.TotalInvested +
 		dashboard.StockSummary.TotalInvested +
-		dashboard.NPSSummary.TotalInvested
+		dashboard.NPSSummary.TotalInvested +
+		dashboard.VehicleRentalSummary.TotalInvested
 
 	dashboard.CurrentValue = dashboard.MFSummary.CurrentValue +
 		dashboard.BondSummary.CurrentValue +
 		dashboard.FDSummary.CurrentValue +
 		dashboard.PFSummary.CurrentValue +
 		dashboard.StockSummary.CurrentValue +
-		dashboard.NPSSummary.CurrentValue
+		dashboard.NPSSummary.CurrentValue +
+		dashboard.VehicleRentalSummary.CurrentValue
 
-	dashboard.TotalGains = dashboard.CurrentValue - dashboard.TotalInvested
+	// Gains include cash already paid out (bond interest/principal, FD payouts and
+	// maturity proceeds, rental payouts), which is no longer in current value.
+	cashReturned := dashboard.BondSummary.IncomeReceived + dashboard.FDSummary.IncomeReceived + dashboard.VehicleRentalSummary.IncomeReceived
+	dashboard.TotalGains = dashboard.CurrentValue - dashboard.TotalInvested + cashReturned
 	if dashboard.TotalInvested > 0 {
 		dashboard.OverallReturnPct = (dashboard.TotalGains / dashboard.TotalInvested) * 100
 	}
 
-	// Cap ELSS at 1.5L
-	if dashboard.ELSSTaxSaving > 150000 {
-		dashboard.ELSSTaxSaving = 150000
+	// Section 80C for the current FY, from the same calculation as the Tax Center.
+	if s.taxService != nil {
+		if tax, err := s.taxService.GetTaxSummary(ctx, userID, ""); err == nil {
+			dashboard.Tax80C = &Tax80CSummary{
+				FY:                tax.FY,
+				Used:              tax.Section80C.Total,
+				Limit:             tax.Section80C.Limit,
+				ELSS:              tax.Section80C.ELSSInvestment,
+				EPF:               tax.Section80C.EPFContribution,
+				HomeLoanPrincipal: tax.Section80C.HomeLoanPrincipal,
+			}
+			dashboard.ELSSTaxSaving = tax.Section80C.ELSSInvestment
+		}
 	}
 
 	// Asset allocation (actual amounts — frontend computes percentages)
@@ -419,6 +541,9 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*Da
 		if dashboard.NPSSummary.CurrentValue > 0 {
 			dashboard.AssetAllocation["NPS"] = dashboard.NPSSummary.CurrentValue
 		}
+		if dashboard.VehicleRentalSummary.CurrentValue > 0 {
+			dashboard.AssetAllocation["Vehicle Rentals"] = dashboard.VehicleRentalSummary.CurrentValue
+		}
 	}
 
 	// Portfolio XIRR
@@ -426,7 +551,8 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*Da
 		// Add terminal value for remaining holdings
 		terminalValue := dashboard.MFSummary.CurrentValue + dashboard.StockSummary.CurrentValue +
 			dashboard.BondSummary.CurrentValue + dashboard.FDSummary.CurrentValue +
-			dashboard.PFSummary.CurrentValue + dashboard.NPSSummary.CurrentValue
+			dashboard.PFSummary.CurrentValue + dashboard.NPSSummary.CurrentValue +
+			dashboard.VehicleRentalSummary.CurrentValue
 		allCashflows = append(allCashflows, Cashflow{Date: now, Amount: terminalValue})
 		if xirr, err := CalculateXIRR(allCashflows); err == nil {
 			dashboard.PortfolioXIRR = xirr * 100
@@ -456,6 +582,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*Da
 			dashboard.PFSummary.CurrentValue,
 			dashboard.StockSummary.CurrentValue,
 			dashboard.NPSSummary.CurrentValue,
+			dashboard.VehicleRentalSummary.CurrentValue,
 		}
 		hhi := 0.0
 		activeCategories := 0
@@ -479,12 +606,13 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*Da
 		maxPct := 0.0
 		maxCat := ""
 		catMap := map[string]float64{
-			"Mutual Funds": dashboard.MFSummary.CurrentValue,
-			"Stocks":       dashboard.StockSummary.CurrentValue,
-			"Bonds":        dashboard.BondSummary.CurrentValue,
-			"FDs":          dashboard.FDSummary.CurrentValue,
-			"PF":           dashboard.PFSummary.CurrentValue,
-			"NPS":          dashboard.NPSSummary.CurrentValue,
+			"Mutual Funds":    dashboard.MFSummary.CurrentValue,
+			"Stocks":          dashboard.StockSummary.CurrentValue,
+			"Bonds":           dashboard.BondSummary.CurrentValue,
+			"FDs":             dashboard.FDSummary.CurrentValue,
+			"PF":              dashboard.PFSummary.CurrentValue,
+			"NPS":             dashboard.NPSSummary.CurrentValue,
+			"Vehicle Rentals": dashboard.VehicleRentalSummary.CurrentValue,
 		}
 		for name, val := range catMap {
 			pct := val / totalAssets * 100
