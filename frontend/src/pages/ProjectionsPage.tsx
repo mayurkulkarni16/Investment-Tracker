@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react';
 import { getProjections } from '../api/projections';
 import type { ProjectionsResponse } from '../types';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatCompactINR } from '../utils/format';
 import { useAuth } from '../context/AuthContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area, BarChart, Bar, Cell } from 'recharts';
+import { PageSkeleton } from '../components/ui';
+import { CHART_COLORS, SERIES } from '../components/chartUtils';
+import { categoryMeta } from '../components/dashboard/categories';
+import { SegmentedControl } from '../components/charts';
 
-const COLORS = ['#1a73e8', '#0f9d58', '#f9ab00', '#ea4335', '#9c27b0', '#00bcd4', '#ff5722', '#607d8b', '#795548', '#3f51b5'];
-const CATEGORY_COLORS: Record<string, string> = {
-  mutual_fund: '#1a73e8',
-  fixed_deposit: '#f9ab00',
-  provident_fund: '#0f9d58',
-  stock: '#ea4335',
-  corporate_bond: '#9c27b0',
-  nps: '#00bcd4',
-  vehicle_rental: '#795548',
-};
+const COLORS = CHART_COLORS;
+const CATEGORY_KEYS = ['mutual_fund', 'fixed_deposit', 'provident_fund', 'stock', 'corporate_bond', 'nps', 'vehicle_rental'];
+// Same colours as the dashboard, which keys categories in the plural ("mutual_funds").
+const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
+  CATEGORY_KEYS.map(k => [k, categoryMeta(k === 'nps' ? k : `${k}s`).color]),
+);
 const CATEGORY_LABELS: Record<string, string> = {
   mutual_fund: 'Mutual Fund',
   fixed_deposit: 'Fixed Deposit',
@@ -46,7 +46,7 @@ export default function ProjectionsPage() {
     return () => { cancelled = true; };
   }, [requestKey, years, scenario, effectiveInflation]);
 
-  if (result?.key !== requestKey) return <div className="loading">Loading projections...</div>;
+  if (result?.key !== requestKey) return <PageSkeleton label="Loading projections" />;
   const data = result.data;
   if (!data || data.investments.length === 0) {
     return (
@@ -123,9 +123,9 @@ export default function ProjectionsPage() {
       .filter((_, i, arr) => i % 3 === 0 || i === arr.length - 1)
     : [];
   const rangeNote = (r?: { p10: number; p90: number }) => r && (
-    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+    <div className="text-xs text-muted mt-1">
       {formatCurrency(r.p10)} — {formatCurrency(r.p90)}
-      <span style={{ marginLeft: 4, opacity: 0.7 }}>(80% range)</span>
+      <span className="ml-1" style={{ opacity: 0.7 }}>(80% range)</span>
     </div>
   );
 
@@ -133,21 +133,15 @@ export default function ProjectionsPage() {
     <div>
       <div className="page-header">
         <h1>Investment Projections</h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Scenario:</label>
-          <div style={{ display: 'flex', gap: 0 }}>
-            {[{ key: 'bear', label: '🐻 Bear', color: '#ea4335' }, { key: 'base', label: '📊 Base', color: '#1a73e8' }, { key: 'bull', label: '🐂 Bull', color: '#0f9d58' }].map(s => (
-              <button key={s.key} onClick={() => setScenario(s.key)}
-                style={{
-                  padding: '6px 14px', fontSize: 13, border: '1px solid var(--border-color)', cursor: 'pointer',
-                  background: scenario === s.key ? s.color : 'var(--bg-primary)',
-                  color: scenario === s.key ? '#fff' : 'var(--text-primary)',
-                  borderRadius: s.key === 'bear' ? '6px 0 0 6px' : s.key === 'bull' ? '0 6px 6px 0' : '0',
-                  fontWeight: scenario === s.key ? 600 : 400,
-                }}>{s.label}</button>
-            ))}
-          </div>
-          <label style={{ fontSize: 13, color: 'var(--text-secondary)', marginLeft: 12 }}>Period:</label>
+        <div className="flex gap-2 items-center flex-wrap">
+          <label className="text-md text-muted">Scenario:</label>
+          <SegmentedControl
+            ariaLabel="Scenario"
+            value={scenario}
+            onChange={setScenario}
+            options={[{ value: 'bear', label: 'Bear' }, { value: 'base', label: 'Base' }, { value: 'bull', label: 'Bull' }]}
+          />
+          <label className="text-md text-muted ml-3">Period:</label>
           <select value={years} onChange={e => setYears(parseInt(e.target.value))} style={{ padding: '6px 12px', borderRadius: 6 }}>
             <option value={1}>1 Year</option>
             <option value={3}>3 Years</option>
@@ -158,12 +152,12 @@ export default function ProjectionsPage() {
             <option value={25}>25 Years</option>
             <option value={30}>30 Years</option>
           </select>
-          <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, marginLeft: 12 }}>
+          <label className="text-md flex items-center gap-1 ml-3">
             <input type="checkbox" checked={todaysMoney} onChange={e => setTodaysMoney(e.target.checked)} />
             Today's money
           </label>
           {todaysMoney && (
-            <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <label className="text-md flex items-center gap-1">
               inflation
               <input type="number" min={0} max={20} step={0.5} value={inflation}
                 onChange={e => setInflation(Math.min(20, Math.max(0, parseFloat(e.target.value) || 0)))}
@@ -174,13 +168,13 @@ export default function ProjectionsPage() {
       </div>
 
       {data.inflation_rate > 0 && (
-        <p className="text-muted" style={{ fontSize: 12, marginTop: -8, marginBottom: 12 }}>
+        <p className="text-muted text-sm mb-3" style={{ marginTop: -8 }}>
           All future values are shown in today's money, assuming {data.inflation_rate}% annual inflation.
         </p>
       )}
 
       {/* Summary cards */}
-      <div className="card-grid" style={{ marginBottom: 20 }}>
+      <div className="card-grid mb-5">
         <div className="stat-card">
           <div className="label">Current Portfolio</div>
           <div className="value">{formatCurrency(data.total_current)}</div>
@@ -204,7 +198,7 @@ export default function ProjectionsPage() {
             <div className="label">Projected ({years}Y)</div>
             <div className="value positive">
               {formatCurrency(data.total_projected_end)}
-              <span style={{ fontSize: 13, marginLeft: 6, color: projectedGrowth >= 0 ? '#0f9d58' : '#ea4335' }}>
+              <span className="text-md ml-2" style={{ color: projectedGrowth >= 0 ? 'var(--success)' : 'var(--danger)' }}>
                 ({projectedGrowth >= 0 ? '+' : ''}{projectedGrowth.toFixed(1)}%)
               </span>
             </div>
@@ -215,7 +209,7 @@ export default function ProjectionsPage() {
           <div className="stat-card">
             <div className="label">Net Worth: Now → {years}Y</div>
             <div className="value">{formatCurrency(data.current_net_worth)} → {formatCurrency(endNetWorth.p50)}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+            <div className="text-xs text-muted mt-1">
               Loans {formatCurrency(data.total_liabilities)} → {formatCurrency(data.liabilities_monthly[data.liabilities_monthly.length - 1]?.value ?? 0)}
             </div>
           </div>
@@ -223,10 +217,10 @@ export default function ProjectionsPage() {
       </div>
 
       {/* Category filter */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        <button className={`btn btn-sm ${selectedCategory === 'all' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setSelectedCategory('all')}>All</button>
+      <div className="flex gap-2 mb-5 flex-wrap">
+        <button className={`chip${selectedCategory === 'all' ? ' active' : ''}`} aria-pressed={selectedCategory === 'all'} onClick={() => setSelectedCategory('all')}>All</button>
         {categories.map(cat => (
-          <button key={cat} className={`btn btn-sm ${selectedCategory === cat ? 'btn-primary' : 'btn-outline'}`} onClick={() => setSelectedCategory(cat)}>
+          <button key={cat} className={`chip${selectedCategory === cat ? ' active' : ''}`} aria-pressed={selectedCategory === cat} onClick={() => setSelectedCategory(cat)}>
             {CATEGORY_LABELS[cat] || cat}
           </button>
         ))}
@@ -236,39 +230,39 @@ export default function ProjectionsPage() {
       <div className="chart-grid">
         {/* Total Portfolio Growth Area Chart with Confidence Bands */}
         <div className="card">
-          <h3 style={{ marginBottom: 4 }}>Total Portfolio Growth</h3>
-          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 12, marginTop: 0 }}>
+          <h3 className="mb-1">Total Portfolio Growth</h3>
+          <p className="text-xs text-muted mb-3 mt-0">
             Shaded area shows 80% confidence interval (Monte Carlo simulation)
           </p>
           <ResponsiveContainer width="100%" height={320}>
             <AreaChart data={aggregateChartData}>
               <defs>
                 <linearGradient id="confidenceBand" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#1a73e8" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#1a73e8" stopOpacity={0.05} />
+                  <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} angle={-45} textAnchor="end" height={60} interval={Math.floor(aggregateChartData.length / 8)} />
-              <YAxis tickFormatter={v => `₹${(v / 100000).toFixed(1)}L`} fontSize={11} />
+              <YAxis tickFormatter={(v) => formatCompactINR(Number(v))} fontSize={11} />
               <Tooltip formatter={(val, name) => [formatCurrency(val as number), name === 'p90' ? 'Optimistic (P90)' : name === 'p10' ? 'Pessimistic (P10)' : name === 'p50' ? 'Expected (P50)' : name]} />
               <Area type="monotone" dataKey="p90" name="p90" stroke="none" fill="url(#confidenceBand)" />
               <Area type="monotone" dataKey="p10" name="p10" stroke="none" fill="#fff" fillOpacity={1} />
-              <Area type="monotone" dataKey="p90" name="Optimistic (P90)" stroke="#1a73e8" strokeDasharray="4 4" fill="none" strokeWidth={1} strokeOpacity={0.5} />
-              <Area type="monotone" dataKey="p10" name="Pessimistic (P10)" stroke="#ea4335" strokeDasharray="4 4" fill="none" strokeWidth={1} strokeOpacity={0.5} />
-              <Area type="monotone" dataKey="p50" name="Expected (P50)" stroke="#1a73e8" fill="none" strokeWidth={2.5} />
+              <Area type="monotone" dataKey="p90" name="Optimistic (P90)" stroke={SERIES.primary} strokeDasharray="4 4" fill="none" strokeWidth={1} strokeOpacity={0.5} />
+              <Area type="monotone" dataKey="p10" name="Pessimistic (P10)" stroke={SERIES.negative} strokeDasharray="4 4" fill="none" strokeWidth={1} strokeOpacity={0.5} />
+              <Area type="monotone" dataKey="p50" name="Expected (P50)" stroke={SERIES.primary} fill="none" strokeWidth={2.5} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
         {/* Category-wise Stacked Area */}
         <div className="card">
-          <h3 style={{ marginBottom: 16 }}>Growth by Category</h3>
+          <h3 className="mb-4">Growth by Category</h3>
           <ResponsiveContainer width="100%" height={320}>
             <AreaChart data={categoryAggData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} angle={-45} textAnchor="end" height={60} interval={Math.floor(categoryAggData.length / 8)} />
-              <YAxis tickFormatter={v => `₹${(v / 100000).toFixed(1)}L`} fontSize={11} />
+              <YAxis tickFormatter={(v) => formatCompactINR(Number(v))} fontSize={11} />
               <Tooltip formatter={(val) => formatCurrency(val as number)} />
               <Legend />
               {categories.map(cat => (
@@ -281,23 +275,23 @@ export default function ProjectionsPage() {
 
       {/* Net worth projection (assets minus amortising loans) */}
       {hasLiabilities && (
-        <div className="card" style={{ marginBottom: 20 }}>
-          <h3 style={{ marginBottom: 4 }}>Net Worth Projection</h3>
-          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 12, marginTop: 0 }}>
+        <div className="card mb-5">
+          <h3 className="mb-1">Net Worth Projection</h3>
+          <p className="text-xs text-muted mb-3 mt-0">
             Assets (expected) minus loans paid down at their current EMIs. Dashed lines show the 80% range for net worth. Credit card balances are not included.
           </p>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={netWorthChartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="label" fontSize={11} angle={-45} textAnchor="end" height={60} interval={Math.floor(netWorthChartData.length / 8)} />
-              <YAxis tickFormatter={v => `₹${(v / 100000).toFixed(1)}L`} fontSize={11} />
+              <YAxis tickFormatter={(v) => formatCompactINR(Number(v))} fontSize={11} />
               <Tooltip formatter={(val) => formatCurrency(val as number)} />
               <Legend />
-              <Line type="monotone" dataKey="assets" name="Assets (P50)" stroke="#0f9d58" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="liabilities" name="Loans" stroke="#ea4335" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="net" name="Net worth (P50)" stroke="#1a73e8" strokeWidth={2.5} dot={false} />
-              <Line type="monotone" dataKey="netP10" name="Net worth P10" stroke="#1a73e8" strokeDasharray="4 4" strokeOpacity={0.5} dot={false} />
-              <Line type="monotone" dataKey="netP90" name="Net worth P90" stroke="#1a73e8" strokeDasharray="4 4" strokeOpacity={0.5} dot={false} />
+              <Line type="monotone" dataKey="assets" name="Assets (P50)" stroke={SERIES.positive} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="liabilities" name="Loans" stroke={SERIES.negative} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="net" name="Net worth (P50)" stroke={SERIES.primary} strokeWidth={2.5} dot={false} />
+              <Line type="monotone" dataKey="netP10" name="Net worth P10" stroke={SERIES.primary} strokeDasharray="4 4" strokeOpacity={0.5} dot={false} />
+              <Line type="monotone" dataKey="netP90" name="Net worth P90" stroke={SERIES.primary} strokeDasharray="4 4" strokeOpacity={0.5} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -307,7 +301,7 @@ export default function ProjectionsPage() {
       <div className="chart-grid">
         {/* Individual growth lines */}
         <div className="card">
-          <h3 style={{ marginBottom: 16 }}>Individual Investment Growth</h3>
+          <h3 className="mb-4">Individual Investment Growth</h3>
           <ResponsiveContainer width="100%" height={350}>
             <LineChart>
               <CartesianGrid strokeDasharray="3 3" />
@@ -320,7 +314,7 @@ export default function ProjectionsPage() {
                 textAnchor="end"
                 height={60}
               />
-              <YAxis tickFormatter={v => `₹${(v / 100000).toFixed(1)}L`} fontSize={11} />
+              <YAxis tickFormatter={(v) => formatCompactINR(Number(v))} fontSize={11} />
               <Tooltip formatter={(val) => formatCurrency(val as number)} />
               <Legend />
               {filtered.slice(0, 8).map((inv, i) => {
@@ -349,7 +343,7 @@ export default function ProjectionsPage() {
 
         {/* Growth comparison bar */}
         <div className="card">
-          <h3 style={{ marginBottom: 16 }}>Projected Growth (%)</h3>
+          <h3 className="mb-4">Projected Growth (%)</h3>
           <ResponsiveContainer width="100%" height={350}>
             <BarChart data={comparisonData} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" />
@@ -367,33 +361,33 @@ export default function ProjectionsPage() {
       </div>
 
       {/* Current vs Projected Comparison */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginBottom: 16 }}>Current vs Projected Value</h3>
+      <div className="card mb-5">
+        <h3 className="mb-4">Current vs Projected Value</h3>
         <ResponsiveContainer width="100%" height={Math.max(300, comparisonData.length * 45)}>
           <BarChart data={comparisonData} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis type="number" tickFormatter={v => `₹${(v / 100000).toFixed(1)}L`} fontSize={11} />
+            <XAxis type="number" tickFormatter={(v) => formatCompactINR(Number(v))} fontSize={11} />
             <YAxis type="category" dataKey="name" width={140} fontSize={11} />
             <Tooltip formatter={(val) => formatCurrency(val as number)} />
             <Legend />
-            <Bar dataKey="current" name="Current Value" fill="#1a73e8" radius={[0, 4, 4, 0]} />
-            <Bar dataKey="projected" name={`Projected (${years}Y)`} fill="#0f9d58" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="current" name="Current Value" fill={SERIES.primary} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="projected" name={`Projected (${years}Y)`} fill={SERIES.positive} radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {/* Assumptions table */}
       <div className="card">
-        <h3 style={{ marginBottom: 12 }}>Projection Assumptions</h3>
-        <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+        <h3 className="mb-3">Projection Assumptions</h3>
+        <p className="text-sm text-muted mb-3">
           Market-linked holdings (mutual funds, stocks, NPS) are simulated together over {(data.simulations || 2000).toLocaleString()} paths with a shared market factor, so the portfolio range reflects diversification.
           Their assumed rate is the expected median return: your own XIRR blended with the category's long-term return (short track records count for little).
           FDs, PF, bonds and vehicle rentals follow their contractual schedules; payouts are held as cash, not reinvested.
           Scenarios only change market-linked returns (bull +3% / bear −4% for equity). P10–P90 is the 80% range.
         </p>
-        <table style={{ fontSize: 13 }}>
+        <table className="text-md">
           <thead>
-            <tr><th>Investment</th><th>Category</th><th>Current Value</th><th>Assumed Rate</th><th>Volatility</th><th>Monthly Contribution</th><th>Projected ({years}Y, P50)</th><th>P10–P90 Range</th></tr>
+            <tr><th>Investment</th><th>Category</th><th className="num">Current Value</th><th>Assumed Rate</th><th>Volatility</th><th className="num">Monthly Contribution</th><th className="num">Projected ({years}Y, P50)</th><th>P10–P90 Range</th></tr>
           </thead>
           <tbody>
             {data.investments.map((inv, i) => {
@@ -402,13 +396,13 @@ export default function ProjectionsPage() {
               return (
                 <tr key={i} title={inv.note}>
                   <td>{inv.name}</td>
-                  <td><span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: (CATEGORY_COLORS[inv.category] || '#999') + '22', color: CATEGORY_COLORS[inv.category] || 'var(--text-secondary)' }}>{CATEGORY_LABELS[inv.category] || inv.category}</span></td>
-                  <td>{formatCurrency(inv.current_value)}</td>
-                  <td>{inv.assumed_rate_pct}% p.a.{inv.note && <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{inv.note}</div>}</td>
+                  <td><span className="text-xs fw-semibold" style={{ padding: '2px 8px', borderRadius: 10, background: (CATEGORY_COLORS[inv.category] || '#999') + '22', color: CATEGORY_COLORS[inv.category] || 'var(--text-secondary)' }}>{CATEGORY_LABELS[inv.category] || inv.category}</span></td>
+                  <td className="num">{formatCurrency(inv.current_value)}</td>
+                  <td>{inv.assumed_rate_pct}% p.a.{inv.note && <div className="text-muted" style={{ fontSize: 10 }}>{inv.note}</div>}</td>
                   <td>{scheduled ? 'Scheduled' : `${inv.volatility_pct}%`}</td>
-                  <td>{inv.monthly_contribution > 0 ? formatCurrency(inv.monthly_contribution) : '—'}</td>
-                  <td>{last ? formatCurrency(last.p50) : '-'}</td>
-                  <td style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                  <td className="num">{inv.monthly_contribution > 0 ? formatCurrency(inv.monthly_contribution) : '—'}</td>
+                  <td className="num">{last ? formatCurrency(last.p50) : '-'}</td>
+                  <td className="text-xs text-muted">
                     {last ? (scheduled ? '—' : `${formatCurrency(last.p10)} — ${formatCurrency(last.p90)}`) : '-'}
                   </td>
                 </tr>

@@ -6,14 +6,18 @@ import {
 } from 'recharts';
 import { getBudgets, saveBudget, deleteBudget, getLedgerSummary } from '../api/budgets';
 import type { Budget, BudgetRequest, BudgetStatus, LedgerSummary } from '../api/budgets';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatCompactINR } from '../utils/format';
 import { apiErrorMessage } from '../utils/errors';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
+import { Pencil, Trash2, Plus } from 'lucide-react';
+import RowActions from '../components/RowActions';
+import { PageSkeleton } from '../components/ui';
+import { CHART_COLORS, SERIES } from '../components/chartUtils';
 
-const PIE_COLORS = ['#1a73e8', '#34a853', '#fbbc04', '#ea4335', '#9334e6', '#00acc1', '#ff7043', '#5f6368', '#c2185b', '#7cb342'];
-const STATUS_COLORS: Record<string, string> = { ok: '#34a853', warning: '#f9ab00', over: '#ea4335' };
+const PIE_COLORS = CHART_COLORS;
+const STATUS_COLORS: Record<string, string> = { ok: SERIES.positive, warning: SERIES.warning, over: SERIES.negative };
 
 const monthLabel = (m: string) => {
   const [y, mo] = m.split('-').map(Number);
@@ -148,7 +152,7 @@ export default function BudgetsPage() {
     }
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <PageSkeleton label="Loading" />;
 
   const hasEntries = months.some(m => m.entry_count > 0 || m.income > 0 || m.expense > 0) || (current?.entry_count ?? 0) > 0;
   const pending = summary?.pending_review_count ?? 0;
@@ -159,11 +163,11 @@ export default function BudgetsPage() {
     <div>
       <div className="page-header">
         <h1>Budgets &amp; Savings</h1>
-        {!isViewOnly && <button className="btn btn-primary" onClick={() => openAdd()}>+ Add Budget</button>}
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => openAdd()}><Plus size={16} aria-hidden="true" />Add Budget</button>}
       </div>
 
       {pending > 0 && (
-        <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: '4px solid #f9ab00' }}>
+        <div className="card flex justify-between items-center" style={{ borderLeft: '4px solid var(--warning)' }}>
           <span>
             <strong>{pending}</strong> ledger entr{pending === 1 ? 'y is' : 'ies are'} pending review and not counted below.
           </span>
@@ -178,7 +182,7 @@ export default function BudgetsPage() {
         </div>
       ) : (
         <>
-          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginBottom: 20 }}>
+          <div className="card-grid stat-grid mb-5">
             <div className="stat-card">
               <div className="label">Income ({current ? monthLabel(current.month) : 'this month'})</div>
               <div className="value positive">{formatCurrency(current?.income ?? 0)}</div>
@@ -186,7 +190,7 @@ export default function BudgetsPage() {
             <div className="stat-card">
               <div className="label">Expense</div>
               <div className="value negative">{formatCurrency(current?.expense ?? 0)}</div>
-              {(current?.bills ?? 0) > 0 && <div className="text-muted" style={{ fontSize: 11 }}>+ {formatCurrency(current?.bills ?? 0)} bills (excluded)</div>}
+              {(current?.bills ?? 0) > 0 && <div className="text-muted text-xs">+ {formatCurrency(current?.bills ?? 0)} bills (excluded)</div>}
             </div>
             <div className="stat-card">
               <div className="label">Net Savings</div>
@@ -195,7 +199,7 @@ export default function BudgetsPage() {
             <div className="stat-card">
               <div className="label">Savings Rate</div>
               <div className={`value ${rate >= 0 ? 'positive' : 'negative'}`}>{(current?.income ?? 0) > 0 ? `${rate.toFixed(1)}%` : '-'}</div>
-              <div className="text-muted" style={{ fontSize: 11 }}>Avg: {(summary?.avg_savings_rate_pct ?? 0).toFixed(1)}%</div>
+              <div className="text-muted text-xs">Avg: {(summary?.avg_savings_rate_pct ?? 0).toFixed(1)}%</div>
             </div>
             <div className="stat-card">
               <div className="label">Pending Review</div>
@@ -204,35 +208,35 @@ export default function BudgetsPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 }}>
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))' }}>
             <div className="card">
-              <h3 style={{ marginTop: 0 }}>Income vs Expense (12 months)</h3>
-              <div style={{ width: '100%', height: 300 }}>
+              <h3 className="mt-0">Income vs Expense (12 months)</h3>
+              <div className="w-full" style={{ height: 300 }}>
                 <ResponsiveContainer>
                   <ComposedChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
-                    <YAxis yAxisId="amt" tickFormatter={(v) => `${(Number(v) / 1000).toFixed(0)}k`} />
+                    <YAxis yAxisId="amt" tickFormatter={(v) => formatCompactINR(Number(v))} />
                     <YAxis yAxisId="pct" orientation="right" unit="%" />
                     <Tooltip formatter={(v, name) => (name === 'Savings rate' ? `${Number(v).toFixed(1)}%` : formatCurrency(Number(v)))} />
                     <Legend />
-                    <Bar yAxisId="amt" dataKey="income" name="Income" fill="#34a853" />
-                    <Bar yAxisId="amt" dataKey="expense" name="Expense" fill="#ea4335" />
-                    <Line yAxisId="pct" type="monotone" dataKey="savingsRate" name="Savings rate" stroke="#1a73e8" strokeWidth={2} connectNulls />
+                    <Bar yAxisId="amt" dataKey="income" name="Income" fill={SERIES.positive} />
+                    <Bar yAxisId="amt" dataKey="expense" name="Expense" fill={SERIES.negative} />
+                    <Line yAxisId="pct" type="monotone" dataKey="savingsRate" name="Savings rate" stroke={SERIES.primary} strokeWidth={2} connectNulls />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
-              <div className="text-muted" style={{ fontSize: 12 }}>
+              <div className="text-muted text-sm">
                 Avg monthly income {formatCurrency(summary?.avg_monthly_income ?? 0)} · expense {formatCurrency(summary?.avg_monthly_expense ?? 0)}
               </div>
             </div>
 
             <div className="card">
-              <h3 style={{ marginTop: 0 }}>Top categories this month</h3>
+              <h3 className="mt-0">Top categories this month</h3>
               {pieData.length === 0 ? (
                 <p className="text-muted">No expenses recorded this month.</p>
               ) : (
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="flex gap-4 flex-wrap items-center">
                   <div style={{ width: 220, height: 220 }}>
                     <ResponsiveContainer>
                       <PieChart>
@@ -243,11 +247,11 @@ export default function BudgetsPage() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div style={{ flex: 1, minWidth: 160 }}>
+                  <div className="flex-1" style={{ minWidth: 160 }}>
                     {pieData.map((c, i) => (
-                      <div key={c.category} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13, padding: '3px 0' }}>
+                      <div className="flex justify-between gap-2 text-md" key={c.category} style={{ padding: '3px 0' }}>
                         <span>
-                          <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: PIE_COLORS[i % PIE_COLORS.length], marginRight: 6 }} />
+                          <span className="mr-2" style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: PIE_COLORS[i % PIE_COLORS.length] }} />
                           {c.category}
                         </span>
                         <span>{formatCurrency(c.amount)} <span className="text-muted">({c.pct.toFixed(0)}%)</span></span>
@@ -262,13 +266,13 @@ export default function BudgetsPage() {
       )}
 
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ margin: 0 }}>Monthly budgets</h3>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="m-0">Monthly budgets</h3>
           {rows.length > 0 && (
-            <span className="text-muted" style={{ fontSize: 13 }}>
+            <span className="text-muted text-md">
               {formatCurrency(totals.spent)} of {formatCurrency(totals.limit)} used
-              {totals.over > 0 && <span className="badge badge-overdue" style={{ marginLeft: 6 }}>{totals.over} over</span>}
-              {totals.warning > 0 && <span className="badge badge-pending" style={{ marginLeft: 6 }}>{totals.warning} near limit</span>}
+              {totals.over > 0 && <span className="badge badge-overdue ml-2">{totals.over} over</span>}
+              {totals.warning > 0 && <span className="badge badge-pending ml-2">{totals.warning} near limit</span>}
             </span>
           )}
         </div>
@@ -282,24 +286,28 @@ export default function BudgetsPage() {
             const color = STATUS_COLORS[s.status] || STATUS_COLORS.ok;
             return (
               <div key={s.category} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <div className="flex justify-between items-center gap-2 mb-2">
                   <div>
                     <strong>{s.category}</strong>
-                    {s.status === 'over' && <span className="badge badge-overdue" style={{ marginLeft: 6 }}>over</span>}
-                    {s.status === 'warning' && <span className="badge badge-pending" style={{ marginLeft: 6 }}>near limit</span>}
+                    {s.status === 'over' && <span className="badge badge-overdue ml-2">over</span>}
+                    {s.status === 'warning' && <span className="badge badge-pending ml-2">near limit</span>}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 13 }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-md">
                       {formatCurrency(s.spent)} / {formatCurrency(s.limit)}
-                      <span className={s.remaining < 0 ? 'text-danger' : 'text-muted'} style={{ marginLeft: 6 }}>
+                      <span className={`${s.remaining < 0 ? 'text-danger' : 'text-muted'} ml-2`}>
                         ({s.remaining < 0 ? `${formatCurrency(-s.remaining)} over` : `${formatCurrency(s.remaining)} left`})
                       </span>
                     </span>
                     {!isViewOnly && r.budget && (
-                      <>
-                        <button className="btn btn-sm btn-outline" onClick={() => openEdit(r.budget as Budget)}>Edit</button>
-                        <button className="btn btn-sm btn-danger" onClick={() => handleDelete(r.budget as Budget)}>Del</button>
-                      </>
+                      <RowActions
+                        inline={1}
+                        label={`Actions for ${s.category} budget`}
+                        actions={[
+                          { label: 'Edit', icon: Pencil, onClick: () => openEdit(r.budget as Budget) },
+                          { label: 'Delete', icon: Trash2, onClick: () => handleDelete(r.budget as Budget), danger: true },
+                        ]}
+                      />
                     )}
                   </div>
                 </div>
@@ -324,7 +332,7 @@ export default function BudgetsPage() {
                 <datalist id="budget-category-suggestions">
                   {categorySuggestions.map(c => <option key={c} value={c} />)}
                 </datalist>
-                {editing === 'new' && <div className="text-muted" style={{ fontSize: 11, marginTop: 4 }}>Saving a category that already has a budget updates its limit.</div>}
+                {editing === 'new' && <div className="text-muted text-xs mt-1">Saving a category that already has a budget updates its limit.</div>}
               </div>
               <div className="form-group">
                 <label>Monthly limit (₹)</label>

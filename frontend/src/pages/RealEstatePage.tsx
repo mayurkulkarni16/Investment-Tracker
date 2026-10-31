@@ -8,6 +8,9 @@ import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
 import { apiErrorMessage } from '../utils/errors';
+import { Pencil, Trash2, Plus } from 'lucide-react';
+import RowActions from '../components/RowActions';
+import { PageSkeleton } from '../components/ui';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -79,7 +82,7 @@ export default function RealEstatePage() {
     catch (err) { toast(apiErrorMessage(err, 'Failed to delete property'), 'error'); }
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <PageSkeleton label="Loading" />;
 
   const ownedValue = properties.reduce((s, p) => s + p.owned_value, 0);
   const totalGain = properties.reduce((s, p) => s + p.gain_loss, 0);
@@ -94,15 +97,15 @@ export default function RealEstatePage() {
     <div>
       <div className="page-header">
         <h1>Real Estate</h1>
-        {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}>+ Add Property</button>}
+        {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}><Plus size={16} aria-hidden="true" />Add Property</button>}
       </div>
 
       {properties.length > 0 && (
-        <div className="card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', marginBottom: 20 }}>
+        <div className="card-grid stat-grid mb-5">
           <div className="stat-card">
             <div className="label">Owned Value</div>
             <div className="value">{formatCurrency(ownedValue)}</div>
-            <div className="text-muted" style={{ fontSize: 13 }}>{properties.length} {properties.length === 1 ? 'property' : 'properties'}</div>
+            <div className="text-muted text-md">{properties.length} {properties.length === 1 ? 'property' : 'properties'}</div>
           </div>
           <div className="stat-card">
             <div className="label">Total Gain</div>
@@ -111,7 +114,7 @@ export default function RealEstatePage() {
           <div className="stat-card">
             <div className="label">Equity After Loans</div>
             <div className="value">{formatCurrency(totalEquity)}</div>
-            {totalLoan > 0 && <div className="text-muted" style={{ fontSize: 13 }}>Loans: {formatCurrency(totalLoan)}</div>}
+            {totalLoan > 0 && <div className="text-muted text-md">Loans: {formatCurrency(totalLoan)}</div>}
           </div>
           <div className="stat-card">
             <div className="label">Annual Rent</div>
@@ -124,7 +127,7 @@ export default function RealEstatePage() {
         <div className="empty-state">
           <h3>No properties yet</h3>
           <p>Track homes, land and commercial property, and link them to your home loans to see equity.</p>
-          {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}>+ Add Property</button>}
+          {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}><Plus size={16} aria-hidden="true" />Add Property</button>}
         </div>
       ) : (
         <div className="table-container">
@@ -136,12 +139,12 @@ export default function RealEstatePage() {
                 <th>Purchase</th>
                 <th>Current Value</th>
                 <th>Ownership</th>
-                <th>Owned Value</th>
-                <th>Gain</th>
-                <th>CAGR</th>
+                <th className="num">Owned Value</th>
+                <th className="num">Gain</th>
+                <th className="num">CAGR</th>
                 <th>Net Rental Yield</th>
                 <th>Loan Outstanding</th>
-                <th>Equity</th>
+                <th className="num">Equity</th>
                 {!isViewOnly && <th>Actions</th>}
               </tr>
             </thead>
@@ -152,29 +155,29 @@ export default function RealEstatePage() {
                   <tr key={p.id}>
                     <td>
                       <div>{p.name}</div>
-                      {p.location && <div className="text-muted" style={{ fontSize: 12 }}>{p.location}</div>}
+                      {p.location && <div className="text-muted text-sm">{p.location}</div>}
                     </td>
                     <td>
                       <span className="badge badge-completed">{PROPERTY_TYPE_LABELS[p.property_type] || p.property_type}</span>
-                      <div className="text-muted" style={{ fontSize: 12 }}>{p.is_self_occupied ? 'Self-occupied' : 'Let out'}</div>
+                      <div className="text-muted text-sm">{p.is_self_occupied ? 'Self-occupied' : 'Let out'}</div>
                     </td>
                     <td>
                       <div>{formatCurrency(p.purchase_price)}</div>
-                      <div className="text-muted" style={{ fontSize: 12 }}>{formatDate(p.purchase_date)}</div>
+                      <div className="text-muted text-sm">{formatDate(p.purchase_date)}</div>
                     </td>
                     <td>
                       <div>{formatCurrency(p.current_value)}</div>
-                      <div className="text-muted" style={{ fontSize: 12 }}>Value updated {formatDate(p.value_updated_at)}</div>
+                      <div className="text-muted text-sm">Value updated {formatDate(p.value_updated_at)}</div>
                     </td>
                     <td>{p.ownership_pct}%</td>
-                    <td>{formatCurrency(p.owned_value)}</td>
-                    <td className={p.gain_loss >= 0 ? 'text-success' : 'text-danger'}>{formatCurrency(p.gain_loss)}</td>
-                    <td className={p.cagr >= 0 ? 'text-success' : 'text-danger'}>{formatPercent(p.cagr)}</td>
+                    <td className="num">{formatCurrency(p.owned_value)}</td>
+                    <td className={`${p.gain_loss >= 0 ? 'text-success' : 'text-danger'} num`}>{formatCurrency(p.gain_loss)}</td>
+                    <td className={`${p.cagr >= 0 ? 'text-success' : 'text-danger'} num`}>{formatPercent(p.cagr)}</td>
                     <td>
                       {p.is_self_occupied ? '-' : (
                         <>
                           <div>{p.net_rental_yield.toFixed(2)}%</div>
-                          <div className="text-muted" style={{ fontSize: 12 }}>{formatCurrency(p.monthly_rent)}/mo</div>
+                          <div className="text-muted text-sm">{formatCurrency(p.monthly_rent)}/mo</div>
                         </>
                       )}
                     </td>
@@ -182,17 +185,21 @@ export default function RealEstatePage() {
                       {p.home_loan_id ? (
                         <>
                           <div>{formatCurrency(p.loan_outstanding)}</div>
-                          {loan && <div className="text-muted" style={{ fontSize: 12 }}>{loan.bank_name}</div>}
+                          {loan && <div className="text-muted text-sm">{loan.bank_name}</div>}
                         </>
                       ) : '-'}
                     </td>
-                    <td><strong>{formatCurrency(p.equity)}</strong></td>
+                    <td className="num"><strong>{formatCurrency(p.equity)}</strong></td>
                     {!isViewOnly && (
-                      <td>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <button className="btn btn-sm btn-outline" onClick={() => openEdit(p)}>Edit</button>
-                          <button className="btn btn-sm btn-danger" onClick={() => handleDelete(p)}>Del</button>
-                        </div>
+                      <td className="cell-actions">
+                        <RowActions
+                          inline={1}
+                          label={`Actions for ${p.name}`}
+                          actions={[
+                            { label: 'Edit', icon: Pencil, onClick: () => openEdit(p) },
+                            { label: 'Delete', icon: Trash2, onClick: () => handleDelete(p), danger: true },
+                          ]}
+                        />
                       </td>
                     )}
                   </tr>
@@ -262,7 +269,7 @@ export default function RealEstatePage() {
               </div>
               <div className="form-group">
                 <label>
-                  <input type="checkbox" checked={form.is_self_occupied} onChange={e => setForm({ ...form, is_self_occupied: e.target.checked })} style={{ width: 'auto', marginRight: 6 }} />
+                  <input className="w-auto mr-2" type="checkbox" checked={form.is_self_occupied} onChange={e => setForm({ ...form, is_self_occupied: e.target.checked })} />
                   Self-occupied
                 </label>
               </div>

@@ -22,10 +22,10 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
       {state && (
         <div className="modal-overlay" onClick={() => handleClose(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <h2>{state.title || 'Confirm'}</h2>
             <p style={{ margin: '16px 0' }}>{state.message}</p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <div className="flex gap-2 justify-end">
               <button className="btn btn-outline" onClick={() => handleClose(false)}>Cancel</button>
               <button className={`btn ${state.danger ? 'btn-danger' : 'btn-primary'}`} onClick={() => handleClose(true)}>
                 {state.confirmLabel || 'Confirm'}

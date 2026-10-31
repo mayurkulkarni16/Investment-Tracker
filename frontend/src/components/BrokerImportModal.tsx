@@ -13,7 +13,7 @@ interface Props {
 
 const ACTION_STYLES: Record<string, { label: string; bg: string; color: string }> = {
   create: { label: 'New stock', bg: 'var(--success-soft)', color: 'var(--success-text)' },
-  add_trade: { label: 'Add trade', bg: 'var(--primary-soft)', color: '#1a73e8' },
+  add_trade: { label: 'Add trade', bg: 'var(--primary-soft)', color: '#4f46e5' },
   skip_duplicate: { label: 'Duplicate', bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
   skip_exists: { label: 'Already exists', bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
   conflict: { label: 'Conflict', bg: 'var(--warning-soft)', color: 'var(--warning-text)' },
@@ -28,7 +28,7 @@ function todayISO(): string {
 
 function ActionBadge({ action }: { action: string }) {
   const s = ACTION_STYLES[action] || { label: action, bg: 'var(--surface-muted)', color: 'var(--text-secondary)' };
-  return <span className="badge" style={{ background: s.bg, color: s.color, whiteSpace: 'nowrap' }}>{s.label}</span>;
+  return <span className="badge nowrap" style={{ background: s.bg, color: s.color }}>{s.label}</span>;
 }
 
 export default function BrokerImportModal({ open, onClose, onImported }: Props) {
@@ -107,17 +107,17 @@ export default function BrokerImportModal({ open, onClose, onImported }: Props) 
           <div className="form-group">
             <label>Holdings date</label>
             <input type="date" value={asOf} max={todayISO()} onChange={e => { setAsOf(e.target.value); setPreview(null); }} />
-            <div className="text-muted" style={{ fontSize: 11, marginTop: 2 }}>
+            <div className="text-muted text-xs" style={{ marginTop: 2 }}>
               Used as the buy date for holdings files (tradebooks use each trade's own date).
             </div>
           </div>
         </div>
 
-        <button type="button" className="btn btn-sm btn-outline" onClick={() => setShowHelp(s => !s)} style={{ marginBottom: 12 }}>
+        <button type="button" className="btn btn-sm btn-outline mb-3" onClick={() => setShowHelp(s => !s)}>
           {showHelp ? '▼' : '▶'} Where do I get this file?
         </button>
         {showHelp && (
-          <div className="card" style={{ fontSize: 13, marginBottom: 12, background: 'var(--bg-secondary, #f8f9fa)' }}>
+          <div className="card text-md mb-3" style={{ background: 'var(--bg-secondary, #f8f9fa)' }}>
             <p style={{ margin: '0 0 6px' }}>
               <strong>Zerodha</strong> — log in to <em>console.zerodha.com</em>:
             </p>
@@ -133,7 +133,7 @@ export default function BrokerImportModal({ open, onClose, onImported }: Props) 
               <li>Order history: <em>Profile → Reports → Stocks order history</em></li>
               <li>Groww downloads are XLSX — open in Excel/Sheets and <em>Save as / Download → CSV</em> first.</li>
             </ul>
-            <p className="text-muted" style={{ margin: 0 }}>
+            <p className="text-muted m-0">
               Holdings files add one position per stock at its average cost; tradebook/order files add each buy and sell.
               Already-imported trades are skipped, so re-importing is safe.
             </p>
@@ -141,16 +141,16 @@ export default function BrokerImportModal({ open, onClose, onImported }: Props) 
         )}
 
         {preview && (
-          <div style={{ marginTop: 8 }}>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, marginBottom: 8 }}>
-              <span>Detected: <strong style={{ textTransform: 'capitalize' }}>{preview.broker}</strong> {preview.kind}</span>
+          <div className="mt-2">
+            <div className="flex gap-3 flex-wrap text-md mb-2">
+              <span>Detected: <strong className="capitalize">{preview.broker}</strong> {preview.kind}</span>
               <span>Rows: <strong>{preview.rows}</strong></span>
               <span className="text-success">New stocks: <strong>{preview.stocks_created}</strong></span>
-              <span style={{ color: '#1a73e8' }}>Trades to add: <strong>{preview.trades_added}</strong></span>
+              <span style={{ color: '#4f46e5' }}>Trades to add: <strong>{preview.trades_added}</strong></span>
               <span className="text-muted">Skipped: <strong>{preview.skipped}</strong></span>
             </div>
             {errors.length > 0 && (
-              <div className="card text-danger" style={{ fontSize: 13, marginBottom: 8, padding: 12 }}>
+              <div className="card text-danger text-md mb-2 p-3">
                 {errors.map((e, i) => <div key={i}>• {e}</div>)}
               </div>
             )}
@@ -174,13 +174,13 @@ export default function BrokerImportModal({ open, onClose, onImported }: Props) 
                         <td><ActionBadge action={r.action} /></td>
                         <td>
                           <strong>{r.symbol}</strong>
-                          {r.name && r.name !== r.symbol && <div className="text-muted" style={{ fontSize: 11 }}>{r.name}</div>}
+                          {r.name && r.name !== r.symbol && <div className="text-muted text-xs">{r.name}</div>}
                         </td>
-                        <td style={{ textTransform: 'capitalize' }}>{r.type || '-'}</td>
+                        <td className="capitalize">{r.type || '-'}</td>
                         <td>{r.date ? formatDate(r.date) : '-'}</td>
                         <td className="text-right">{r.quantity}</td>
                         <td className="text-right">{r.price ? formatCurrency(r.price) : '-'}</td>
-                        <td className="text-muted" style={{ fontSize: 12 }}>{r.message || ''}</td>
+                        <td className="text-muted text-sm">{r.message || ''}</td>
                       </tr>
                     ))}
                   </tbody>

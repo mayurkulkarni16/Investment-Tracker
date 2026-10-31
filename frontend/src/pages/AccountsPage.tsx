@@ -9,6 +9,9 @@ import { apiErrorMessage } from '../utils/errors';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
+import { Pencil, RefreshCw, Trash2, Plus } from 'lucide-react';
+import RowActions from '../components/RowActions';
+import { PageSkeleton } from '../components/ui';
 
 const STALE_DAYS = 30;
 
@@ -43,7 +46,7 @@ function BalanceSparkline({ account }: { account: BankAccount }) {
           <XAxis dataKey="date" hide />
           <YAxis hide domain={['auto', 'auto']} />
           <Tooltip formatter={(v) => formatCurrency(Number(v))} />
-          <Line type="monotone" dataKey="balance" stroke="#1a73e8" strokeWidth={2} dot={false} />
+          <Line type="monotone" dataKey="balance" stroke="#4f46e5" strokeWidth={2} dot={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -173,7 +176,7 @@ export default function AccountsPage() {
     }
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <PageSkeleton label="Loading" />;
 
   const isCash = form.account_type === 'cash';
 
@@ -181,11 +184,11 @@ export default function AccountsPage() {
     <div>
       <div className="page-header">
         <h1>Bank &amp; Cash</h1>
-        {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}>+ Add Account</button>}
+        {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}><Plus size={16} aria-hidden="true" />Add Account</button>}
       </div>
 
       {accounts.length > 0 && (
-        <div className="card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginBottom: 20 }}>
+        <div className="card-grid stat-grid mb-5">
           <div className="stat-card">
             <div className="label">Total Bank Balance</div>
             <div className="value">{formatCurrency(summary.bank)}</div>
@@ -213,15 +216,15 @@ export default function AccountsPage() {
         <div className="empty-state">
           <h3>No bank accounts or cash yet</h3>
           <p>Track savings accounts, cash in hand and wallets to see your liquid money in one place.</p>
-          {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}>+ Add Account</button>}
+          {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}><Plus size={16} aria-hidden="true" />Add Account</button>}
         </div>
       ) : (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div className="flex justify-between items-center mb-3">
             <span className="text-muted">Total liquid: <strong>{formatCurrency(summary.total)}</strong> across {active.length} active account{active.length === 1 ? '' : 's'}</span>
             {accounts.some(a => a.status === 'closed') && (
-              <label style={{ fontSize: 13 }}>
-                <input type="checkbox" checked={showClosed} onChange={e => setShowClosed(e.target.checked)} style={{ marginRight: 6 }} />
+              <label className="text-md">
+                <input className="mr-2" type="checkbox" checked={showClosed} onChange={e => setShowClosed(e.target.checked)} />
                 Show closed
               </label>
             )}
@@ -232,8 +235,8 @@ export default function AccountsPage() {
             const showBankCols = g.type !== 'cash';
             return (
               <div className="card" key={g.type}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <h3 style={{ margin: 0 }}>{TYPE_LABELS[g.type]}</h3>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="m-0">{TYPE_LABELS[g.type]}</h3>
                   <strong>{formatCurrency(groupTotal)}</strong>
                 </div>
                 <div className="table-container">
@@ -256,9 +259,9 @@ export default function AccountsPage() {
                         <tr key={a.id} style={a.status === 'closed' ? { opacity: 0.6 } : undefined}>
                           <td>
                             {a.name}
-                            {a.is_emergency_fund && <span className="badge badge-active" style={{ marginLeft: 6 }} title="Counted as emergency fund">Emergency</span>}
-                            {a.status === 'closed' && <span className="badge badge-matured" style={{ marginLeft: 6 }}>closed</span>}
-                            {a.interest_rate > 0 && <div className="text-muted" style={{ fontSize: 11 }}>{a.interest_rate}% p.a.</div>}
+                            {a.is_emergency_fund && <span className="badge badge-active ml-2" title="Counted as emergency fund">Emergency</span>}
+                            {a.status === 'closed' && <span className="badge badge-matured ml-2">closed</span>}
+                            {a.interest_rate > 0 && <div className="text-muted text-xs">{a.interest_rate}% p.a.</div>}
                           </td>
                           {showBankCols && <td>{a.institution || '-'}</td>}
                           {showBankCols && <td>{a.last_four ? `••${a.last_four}` : '-'}</td>}
@@ -266,7 +269,7 @@ export default function AccountsPage() {
                           <td>
                             {formatDate(a.balance_as_of)}
                             {a.days_stale > STALE_DAYS && (
-                              <span className="badge badge-overdue" style={{ marginLeft: 6 }} title={`Balance last updated ${a.days_stale} days ago`}>
+                              <span className="badge badge-overdue ml-2" title={`Balance last updated ${a.days_stale} days ago`}>
                                 stale {a.days_stale}d
                               </span>
                             )}
@@ -275,12 +278,16 @@ export default function AccountsPage() {
                           <td className="text-right text-danger">{a.month_outflow ? formatCurrency(a.month_outflow) : '-'}</td>
                           <td><BalanceSparkline account={a} /></td>
                           {!isViewOnly && (
-                            <td>
-                              <div style={{ display: 'flex', gap: 4 }}>
-                                <button className="btn btn-sm btn-primary" onClick={() => openBalance(a)}>Update balance</button>
-                                <button className="btn btn-sm btn-outline" onClick={() => openEdit(a)}>Edit</button>
-                                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(a)}>Del</button>
-                              </div>
+                            <td className="cell-actions">
+                              <RowActions
+                                inline={1}
+                                label={`Actions for ${a.name}`}
+                                actions={[
+                                  { label: 'Update balance', icon: RefreshCw, onClick: () => openBalance(a) },
+                                  { label: 'Edit account', icon: Pencil, onClick: () => openEdit(a) },
+                                  { label: 'Delete account', icon: Trash2, onClick: () => handleDelete(a), danger: true },
+                                ]}
+                              />
                             </td>
                           )}
                         </tr>
@@ -291,7 +298,7 @@ export default function AccountsPage() {
               </div>
             );
           })}
-          <p className="text-muted" style={{ fontSize: 12 }}>
+          <p className="text-muted text-sm">
             Monthly inflow/outflow is matched from confirmed Income &amp; Expenses entries using the account's last four digits.
           </p>
         </>
@@ -351,8 +358,8 @@ export default function AccountsPage() {
                 </div>
                 <div className="form-group">
                   <label>&nbsp;</label>
-                  <label style={{ display: 'flex', alignItems: 'center' }}>
-                    <input type="checkbox" checked={!!form.is_emergency_fund} onChange={e => setForm({ ...form, is_emergency_fund: e.target.checked })} style={{ width: 'auto', marginRight: 6 }} />
+                  <label className="flex items-center">
+                    <input className="w-auto mr-2" type="checkbox" checked={!!form.is_emergency_fund} onChange={e => setForm({ ...form, is_emergency_fund: e.target.checked })} />
                     Part of emergency fund
                   </label>
                 </div>
@@ -374,7 +381,7 @@ export default function AccountsPage() {
         <div className="modal-overlay" onClick={() => setBalanceFor(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h2>Update balance — {balanceFor.name}</h2>
-            <p className="text-muted" style={{ marginBottom: 12 }}>
+            <p className="text-muted mb-3">
               Current: {formatCurrency(balanceFor.balance)} as of {formatDate(balanceFor.balance_as_of)}
             </p>
             <form onSubmit={handleBalance}>

@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react';
 import { getNetWorthCurrent, getNetWorthHistory, takeNetWorthSnapshot } from '../api/netWorth';
 import { getBenchmarks } from '../api/benchmarks';
 import type { NetWorthCurrent, NetWorthSnapshot, BenchmarkData } from '../types';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatCompactINR } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { SegmentedControl } from '../components/charts';
 import { useAuth } from '../context/AuthContext';
 import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Brush } from 'recharts';
+import { PageSkeleton } from '../components/ui';
+import { SERIES } from '../components/chartUtils';
 
 export default function NetWorthPage() {
   const { isViewOnly, viewAsUserId } = useAuth();
@@ -13,7 +16,7 @@ export default function NetWorthPage() {
   const [history, setHistory] = useState<NetWorthSnapshot[]>([]);
   const [benchmarks, setBenchmarks] = useState<BenchmarkData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState<string>('all');
+  const [range, setRange] = useState<'6m' | '1y' | '2y' | '3y' | 'all'>('all');
   const { toast } = useToast();
 
   const load = () => {
@@ -30,7 +33,7 @@ export default function NetWorthPage() {
     catch { toast('Failed to take snapshot', 'error'); }
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <PageSkeleton label="Loading" />;
 
   // Filter history by range
   const filteredHistory = (() => {
@@ -76,7 +79,7 @@ export default function NetWorthPage() {
       </div>
 
       {current && (
-        <div className="card-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 24 }}>
+        <div className="card-grid stat-grid mb-6">
           <div className="stat-card">
             <div className="label">Total Assets</div>
             <div className="value positive">{formatCurrency(current.total_assets)}</div>
@@ -93,25 +96,25 @@ export default function NetWorthPage() {
       )}
 
       {current && (
-        <div className="chart-grid" style={{ gap: 16, marginBottom: 24 }}>
+        <div className="chart-grid gap-4 mb-6">
           <div className="card">
-            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Assets Breakdown</h3>
+            <h3 className="text-lg fw-semibold mb-3">Assets Breakdown</h3>
             <div className="payout-list">
               {Object.entries(current.assets || {}).map(([k, v]) => (
                 <div key={k} className="payout-item">
-                  <span style={{ textTransform: 'capitalize' }}>{k.replace(/_/g, ' ')}</span>
-                  <span style={{ fontWeight: 600 }}>{formatCurrency(v)}</span>
+                  <span className="capitalize">{k.replace(/_/g, ' ')}</span>
+                  <span className="fw-semibold">{formatCurrency(v)}</span>
                 </div>
               ))}
             </div>
           </div>
           <div className="card">
-            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Liabilities Breakdown</h3>
+            <h3 className="text-lg fw-semibold mb-3">Liabilities Breakdown</h3>
             <div className="payout-list">
               {Object.entries(current.liabilities || {}).map(([k, v]) => (
                 <div key={k} className="payout-item">
-                  <span style={{ textTransform: 'capitalize' }}>{k.replace(/_/g, ' ')}</span>
-                  <span style={{ fontWeight: 600 }} className="text-danger">{formatCurrency(v)}</span>
+                  <span className="capitalize">{k.replace(/_/g, ' ')}</span>
+                  <span className="text-danger fw-semibold">{formatCurrency(v)}</span>
                 </div>
               ))}
               {Object.keys(current.liabilities || {}).length === 0 && <p className="text-muted">No liabilities</p>}
@@ -121,33 +124,27 @@ export default function NetWorthPage() {
       )}
 
       {history.length > 0 && (
-        <div className="card" style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Net Worth Over Time</h3>
-            <div style={{ display: 'flex', gap: 0 }}>
-              {[{ key: '6m', label: '6M' }, { key: '1y', label: '1Y' }, { key: '2y', label: '2Y' }, { key: '3y', label: '3Y' }, { key: 'all', label: 'All' }].map(r => (
-                <button key={r.key} onClick={() => setRange(r.key)}
-                  style={{
-                    padding: '4px 12px', fontSize: 12, border: '1px solid var(--border-color)', cursor: 'pointer',
-                    background: range === r.key ? 'var(--primary)' : 'var(--bg-primary)',
-                    color: range === r.key ? '#fff' : 'var(--text-primary)',
-                    borderRadius: r.key === '6m' ? '6px 0 0 6px' : r.key === 'all' ? '0 6px 6px 0' : '0',
-                    fontWeight: range === r.key ? 600 : 400,
-                  }}>{r.label}</button>
-              ))}
-            </div>
+        <div className="card mb-5">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg fw-semibold m-0">Net Worth Over Time</h3>
+            <SegmentedControl
+              ariaLabel="Time range"
+              value={range}
+              onChange={setRange}
+              options={[{ value: '6m', label: '6M' }, { value: '1y', label: '1Y' }, { value: '2y', label: '2Y' }, { value: '3y', label: '3Y' }, { value: 'all', label: 'All' }]}
+            />
           </div>
           <ResponsiveContainer width="100%" height={320}>
             <AreaChart data={filteredHistory}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" fontSize={11} />
-              <YAxis tickFormatter={(v: number) => `₹${(v / 100000).toFixed(0)}L`} fontSize={11} />
+              <YAxis tickFormatter={(v) => formatCompactINR(Number(v))} fontSize={11} />
               <Tooltip formatter={(v) => formatCurrency(Number(v))} />
               <Legend />
-              <Area type="monotone" dataKey="total_assets" name="Assets" stroke="#0f9d58" fill="#e6f4ea" />
-              <Area type="monotone" dataKey="total_liabilities" name="Liabilities" stroke="#ea4335" fill="#fce8e6" />
-              <Line type="monotone" dataKey="net_worth" name="Net Worth" stroke="#1a73e8" strokeWidth={2} />
-              {filteredHistory.length > 12 && <Brush dataKey="month" height={20} stroke="#1a73e8" />}
+              <Area type="monotone" dataKey="total_assets" name="Assets" stroke="#10b981" fill="#10b981" fillOpacity={0.12} />
+              <Area type="monotone" dataKey="total_liabilities" name="Liabilities" stroke="#ef4444" fill="#ef4444" fillOpacity={0.1} />
+              <Line type="monotone" dataKey="net_worth" name="Net Worth" stroke={SERIES.primary} strokeWidth={2} />
+              {filteredHistory.length > 12 && <Brush dataKey="month" height={20} stroke={SERIES.primary} />}
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -155,8 +152,8 @@ export default function NetWorthPage() {
 
       {benchmarkOverlay && benchmarkOverlay.length > 1 && (
         <div className="card">
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Net Worth Growth vs Nifty 50</h3>
-          <p className="text-muted" style={{ fontSize: 12, marginBottom: 12 }}>Both rebased to 0% at the start of the period. Net worth also grows with new savings and loan repayments, so this is not a measure of investment returns — see Portfolio XIRR on the dashboard for that.</p>
+          <h3 className="text-lg fw-semibold mb-4">Net Worth Growth vs Nifty 50</h3>
+          <p className="text-muted text-sm mb-3">Both rebased to 0% at the start of the period. Net worth also grows with new savings and loan repayments, so this is not a measure of investment returns — see Portfolio XIRR on the dashboard for that.</p>
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={benchmarkOverlay}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -164,8 +161,8 @@ export default function NetWorthPage() {
               <YAxis tickFormatter={(v: number) => `${v.toFixed(0)}%`} fontSize={11} />
               <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
               <Legend />
-              <Line type="monotone" dataKey="portfolio" name="Net worth" stroke="#1a73e8" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="nifty50" name="Nifty 50" stroke="#ea4335" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+              <Line type="monotone" dataKey="portfolio" name="Net worth" stroke={SERIES.primary} strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="nifty50" name="Nifty 50" stroke={SERIES.negative} strokeWidth={2} dot={false} strokeDasharray="5 5" />
             </LineChart>
           </ResponsiveContainer>
         </div>

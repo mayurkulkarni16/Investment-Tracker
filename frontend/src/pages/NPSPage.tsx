@@ -5,6 +5,10 @@ import { formatCurrency, formatPercent } from '../utils/format';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import RowActions from '../components/RowActions';
+import { PageSkeleton } from '../components/ui';
+import { SERIES } from '../components/chartUtils';
 
 export default function NPSPage() {
   const { isViewOnly, viewAsUserId } = useAuth();
@@ -65,23 +69,23 @@ export default function NPSPage() {
   const totalValue = accounts.reduce((s, a) => s + a.current_value, 0);
   const totalContrib = accounts.reduce((s, a) => s + a.total_contribution, 0);
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <PageSkeleton label="Loading" />;
 
   return (
     <div>
       <div className="page-header">
         <div>
           <h1>NPS Accounts</h1>
-          <p className="text-muted" style={{ fontSize: 14 }}>Total Value: {formatCurrency(totalValue)} | Total Contributions: {formatCurrency(totalContrib)}</p>
+          <p className="text-muted text-base">Total Value: {formatCurrency(totalValue)} | Total Contributions: {formatCurrency(totalContrib)}</p>
         </div>
-        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add NPS Account</button>}
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={16} aria-hidden="true" />Add NPS Account</button>}
       </div>
 
       {accounts.length > 0 && (() => {
         const gainLoss = totalValue - totalContrib;
         const gainPct = totalContrib > 0 ? (gainLoss / totalContrib) * 100 : 0;
         return (
-          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 20 }}>
+          <div className="card-grid stat-grid mb-5">
             <div className="stat-card">
               <div className="label">NPS Accounts</div>
               <div className="value">{accounts.length}</div>
@@ -112,51 +116,58 @@ export default function NPSPage() {
         <div className="empty-state">
           <h3>No NPS accounts</h3>
           <p>Add one to get started.</p>
-          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add NPS Account</button>}
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={16} aria-hidden="true" />Add NPS Account</button>}
         </div>
       ) : (
         <div className="card-grid">
           <div style={{ gridColumn: '1 / -1' }}>
-            <div className="search-bar" style={{ marginBottom: 0 }}>
+            <div className="search-bar mb-0">
               <input type="search" placeholder="Search by name or PRAN..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
           </div>
           {accounts.filter(a => !search || a.account_holder_name.toLowerCase().includes(search.toLowerCase()) || a.pran.toLowerCase().includes(search.toLowerCase())).map(a => (
-            <div key={a.id} className="card" style={{ cursor: 'pointer' }} onClick={() => setExpanded(expanded === a.id ? null : a.id)}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div key={a.id} className="card cursor-pointer" onClick={() => setExpanded(expanded === a.id ? null : a.id)}>
+              <div className="flex justify-between items-start">
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 600 }}>{a.account_holder_name}</h3>
-                  <p className="text-muted" style={{ fontSize: 13 }}>PRAN: {a.pran} | {a.account_type.toUpperCase()} | {a.fund_manager}</p>
+                  <h3 className="text-lg fw-semibold">{a.account_holder_name}</h3>
+                  <p className="text-muted text-md">PRAN: {a.pran} | {a.account_type.toUpperCase()} | {a.fund_manager}</p>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 20, fontWeight: 700 }}>{formatCurrency(a.current_value)}</div>
-                  <div className="text-muted" style={{ fontSize: 13 }}>Contributed: {formatCurrency(a.total_contribution)}</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: a.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>XIRR: {formatPercent(a.xirr)}</div>
+                <div className="text-right">
+                  <div className="text-2xl fw-bold">{formatCurrency(a.current_value)}</div>
+                  <div className="text-muted text-md">Contributed: {formatCurrency(a.total_contribution)}</div>
+                  <div className="text-md fw-semibold" style={{ color: a.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>XIRR: {formatPercent(a.xirr)}</div>
                 </div>
               </div>
 
-              <div className="allocation-bar" style={{ marginTop: 12 }}>
-                <div className="allocation-segment" style={{ width: `${a.equity_pct}%`, background: '#1a73e8' }}>E {a.equity_pct}%</div>
-                <div className="allocation-segment" style={{ width: `${a.corporate_bond_pct}%`, background: '#0f9d58' }}>C {a.corporate_bond_pct}%</div>
-                <div className="allocation-segment" style={{ width: `${a.govt_sec_pct}%`, background: '#f9ab00' }}>G {a.govt_sec_pct}%</div>
-                {a.alternate_pct > 0 && <div className="allocation-segment" style={{ width: `${a.alternate_pct}%`, background: '#9c27b0' }}>A {a.alternate_pct}%</div>}
+              <div className="allocation-bar mt-3">
+                <div className="allocation-segment" style={{ width: `${a.equity_pct}%`, background: 'var(--primary)' }}>E {a.equity_pct}%</div>
+                <div className="allocation-segment" style={{ width: `${a.corporate_bond_pct}%`, background: 'var(--success)' }}>C {a.corporate_bond_pct}%</div>
+                <div className="allocation-segment" style={{ width: `${a.govt_sec_pct}%`, background: 'var(--warning)' }}>G {a.govt_sec_pct}%</div>
+                {a.alternate_pct > 0 && <div className="allocation-segment" style={{ width: `${a.alternate_pct}%`, background: SERIES.purple }}>A {a.alternate_pct}%</div>}
               </div>
 
               {a.section_80ccd1 > 0 && (
-                <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--success-soft)', borderRadius: 6, fontSize: 13, color: 'var(--success-text)' }}>
+                <div className="mt-2 text-md" style={{ padding: '8px 12px', background: 'var(--success-soft)', borderRadius: 6, color: 'var(--success-text)' }}>
                   Tax: 80CCD(1): {formatCurrency(a.section_80ccd1)} | 80CCD(1B): {formatCurrency(a.section_80ccd1b)} | 80CCD(2): {formatCurrency(a.section_80ccd2)}
                 </div>
               )}
 
-              <div style={{ marginTop: 12, display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
-                {!isViewOnly && <button className="btn btn-sm btn-success" onClick={() => { setShowContrib(a.id); setContribForm({ date: '', amount: 0, type: 'self' }); }}>Add Contribution</button>}
-                {!isViewOnly && <button className="btn btn-sm btn-primary" onClick={() => { setShowEdit(a); setEditForm({ fund_manager: a.fund_manager, equity_pct: a.equity_pct, corporate_bond_pct: a.corporate_bond_pct, govt_sec_pct: a.govt_sec_pct, alternate_pct: a.alternate_pct, current_value: a.current_value }); }}>Edit</button>}
-                {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(a.id)}>Delete</button>}
+              <div className="mt-3 flex gap-2 items-center" onClick={e => e.stopPropagation()}>
+                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => { setShowContrib(a.id); setContribForm({ date: '', amount: 0, type: 'self' }); }}><Plus size={14} aria-hidden="true" />Contribution</button>}
+                {!isViewOnly && (
+                  <RowActions
+                    label={`More actions for NPS ${a.pran || ''}`.trim()}
+                    actions={[
+                      { label: 'Edit account', icon: Pencil, onClick: () => { setShowEdit(a); setEditForm({ fund_manager: a.fund_manager, equity_pct: a.equity_pct, corporate_bond_pct: a.corporate_bond_pct, govt_sec_pct: a.govt_sec_pct, alternate_pct: a.alternate_pct, current_value: a.current_value }); } },
+                      { label: 'Delete account', icon: Trash2, onClick: () => handleDelete(a.id), danger: true },
+                    ]}
+                  />
+                )}
               </div>
 
               {expanded === a.id && a.contributions?.length > 0 && (
-                <div style={{ marginTop: 16 }}>
-                  <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Contributions</h4>
+                <div className="mt-4">
+                  <h4 className="text-base fw-semibold mb-2">Contributions</h4>
                   <table>
                     <thead><tr><th>Date</th><th>Type</th><th className="text-right">Amount</th><th>FY</th></tr></thead>
                     <tbody>
@@ -237,7 +248,7 @@ export default function NPSPage() {
 
       {showContrib && (
         <div className="modal-overlay" onClick={() => setShowContrib(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <h2>Add Contribution</h2>
             <form onSubmit={handleContrib}>
               <div className="form-group"><label>Date</label><input type="date" required value={contribForm.date} onChange={e => setContribForm({ ...contribForm, date: e.target.value })} /></div>

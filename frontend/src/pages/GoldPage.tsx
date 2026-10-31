@@ -9,6 +9,9 @@ import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
 import { apiErrorMessage } from '../utils/errors';
+import { Pencil, Trash2, Plus } from 'lucide-react';
+import RowActions from '../components/RowActions';
+import { PageSkeleton } from '../components/ui';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -19,7 +22,7 @@ const emptyForm = (): GoldHoldingRequest => ({
 
 const formBadgeStyle: Record<GoldForm, React.CSSProperties> = {
   physical: { background: 'var(--warning-soft)', color: 'var(--warning-text)' },
-  digital: { background: 'var(--primary-soft)', color: '#1a73e8' },
+  digital: { background: 'var(--primary-soft)', color: '#4f46e5' },
   sgb: { background: 'var(--success-soft)', color: 'var(--success-text)' },
   etf: { background: 'var(--purple-soft)', color: 'var(--purple-text)' },
   mutual_fund: { background: 'var(--danger-soft)', color: 'var(--danger-text)' },
@@ -122,7 +125,7 @@ export default function GoldPage() {
     } finally { setBusy(false); }
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <PageSkeleton label="Loading" />;
 
   const invested = holdings.reduce((s, h) => s + h.purchase_price, 0);
   const currentValue = holdings.reduce((s, h) => s + h.current_value, 0);
@@ -137,11 +140,11 @@ export default function GoldPage() {
     <div>
       <div className="page-header">
         <h1>Gold</h1>
-        {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}>+ Add Holding</button>}
+        {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}><Plus size={16} aria-hidden="true" />Add Holding</button>}
       </div>
 
       {holdings.length > 0 && (
-        <div className="card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', marginBottom: 20 }}>
+        <div className="card-grid stat-grid mb-5">
           <div className="stat-card">
             <div className="label">Invested</div>
             <div className="value">{formatCurrency(invested)}</div>
@@ -153,20 +156,20 @@ export default function GoldPage() {
           <div className="stat-card">
             <div className="label">Gain / Loss</div>
             <div className={`value ${gain >= 0 ? 'positive' : 'negative'}`}>{formatCurrency(gain)}</div>
-            <div className={gain >= 0 ? 'text-success' : 'text-danger'} style={{ fontSize: 13 }}>{formatPercent(gainPct)}</div>
+            <div className={`${gain >= 0 ? 'text-success' : 'text-danger'} text-md`}>{formatPercent(gainPct)}</div>
           </div>
           <div className="stat-card">
             <div className="label">Total Gold (Physical + Digital + SGB)</div>
             <div className="value">{totalGrams.toLocaleString('en-IN', { maximumFractionDigits: 3 })} g</div>
-            {interestTotal > 0 && <div className="text-muted" style={{ fontSize: 13 }}>SGB interest: {formatCurrency(interestTotal)}</div>}
+            {interestTotal > 0 && <div className="text-muted text-md">SGB interest: {formatCurrency(interestTotal)}</div>}
           </div>
         </div>
       )}
 
       {!isViewOnly && (
-        <div className="card" style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <form onSubmit={handleSetRate} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
+        <div className="card flex gap-3 items-end flex-wrap">
+          <form className="flex gap-2 items-end flex-wrap" onSubmit={handleSetRate}>
+            <div className="form-group mb-0">
               <label>Set today's 24K rate (₹/g)</label>
               <input type="number" step="0.01" min="0" placeholder="e.g. 7250" value={rate} onChange={e => setRate(e.target.value)} />
             </div>
@@ -175,7 +178,7 @@ export default function GoldPage() {
           <button type="button" className="btn btn-outline" onClick={handleRefresh} disabled={busy || !hasEtf} title={hasEtf ? 'Fetch latest NSE prices for ETFs' : 'Add an ETF with a symbol to enable'}>
             Refresh ETF prices
           </button>
-          <span className="text-muted" style={{ fontSize: 12 }}>Physical, digital and SGB holdings are revalued pro rata by purity.</span>
+          <span className="text-muted text-sm">Physical, digital and SGB holdings are revalued pro rata by purity.</span>
         </div>
       )}
 
@@ -183,7 +186,7 @@ export default function GoldPage() {
         <div className="empty-state">
           <h3>No gold holdings yet</h3>
           <p>Track physical gold, digital gold, Sovereign Gold Bonds, ETFs and gold funds.</p>
-          {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}>+ Add Holding</button>}
+          {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}><Plus size={16} aria-hidden="true" />Add Holding</button>}
         </div>
       ) : (
         <div className="table-container">
@@ -194,12 +197,12 @@ export default function GoldPage() {
                 <th>Form</th>
                 <th>Quantity</th>
                 <th>Purity</th>
-                <th>Cost</th>
+                <th className="num">Cost</th>
                 <th>Current Price</th>
-                <th>Value</th>
-                <th>Gain</th>
-                <th>CAGR</th>
-                <th>SGB Interest</th>
+                <th className="num">Value</th>
+                <th className="num">Gain</th>
+                <th className="num">CAGR</th>
+                <th className="num">SGB Interest</th>
                 <th>Maturity</th>
                 {!isViewOnly && <th>Actions</th>}
               </tr>
@@ -209,30 +212,34 @@ export default function GoldPage() {
                 <tr key={h.id}>
                   <td>
                     <div>{h.name}</div>
-                    {h.symbol && <div className="text-muted" style={{ fontSize: 12 }}>{h.symbol}</div>}
+                    {h.symbol && <div className="text-muted text-sm">{h.symbol}</div>}
                   </td>
                   <td><span className="badge" style={formBadgeStyle[h.form]}>{GOLD_FORM_LABELS[h.form] || h.form}</span></td>
                   <td>{fmtQty(h)}</td>
                   <td>{h.form === 'physical' ? `${h.purity}K` : '-'}</td>
-                  <td>{formatCurrency(h.purchase_price)}</td>
+                  <td className="num">{formatCurrency(h.purchase_price)}</td>
                   <td>
                     <div>{formatCurrency(h.current_price)}{isGramForm(h.form) ? '/g' : '/unit'}</div>
-                    {h.price_updated_at && <div className="text-muted" style={{ fontSize: 12 }}>{formatDate(h.price_updated_at)}</div>}
+                    {h.price_updated_at && <div className="text-muted text-sm">{formatDate(h.price_updated_at)}</div>}
                   </td>
-                  <td>{formatCurrency(h.current_value)}</td>
-                  <td className={h.gain_loss >= 0 ? 'text-success' : 'text-danger'}>
+                  <td className="num">{formatCurrency(h.current_value)}</td>
+                  <td className={`${h.gain_loss >= 0 ? 'text-success' : 'text-danger'} num`}>
                     <div>{formatCurrency(h.gain_loss)}</div>
-                    <div style={{ fontSize: 12 }}>{formatPercent(h.gain_loss_pct)}</div>
+                    <div className="text-sm">{formatPercent(h.gain_loss_pct)}</div>
                   </td>
-                  <td className={h.cagr >= 0 ? 'text-success' : 'text-danger'}>{formatPercent(h.cagr)}</td>
-                  <td>{h.form === 'sgb' ? formatCurrency(h.interest_earned) : '-'}</td>
+                  <td className={`${h.cagr >= 0 ? 'text-success' : 'text-danger'} num`}>{formatPercent(h.cagr)}</td>
+                  <td className="num">{h.form === 'sgb' ? formatCurrency(h.interest_earned) : '-'}</td>
                   <td>{h.form === 'sgb' && h.maturity_date ? formatDate(h.maturity_date) : '-'}</td>
                   {!isViewOnly && (
-                    <td>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-sm btn-outline" onClick={() => openEdit(h)}>Edit</button>
-                        <button className="btn btn-sm btn-danger" onClick={() => handleDelete(h)}>Del</button>
-                      </div>
+                    <td className="cell-actions">
+                      <RowActions
+                        inline={1}
+                        label={`Actions for ${h.name}`}
+                        actions={[
+                          { label: 'Edit', icon: Pencil, onClick: () => openEdit(h) },
+                          { label: 'Delete', icon: Trash2, onClick: () => handleDelete(h), danger: true },
+                        ]}
+                      />
                     </td>
                   )}
                 </tr>

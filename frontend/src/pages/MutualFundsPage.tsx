@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
+import { ChevronRight, CircleCheck, List, Pause, Pencil, Play, Plus, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { getMutualFunds, createMutualFund, deleteMutualFund, addMFTransaction, deleteMFTransaction, refreshNAV, updateMutualFund, importFromCAS } from '../api/mutualFunds';
 import { getSIPs, createSIP, updateSIP, deleteSIP, recordSIPInstallment } from '../api/sips';
 import type { MutualFund, CreateMutualFundRequest, AddMFTransactionRequest, FundType, UpdateMutualFundRequest, SIP, CreateSIPRequest, UpdateSIPRequest, RecordSIPInstallmentRequest, TransactionType } from '../types';
@@ -8,8 +9,21 @@ import { useConfirm } from '../components/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
 import { extractTextFromPDF, parseCASText } from '../utils/casParser';
 import type { ParsedCASFund } from '../utils/casParser';
+import RowActions from '../components/RowActions';
+import { FilterChips, PageSkeleton, SortableTh, Tabs } from '../components/ui';
+import { useSort } from '../utils/useSort';
 
 const FUND_TYPES: FundType[] = ['Equity', 'Debt', 'Hybrid', 'ELSS', 'Index', 'Liquid'];
+
+const FUND_SORT: Record<string, (f: MutualFund) => string | number> = {
+  fund_name: f => f.fund_name,
+  fund_type: f => f.fund_type,
+  total_invested: f => f.total_invested,
+  current_value: f => f.current_value,
+  gain_loss: f => f.gain_loss,
+  xirr: f => f.xirr,
+  current_nav: f => f.current_nav,
+};
 
 export default function MutualFundsPage() {
   const { isViewOnly, viewAsUserId } = useAuth();
@@ -24,8 +38,6 @@ export default function MutualFundsPage() {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'funds' | 'sips'>('funds');
   const [submitting, setSubmitting] = useState(false);
-  const [sortCol, setSortCol] = useState<string>('');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const { toast } = useToast();
   const { confirm } = useConfirm();
 
@@ -313,200 +325,245 @@ export default function MutualFundsPage() {
 
   const filtered = (filter === 'elss' ? funds.filter(f => f.is_elss) : funds)
     .filter(f => !search || f.fund_name.toLowerCase().includes(search.toLowerCase()) || f.amc?.toLowerCase().includes(search.toLowerCase()) || f.folio_number?.toLowerCase().includes(search.toLowerCase()));
+  const { sorted, sortCol, sortDir, onSort } = useSort(filtered, FUND_SORT);
+  const elssCount = funds.filter(f => f.is_elss).length;
 
-  const toggleSort = (col: string) => { if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(col); setSortDir('asc'); } };
-  const sorted = [...filtered].sort((a, b) => {
-    if (!sortCol) return 0;
-    const dir = sortDir === 'asc' ? 1 : -1;
-    const av = (a as unknown as Record<string, unknown>)[sortCol], bv = (b as unknown as Record<string, unknown>)[sortCol];
-    if (typeof av === 'string' || typeof bv === 'string') return String(av ?? '').localeCompare(String(bv ?? '')) * dir;
-    return (Number(av ?? 0) - Number(bv ?? 0)) * dir;
-  });
+  if (loading) return <PageSkeleton label="Loading mutual funds" />;
 
-  if (loading) return <div className="loading">Loading...</div>;
+  const totalInvested = filtered.reduce((s, f) => s + f.total_invested, 0);
+  const totalCurrent = filtered.reduce((s, f) => s + f.current_value, 0);
+  const totalGain = totalCurrent - totalInvested;
+  const totalGainPct = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
+  const xirrBase = filtered.filter(f => f.total_invested > 0);
+  const xirrWeight = xirrBase.reduce((s, f) => s + f.total_invested, 0);
+  const avgXirr = xirrWeight > 0 ? xirrBase.reduce((s, f) => s + f.xirr * f.total_invested, 0) / xirrWeight : 0;
+  const sortProps = { sortCol, sortDir, onSort };
+  const activeSIPs = sips.filter(s => s.status === 'active');
 
   return (
     <div>
       <div className="page-header">
         <h1>Mutual Funds</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {tab === 'funds' && (
-            <>
-              <button className="btn btn-outline" onClick={() => setFilter(filter === 'all' ? 'elss' : 'all')}>
-                {filter === 'all' ? 'Show ELSS Only' : 'Show All'}
-              </button>
-              {!isViewOnly && <button className="btn btn-outline" disabled={submitting} onClick={handleRefresh}>{submitting ? 'Refreshing...' : 'Refresh NAV'}</button>}
-              {!isViewOnly && <button className="btn btn-outline" onClick={() => setShowImport(true)}>Import CAS</button>}
-              {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Fund</button>}
-            </>
-          )}
-          {tab === 'sips' && (
-            <>
-              {!isViewOnly && <button className="btn btn-outline" onClick={() => setShowSIPImport(true)}>Import from CAS</button>}
-              {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAddSIP(true)}>+ Add SIP</button>}
-            </>
-          )}
-        </div>
+        {!isViewOnly && (
+          <div className="header-actions">
+            {tab === 'funds' ? (
+              <>
+                <button className="btn btn-outline" disabled={submitting} onClick={handleRefresh} title="Fetch the latest NAVs from mfapi.in">
+                  <RefreshCw size={15} className={submitting ? 'spin' : undefined} aria-hidden="true" />{submitting ? 'Refreshing…' : 'Refresh NAV'}
+                </button>
+                <button className="btn btn-outline" onClick={() => setShowImport(true)}><Upload size={15} aria-hidden="true" />Import CAS</button>
+                <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={16} aria-hidden="true" />Add fund</button>
+              </>
+            ) : (
+              <>
+                <button className="btn btn-outline" onClick={() => setShowSIPImport(true)}><Upload size={15} aria-hidden="true" />Import from CAS</button>
+                <button className="btn btn-primary" onClick={() => setShowAddSIP(true)}><Plus size={16} aria-hidden="true" />Add SIP</button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        <button className={`btn ${tab === 'funds' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab('funds')}>
-          Funds ({funds.length})
-        </button>
-        <button className={`btn ${tab === 'sips' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab('sips')}>
-          SIPs ({sips.length})
-        </button>
-      </div>
+      <Tabs
+        ariaLabel="Mutual fund views"
+        value={tab}
+        onChange={setTab}
+        tabs={[{ value: 'funds', label: 'Funds', count: funds.length }, { value: 'sips', label: 'SIPs', count: sips.length }]}
+      />
 
       {tab === 'funds' && (<>
-      <div className="search-bar">
-        <input type="search" placeholder="Search funds by name, AMC, or folio..." value={search} onChange={e => setSearch(e.target.value)} />
-      </div>
-      {filtered.length > 0 && (() => {
-        const totalInvested = filtered.reduce((s, f) => s + f.total_invested, 0);
-        const totalCurrent = filtered.reduce((s, f) => s + f.current_value, 0);
-        const totalGain = totalCurrent - totalInvested;
-        const gainPct = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
-        return (
-          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 20 }}>
-            <div className="stat-card">
-              <div className="label">Total Funds</div>
-              <div className="value">{filtered.length}</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">Total Invested</div>
-              <div className="value">{formatCurrency(totalInvested)}</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">Current Value</div>
-              <div className="value">{formatCurrency(totalCurrent)}</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">Total Gain/Loss</div>
-              <div className={`value ${totalGain >= 0 ? 'positive' : 'negative'}`}>
-                {formatCurrency(totalGain)} ({formatPercent(gainPct)})
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="label">Avg XIRR</div>
-              <div className={`value ${(() => { const w = filtered.filter(f => f.total_invested > 0); const t = w.reduce((s, f) => s + f.total_invested, 0); const x = t > 0 ? w.reduce((s, f) => s + f.xirr * f.total_invested, 0) / t : 0; return x >= 0 ? 'positive' : 'negative'; })()}`}>
-                {formatPercent((() => { const w = filtered.filter(f => f.total_invested > 0); const t = w.reduce((s, f) => s + f.total_invested, 0); return t > 0 ? w.reduce((s, f) => s + f.xirr * f.total_invested, 0) / t : 0; })())}
-              </div>
-            </div>
+      {funds.length > 0 && (
+        <div className="card-grid stat-grid mb-5">
+          <div className="stat-card">
+            <div className="label">Invested</div>
+            <div className="value">{formatCurrency(totalInvested)}</div>
           </div>
-        );
-      })()}
-      {filtered.length === 0 ? (
-        <div className="empty-state">
-          <h3>No mutual funds yet</h3>
-          <p>Add your first mutual fund investment or import from CAS statement.</p>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-            {!isViewOnly && <button className="btn btn-outline" onClick={() => setShowImport(true)}>Import CAS</button>}
-            {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Fund</button>}
+          <div className="stat-card">
+            <div className="label">Current value</div>
+            <div className="value">{formatCurrency(totalCurrent)}</div>
           </div>
-        </div>
-      ) : (
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('fund_name')}>Fund Name {sortCol === 'fund_name' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('fund_type')}>Type {sortCol === 'fund_type' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('total_invested')}>Invested {sortCol === 'total_invested' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('current_value')}>Current Value {sortCol === 'current_value' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('current_nav')}>NAV {sortCol === 'current_nav' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('total_units')}>Units {sortCol === 'total_units' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('gain_loss')}>Gain/Loss {sortCol === 'gain_loss' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('xirr')}>XIRR {sortCol === 'xirr' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map(f => (
-                <tr key={f.id} style={{ cursor: 'pointer' }} onClick={() => setExpandedFund(expandedFund === f.id ? null : f.id)}>
-                  <td>
-                    {f.fund_name}
-                    {f.is_elss && <span className="badge badge-elss" style={{ marginLeft: 6 }}>ELSS</span>}
-                    <div className="text-muted" style={{ fontSize: 12 }}>{f.amc} | Folio: {f.folio_number || '-'}</div>
-                  </td>
-                  <td>{f.fund_type}</td>
-                  <td>{formatCurrency(f.total_invested)}</td>
-                  <td>{formatCurrency(f.current_value)}</td>
-                  <td>
-                    {f.current_nav.toFixed(2)}
-                    {f.nav_last_updated && <div className="text-muted" style={{ fontSize: 11 }}>{formatDate(f.nav_last_updated)}</div>}
-                  </td>
-                  <td>{f.total_units.toFixed(3)}</td>
-                  <td className={f.gain_loss >= 0 ? 'text-success' : 'text-danger'}>
-                    {formatCurrency(f.gain_loss)}<br />
-                    <span style={{ fontSize: 12 }}>{formatPercent(f.gain_loss_percent)}</span>
-                  </td>
-                  <td className={f.xirr >= 0 ? 'text-success' : 'text-danger'}>
-                    {formatPercent(f.xirr)}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-                      <button className="btn btn-sm btn-outline" onClick={() => setExpandedFund(expandedFund === f.id ? null : f.id)}>
-                        {expandedFund === f.id ? 'Hide' : 'Txns'} ({f.transactions?.length || 0})
-                      </button>
-                      {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => openEdit(f)}>Edit</button>}
-                      {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowTx(f.id)}>+ Txn</button>}
-                      {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(f.id)}>Del</button>}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {sorted.map(f => expandedFund === f.id && f.transactions?.length > 0 && (
-                <tr key={`${f.id}-txns`}>
-                  <td colSpan={9} style={{ padding: 0 }}>
-                    <div style={{ background: 'var(--surface-muted)', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <strong style={{ fontSize: 14 }}>Transactions — {f.fund_name}</strong>
-                        <span className="text-muted" style={{ fontSize: 12 }}>{f.transactions.length} transactions</span>
-                      </div>
-                      <table style={{ fontSize: 13, background: 'var(--card-bg)', borderRadius: 6 }}>
-                        <thead>
-                          <tr>
-                            <th>Date</th>
-                            <th>Type</th>
-                            <th>Amount</th>
-                            <th>NAV</th>
-                            <th>Units</th>
-                            {f.is_elss && <th>Lock-in Ends</th>}
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {[...f.transactions].sort((a, b) => b.date.localeCompare(a.date)).map(tx => (
-                            <tr key={tx.transaction_id}>
-                              <td>{formatDate(tx.date)}</td>
-                              <td>
-                                <span style={{
-                                  padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-                                  background: tx.type === 'redemption' || tx.type === 'switch_out' ? 'var(--danger-soft)' : 'var(--success-soft)',
-                                  color: tx.type === 'redemption' || tx.type === 'switch_out' ? 'var(--danger-text)' : 'var(--success-text)',
-                                }}>
-                                  {tx.type.toUpperCase()}
-                                </span>
-                              </td>
-                              <td>{formatCurrency(tx.amount)}</td>
-                              <td>₹{tx.nav_at_purchase.toFixed(4)}</td>
-                              <td>{tx.units.toFixed(3)}</td>
-                              {f.is_elss && <td>{tx.lock_in_end ? formatDate(tx.lock_in_end) : '-'}</td>}
-                              {!isViewOnly && <td><button className="btn btn-sm btn-danger" onClick={e => { e.stopPropagation(); handleDeleteTxn(f.id, tx.transaction_id); }}>Del</button></td>}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="stat-card">
+            <div className="label">Gain / loss</div>
+            <div className={`value ${totalGain >= 0 ? 'positive' : 'negative'}`}>{totalGain >= 0 ? '+' : ''}{formatCurrency(totalGain)}</div>
+            <span className={`pill ${totalGain >= 0 ? 'pill-up' : 'pill-down'} mt-1`}>{formatPercent(totalGainPct)}</span>
+          </div>
+          <div className="stat-card">
+            <div className="label">Avg XIRR</div>
+            <div className={`value ${avgXirr >= 0 ? 'positive' : 'negative'}`}>{formatPercent(avgXirr)}</div>
+            <div className="text-muted text-sm" style={{ marginTop: 2 }}>Weighted by amount invested</div>
+          </div>
         </div>
       )}
-      {filtered.length > 0 && <p className="text-muted" style={{ fontSize: 11, marginTop: 6 }}>NAV data via mfapi.in • Prices may be delayed by 1 business day</p>}
+
+      {funds.length === 0 ? (
+        <div className="empty-state">
+          <h3>No mutual funds yet</h3>
+          <p>Add your first fund by hand, or import all your folios at once from a CAS statement.</p>
+          {!isViewOnly && (
+            <div className="header-actions justify-center">
+              <button className="btn btn-outline" onClick={() => setShowImport(true)}><Upload size={15} aria-hidden="true" />Import CAS</button>
+              <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={16} aria-hidden="true" />Add fund</button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="toolbar">
+            <div className="search-bar">
+              <input type="search" placeholder="Search by fund, AMC or folio" aria-label="Search funds" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            {elssCount > 0 && (
+              <FilterChips
+                ariaLabel="Filter funds"
+                value={filter}
+                onChange={setFilter}
+                options={[{ value: 'all', label: 'All funds', count: funds.length }, { value: 'elss', label: 'ELSS (tax saver)', count: elssCount }]}
+              />
+            )}
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="empty-state">
+              <h3>No funds match</h3>
+              <p>Nothing matches your search or filter.</p>
+              <button className="btn btn-outline" onClick={() => { setSearch(''); setFilter('all'); }}>Clear filters</button>
+            </div>
+          ) : (
+            <div className="table-container table-stack">
+              <table>
+                <thead>
+                  <tr>
+                    <SortableTh col="fund_name" {...sortProps}>Fund</SortableTh>
+                    <SortableTh col="fund_type" {...sortProps}>Type</SortableTh>
+                    <SortableTh col="total_invested" align="right" {...sortProps}>Invested</SortableTh>
+                    <SortableTh col="current_value" align="right" {...sortProps}>Value</SortableTh>
+                    <SortableTh col="gain_loss" align="right" {...sortProps}>Gain / loss</SortableTh>
+                    <SortableTh col="xirr" align="right" {...sortProps}>XIRR</SortableTh>
+                    <SortableTh col="current_nav" align="right" {...sortProps}>NAV</SortableTh>
+                   <th><span className="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map(f => {
+                    const open = expandedFund === f.id;
+                    const txCount = f.transactions?.length || 0;
+                    const up = f.gain_loss >= 0;
+                    const toggle = () => { if (txCount > 0) setExpandedFund(open ? null : f.id); };
+                    return (
+                      <Fragment key={f.id}>
+                        <tr className={open ? 'is-expanded' : undefined} style={{ cursor: txCount > 0 ? 'pointer' : undefined }} onClick={toggle}>
+                          <td className="cell-primary">
+                            <div className="cell-title">
+                              {txCount > 0 && <ChevronRight size={15} className={`row-chevron${open ? ' open' : ''}`} aria-hidden="true" />}
+                              <span className="cell-main">{f.fund_name}</span>
+                              {f.is_elss && <span className="badge badge-elss">ELSS</span>}
+                            </div>
+                            <span className="cell-sub">{f.amc}{f.folio_number ? ` · Folio ${f.folio_number}` : ''}</span>
+                          </td>
+                          <td data-label="Type"><span className="badge badge-neutral">{f.fund_type}</span></td>
+                          <td className="num" data-label="Invested">{formatCurrency(f.total_invested)}</td>
+                          <td className="num" data-label="Current value"><span className="cell-main">{formatCurrency(f.current_value)}</span><span className="cell-sub">{f.total_units.toLocaleString('en-IN', { maximumFractionDigits: 3 })} units</span></td>
+                          <td className="num" data-label="Gain / loss">
+                            <span className={`${up ? 'text-success' : 'text-danger'} fw-semibold`}>{up ? '+' : ''}{formatCurrency(f.gain_loss)}</span>
+                            <span className="cell-sub"><span className={`pill pill-sm ${up ? 'pill-up' : 'pill-down'}`}>{formatPercent(f.gain_loss_percent)}</span></span>
+                          </td>
+                          <td className={`num ${f.xirr >= 0 ? 'text-success' : 'text-danger'}`} data-label="XIRR">{formatPercent(f.xirr)}</td>
+                          <td className="num" data-label="NAV">
+                            ₹{f.current_nav.toFixed(2)}
+                            {f.nav_last_updated && <span className="cell-sub">{formatDate(f.nav_last_updated)}</span>}
+                          </td>
+                         <td className="cell-actions">
+                            <RowActions
+                              inline={isViewOnly ? 0 : 1}
+                              label={`Actions for ${f.fund_name}`}
+                              actions={[
+                                { label: 'Add transaction', inlineLabel: 'Add txn', icon: Plus, onClick: () => setShowTx(f.id), hidden: isViewOnly },
+                                { label: open ? 'Hide transactions' : `View transactions (${txCount})`, icon: List, onClick: toggle, hidden: txCount === 0 },
+                                { label: 'Edit fund', icon: Pencil, onClick: () => openEdit(f), hidden: isViewOnly },
+                                { label: 'Delete fund', icon: Trash2, onClick: () => handleDelete(f.id), danger: true, hidden: isViewOnly },
+                              ]}
+                            />
+                          </td>
+                        </tr>
+                        {open && txCount > 0 && (
+                          <tr className="row-detail">
+                            <td className="p-0" colSpan={8}>
+                              <div className="row-detail-panel">
+                                <div className="row-detail-head">
+                                  <strong className="text-base">Transactions</strong>
+                                  <span className="text-muted text-sm">{txCount} transaction{txCount === 1 ? '' : 's'}</span>
+                                </div>
+                                <table>
+                                  <thead>
+                                    <tr>
+                                      <th>Date</th>
+                                      <th>Type</th>
+                                      <th className="num">Amount</th>
+                                      <th className="num">NAV</th>
+                                      <th className="num">Units</th>
+                                      {f.is_elss && <th>Lock-in ends</th>}
+                                      {!isViewOnly && <th><span className="sr-only">Actions</span></th>}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {[...f.transactions].sort((a, b) => b.date.localeCompare(a.date)).map(tx => {
+                                      const out = tx.type === 'redemption' || tx.type === 'switch_out';
+                                      return (
+                                        <tr key={tx.transaction_id}>
+                                          <td>{formatDate(tx.date)}</td>
+                                          <td><span className={`badge ${out ? 'badge-matured' : 'badge-active'} capitalize`}>{tx.type.replace(/_/g, ' ')}</span></td>
+                                          <td className="num">{formatCurrency(tx.amount)}</td>
+                                          <td className="num">₹{tx.nav_at_purchase.toFixed(4)}</td>
+                                          <td className="num">{tx.units.toFixed(3)}</td>
+                                          {f.is_elss && <td>{tx.lock_in_end ? formatDate(tx.lock_in_end) : '-'}</td>}
+                                          {!isViewOnly && (
+                                            <td className="cell-actions">
+                                              <button
+                                                className="btn btn-sm btn-danger"
+                                                title="Delete transaction"
+                                                aria-label={`Delete ${tx.type} of ${formatCurrency(tx.amount)} on ${formatDate(tx.date)}`}
+                                                onClick={e => { e.stopPropagation(); handleDeleteTxn(f.id, tx.transaction_id); }}
+                                              >
+                                                <Trash2 size={14} aria-hidden="true" />
+                                              </button>
+                                            </td>
+                                          )}
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+                {sorted.length > 1 && (
+                  <tfoot>
+                    <tr>
+                      <td className="cell-primary">Total · {sorted.length} funds</td>
+                      <td />
+                      <td className="num" data-label="Invested">{formatCurrency(totalInvested)}</td>
+                      <td className="num" data-label="Current value">{formatCurrency(totalCurrent)}</td>
+                      <td className="num" data-label="Gain / loss">
+                        <span className={totalGain >= 0 ? 'text-success' : 'text-danger'}>{totalGain >= 0 ? '+' : ''}{formatCurrency(totalGain)}</span>
+                        <span className="cell-sub">{formatPercent(totalGainPct)}</span>
+                      </td>
+                      <td className={`num ${avgXirr >= 0 ? 'text-success' : 'text-danger'}`} data-label="XIRR">{formatPercent(avgXirr)}</td>
+                      <td />
+                      <td className="cell-actions" />
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          )}
+          <p className="table-note">NAV data via mfapi.in · may be delayed by 1 business day</p>
+        </>
+      )}
       </>)}
 
       {tab === 'sips' && (
@@ -514,88 +571,108 @@ export default function MutualFundsPage() {
           {sips.length === 0 ? (
             <div className="empty-state">
               <h3>No SIPs set up</h3>
-              <p>Add a Systematic Investment Plan to automate your mutual fund investing.</p>
-              {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAddSIP(true)}>+ Add SIP</button>}
+              <p>Add a Systematic Investment Plan to track your monthly investments and installments.</p>
+              {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAddSIP(true)}><Plus size={16} aria-hidden="true" />Add SIP</button>}
             </div>
           ) : (
             <>
-              <div className="card-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 20 }}>
+              <div className="card-grid stat-grid mb-5">
                 <div className="stat-card">
                   <div className="label">Active SIPs</div>
-                  <div className="value">{sips.filter(s => s.status === 'active').length}</div>
+                  <div className="value">{activeSIPs.length}<span className="text-muted text-base fw-medium"> of {sips.length}</span></div>
                 </div>
                 <div className="stat-card">
-                  <div className="label">Monthly SIP Amount</div>
-                  <div className="value">{formatCurrency(sips.filter(s => s.status === 'active').reduce((s, p) => s + p.amount, 0))}</div>
+                  <div className="label">Monthly SIP amount</div>
+                  <div className="value">{formatCurrency(activeSIPs.reduce((s, p) => s + p.amount, 0))}</div>
                 </div>
                 <div className="stat-card">
-                  <div className="label">Total SIP Invested</div>
-                  <div className="value positive">{formatCurrency(sips.reduce((s, p) => s + p.total_invested, 0))}</div>
+                  <div className="label">Total invested via SIP</div>
+                  <div className="value">{formatCurrency(sips.reduce((s, p) => s + p.total_invested, 0))}</div>
                 </div>
               </div>
 
-              <div className="table-container">
+              <div className="table-container table-stack">
                 <table>
                   <thead>
                     <tr>
                       <th>Fund</th>
-                      <th>Amount</th>
-                      <th>Frequency</th>
-                      <th>SIP Date</th>
+                      <th className="num">Amount</th>
+                      <th>Schedule</th>
                       <th>Next SIP</th>
                       <th>Installments</th>
-                      <th>Total Invested</th>
+                      <th className="num">Invested</th>
                       <th>Status</th>
-                      <th>Actions</th>
+                      <th><span className="sr-only">Actions</span></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {sips.map(sip => (
-                      <tr key={sip.id} style={{ cursor: 'pointer' }} onClick={() => setExpandedSIP(expandedSIP === sip.id ? null : sip.id)}>
-                        <td>
-                          {sip.fund_name}
-                          <div className="text-muted" style={{ fontSize: 12 }}>Since {formatDate(sip.start_date)} | {sip.months_active} months</div>
-                        </td>
-                        <td>{formatCurrency(sip.amount)}</td>
-                        <td style={{ textTransform: 'capitalize' }}>{sip.frequency}</td>
-                        <td>{sip.sip_date}<sup>{sip.sip_date === 1 ? 'st' : sip.sip_date === 2 ? 'nd' : sip.sip_date === 3 ? 'rd' : 'th'}</sup></td>
-                        <td>{sip.status === 'active' ? formatDate(sip.next_sip_date) : '-'}</td>
-                        <td>{sip.completed_installments}/{sip.total_installments}{sip.missed_installments > 0 && <span className="text-danger"> ({sip.missed_installments} missed)</span>}</td>
-                        <td>{formatCurrency(sip.total_invested)}</td>
-                        <td><span className={`badge ${sip.status === 'active' ? 'badge-active' : sip.status === 'paused' ? 'badge-pending' : 'badge-matured'}`}>{sip.status}</span></td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-                            {!isViewOnly && <button className="btn btn-sm btn-success" onClick={() => { setShowRecordSIP(sip.id); setRecordForm({ date: '', amount: sip.amount, status: 'success' }); }}>Record</button>}
-                            {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => { setShowEditSIP(sip); setEditSIPForm({ amount: sip.amount, sip_date: sip.sip_date, end_date: sip.end_date, notes: sip.notes }); }}>Edit</button>}
-                            {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => handleToggleSIP(sip)}>{sip.status === 'active' ? 'Pause' : 'Resume'}</button>}
-                            {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDeleteSIP(sip.id)}>Del</button>}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {sips.map(sip => expandedSIP === sip.id && sip.installments?.length > 0 && (
-                      <tr key={`${sip.id}-inst`}>
-                        <td colSpan={9} style={{ padding: 0 }}>
-                          <div style={{ background: 'var(--surface-muted)', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
-                            <strong style={{ fontSize: 14 }}>Installment History — {sip.fund_name}</strong>
-                            <table style={{ fontSize: 13, background: 'var(--card-bg)', borderRadius: 6, marginTop: 8 }}>
-                              <thead><tr><th>Date</th><th>Amount</th><th>NAV</th><th>Units</th><th>Status</th></tr></thead>
-                              <tbody>
-                                {[...sip.installments].reverse().map(inst => (
-                                  <tr key={inst.installment_id}>
-                                    <td>{formatDate(inst.date)}</td>
-                                    <td>{formatCurrency(inst.amount)}</td>
-                                    <td>{inst.nav ? `₹${inst.nav.toFixed(4)}` : '-'}</td>
-                                    <td>{inst.units ? inst.units.toFixed(3) : '-'}</td>
-                                    <td><span className={`badge ${inst.status === 'success' ? 'badge-active' : inst.status === 'skipped' ? 'badge-pending' : 'badge-matured'}`}>{inst.status}</span></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {sips.map(sip => {
+                      const open = expandedSIP === sip.id;
+                      const instCount = sip.installments?.length || 0;
+                      const toggle = () => { if (instCount > 0) setExpandedSIP(open ? null : sip.id); };
+                      const suffix = sip.sip_date === 1 || sip.sip_date === 21 || sip.sip_date === 31 ? 'st' : sip.sip_date === 2 || sip.sip_date === 22 ? 'nd' : sip.sip_date === 3 || sip.sip_date === 23 ? 'rd' : 'th';
+                      return (
+                        <Fragment key={sip.id}>
+                          <tr className={open ? 'is-expanded' : undefined} style={{ cursor: instCount > 0 ? 'pointer' : undefined }} onClick={toggle}>
+                            <td className="cell-primary">
+                              <div className="cell-title">
+                                {instCount > 0 && <ChevronRight size={15} className={`row-chevron${open ? ' open' : ''}`} aria-hidden="true" />}
+                                <span className="cell-main">{sip.fund_name}</span>
+                              </div>
+                              <span className="cell-sub">Since {formatDate(sip.start_date)} · {sip.months_active} month{sip.months_active === 1 ? '' : 's'}</span>
+                            </td>
+                            <td className="num cell-main" data-label="Amount">{formatCurrency(sip.amount)}</td>
+                            <td data-label="Schedule"><span className="capitalize">{sip.frequency}</span><span className="cell-sub">on the {sip.sip_date}{suffix}</span></td>
+                            <td data-label="Next SIP">{sip.status === 'active' ? formatDate(sip.next_sip_date) : '—'}</td>
+                            <td data-label="Installments">
+                              {sip.completed_installments}/{sip.total_installments}
+                              {sip.missed_installments > 0 && <span className="cell-sub text-danger">{sip.missed_installments} missed</span>}
+                            </td>
+                            <td className="num" data-label="Invested">{formatCurrency(sip.total_invested)}</td>
+                            <td data-label="Status"><span className={`badge ${sip.status === 'active' ? 'badge-active' : sip.status === 'paused' ? 'badge-pending' : 'badge-matured'} capitalize`}>{sip.status}</span></td>
+                            <td className="cell-actions">
+                              <RowActions
+                                inline={isViewOnly ? 0 : 1}
+                                label={`Actions for ${sip.fund_name} SIP`}
+                                actions={[
+                                  { label: 'Record installment', inlineLabel: 'Record', icon: CircleCheck, onClick: () => { setShowRecordSIP(sip.id); setRecordForm({ date: '', amount: sip.amount, status: 'success' }); }, hidden: isViewOnly },
+                                  { label: open ? 'Hide installments' : `View installments (${instCount})`, icon: List, onClick: toggle, hidden: instCount === 0 },
+                                  { label: 'Edit SIP', icon: Pencil, onClick: () => { setShowEditSIP(sip); setEditSIPForm({ amount: sip.amount, sip_date: sip.sip_date, end_date: sip.end_date, notes: sip.notes }); }, hidden: isViewOnly },
+                                  { label: sip.status === 'active' ? 'Pause SIP' : 'Resume SIP', icon: sip.status === 'active' ? Pause : Play, onClick: () => handleToggleSIP(sip), hidden: isViewOnly },
+                                  { label: 'Delete SIP', icon: Trash2, onClick: () => handleDeleteSIP(sip.id), danger: true, hidden: isViewOnly },
+                                ]}
+                              />
+                            </td>
+                          </tr>
+                          {open && instCount > 0 && (
+                            <tr className="row-detail">
+                              <td className="p-0" colSpan={8}>
+                                <div className="row-detail-panel">
+                                  <div className="row-detail-head">
+                                    <strong className="text-base">Installment history</strong>
+                                    <span className="text-muted text-sm">{instCount} installment{instCount === 1 ? '' : 's'}</span>
+                                  </div>
+                                  <table>
+                                    <thead><tr><th>Date</th><th className="num">Amount</th><th className="num">NAV</th><th className="num">Units</th><th>Status</th></tr></thead>
+                                    <tbody>
+                                      {[...sip.installments].reverse().map(inst => (
+                                        <tr key={inst.installment_id}>
+                                          <td>{formatDate(inst.date)}</td>
+                                          <td className="num">{formatCurrency(inst.amount)}</td>
+                                          <td className="num">{inst.nav ? `₹${inst.nav.toFixed(4)}` : '-'}</td>
+                                          <td className="num">{inst.units ? inst.units.toFixed(3) : '-'}</td>
+                                          <td><span className={`badge ${inst.status === 'success' ? 'badge-active' : inst.status === 'skipped' ? 'badge-pending' : 'badge-matured'} capitalize`}>{inst.status}</span></td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -607,7 +684,7 @@ export default function MutualFundsPage() {
       {/* Add SIP Modal */}
       {showAddSIP && (
         <div className="modal-overlay" onClick={() => setShowAddSIP(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <h2>Add SIP</h2>
             <form onSubmit={handleAddSIP}>
               <div className="form-group">
@@ -648,7 +725,7 @@ export default function MutualFundsPage() {
       {/* Record SIP Installment Modal */}
       {showRecordSIP && (
         <div className="modal-overlay" onClick={() => setShowRecordSIP(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <h2>Record Installment</h2>
             <form onSubmit={handleRecordSIP}>
               <div className="form-group"><label>Date</label><input type="date" required value={recordForm.date} onChange={e => setRecordForm({ ...recordForm, date: e.target.value })} /></div>
@@ -681,10 +758,10 @@ export default function MutualFundsPage() {
             <h2>Import SIPs from CAS</h2>
             {sipImportStep === 'upload' && (
               <div>
-                <p className="text-muted" style={{ marginBottom: 16 }}>Upload your CAS PDF to auto-detect SIP transactions and create SIP trackers with full installment history.</p>
+                <p className="text-muted mb-4">Upload your CAS PDF to auto-detect SIP transactions and create SIP trackers with full installment history.</p>
                 <div className="form-group"><label>CAS PDF File</label><input type="file" accept=".pdf" onChange={e => setSipImportFile(e.target.files?.[0] || null)} /></div>
                 <div className="form-group"><label>PDF Password (usually your PAN)</label><input type="password" value={sipImportPassword} onChange={e => setSipImportPassword(e.target.value)} placeholder="e.g. ABCDE1234F" /></div>
-                {sipImportMessage && <div className={sipImportMessage.includes('Error') || sipImportMessage.includes('Incorrect') || sipImportMessage.includes('No SIP') ? 'text-danger' : 'text-success'} style={{ marginBottom: 12 }}>{sipImportMessage}</div>}
+                {sipImportMessage && <div className={`${sipImportMessage.includes('Error') || sipImportMessage.includes('Incorrect') || sipImportMessage.includes('No SIP') ? 'text-danger' : 'text-success'} mb-3`}>{sipImportMessage}</div>}
                 <div className="modal-actions">
                   <button type="button" className="btn btn-outline" onClick={closeSIPImport}>Cancel</button>
                   <button className="btn btn-primary" onClick={handleParseSIPCAS} disabled={!sipImportFile || sipImportLoading}>{sipImportLoading ? 'Parsing...' : 'Parse PDF'}</button>
@@ -693,24 +770,24 @@ export default function MutualFundsPage() {
             )}
             {sipImportStep === 'preview' && (
               <div>
-                <p style={{ marginBottom: 12 }}>Found <strong>{parsedSIPs.length}</strong> SIPs with <strong>{parsedSIPs.reduce((s, p) => s + p.count, 0)}</strong> total installments:</p>
-                <div style={{ maxHeight: 400, overflow: 'auto', marginBottom: 16 }}>
-                  <table style={{ fontSize: 13 }}>
-                    <thead><tr><th>Fund Name</th><th>SIP Amount</th><th>Date</th><th>Installments</th><th>Period</th></tr></thead>
+                <p className="mb-3">Found <strong>{parsedSIPs.length}</strong> SIPs with <strong>{parsedSIPs.reduce((s, p) => s + p.count, 0)}</strong> total installments:</p>
+                <div className="mb-4" style={{ maxHeight: 400, overflow: 'auto' }}>
+                  <table className="text-md">
+                    <thead><tr><th>Fund Name</th><th className="num">SIP Amount</th><th>Date</th><th>Installments</th><th>Period</th></tr></thead>
                     <tbody>
                       {parsedSIPs.map((s, i) => (
                         <tr key={i}>
-                          <td>{s.fund_name}<div className="text-muted" style={{ fontSize: 11 }}>Folio: {s.folio}</div></td>
-                          <td>{formatCurrency(s.amount)}</td>
+                          <td>{s.fund_name}<div className="text-muted text-xs">Folio: {s.folio}</div></td>
+                          <td className="num">{formatCurrency(s.amount)}</td>
                           <td>{s.sip_date}<sup>{s.sip_date === 1 ? 'st' : s.sip_date === 2 ? 'nd' : s.sip_date === 3 ? 'rd' : 'th'}</sup></td>
                           <td>{s.count}</td>
-                          <td className="text-muted" style={{ fontSize: 12 }}>{s.first_date} → {s.last_date}</td>
+                          <td className="text-muted text-sm">{s.first_date} → {s.last_date}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                {sipImportMessage && <div className={sipImportMessage.includes('failed') ? 'text-danger' : 'text-success'} style={{ marginBottom: 12 }}>{sipImportMessage}</div>}
+                {sipImportMessage && <div className={`${sipImportMessage.includes('failed') ? 'text-danger' : 'text-success'} mb-3`}>{sipImportMessage}</div>}
                 <div className="modal-actions">
                   <button className="btn btn-outline" onClick={() => { setSipImportStep('upload'); setParsedSIPs([]); }}>Back</button>
                   <button className="btn btn-primary" onClick={handleImportSIPs} disabled={sipImportLoading}>{sipImportLoading ? 'Importing...' : `Import ${parsedSIPs.length} SIPs`}</button>
@@ -724,7 +801,7 @@ export default function MutualFundsPage() {
       {/* Edit SIP Modal */}
       {showEditSIP && (
         <div className="modal-overlay" onClick={() => setShowEditSIP(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <h2>Edit SIP — {showEditSIP.fund_name}</h2>
             <form onSubmit={handleEditSIP}>
               <div className="form-row">
@@ -776,7 +853,7 @@ export default function MutualFundsPage() {
               </div>
               <div className="form-group">
                 <label>
-                  <input type="checkbox" checked={form.is_elss} onChange={e => setForm({ ...form, is_elss: e.target.checked })} style={{ width: 'auto', marginRight: 6 }} />
+                  <input className="w-auto mr-2" type="checkbox" checked={form.is_elss} onChange={e => setForm({ ...form, is_elss: e.target.checked })} />
                   This is an ELSS fund (3-year lock-in)
                 </label>
               </div>
@@ -823,7 +900,7 @@ export default function MutualFundsPage() {
               </div>
               <div className="form-group">
                 <label>
-                  <input type="checkbox" checked={editForm.is_elss} onChange={e => setEditForm({ ...editForm, is_elss: e.target.checked })} style={{ width: 'auto', marginRight: 6 }} />
+                  <input className="w-auto mr-2" type="checkbox" checked={editForm.is_elss} onChange={e => setEditForm({ ...editForm, is_elss: e.target.checked })} />
                   ELSS fund
                 </label>
               </div>
@@ -891,7 +968,7 @@ export default function MutualFundsPage() {
 
             {importStep === 'upload' && (
               <div>
-                <p className="text-muted" style={{ marginBottom: 16 }}>Upload your CAMS/KFintech/MFCentral CAS PDF to import mutual fund transactions.</p>
+                <p className="text-muted mb-4">Upload your CAMS/KFintech/MFCentral CAS PDF to import mutual fund transactions.</p>
                 <div className="form-group">
                   <label>CAS PDF File</label>
                   <input type="file" accept=".pdf" onChange={e => setImportFile(e.target.files?.[0] || null)} />
@@ -900,7 +977,7 @@ export default function MutualFundsPage() {
                   <label>PDF Password (usually your PAN)</label>
                   <input type="password" value={importPassword} onChange={e => setImportPassword(e.target.value)} placeholder="e.g. ABCDE1234F" />
                 </div>
-                {importMessage && <div className={importMessage.includes('Error') || importMessage.includes('Incorrect') || importMessage.includes('No transactions') ? 'text-danger' : 'text-success'} style={{ marginBottom: 12 }}>{importMessage}</div>}
+                {importMessage && <div className={`${importMessage.includes('Error') || importMessage.includes('Incorrect') || importMessage.includes('No transactions') ? 'text-danger' : 'text-success'} mb-3`}>{importMessage}</div>}
                 <div className="modal-actions">
                   <button type="button" className="btn btn-outline" onClick={closeImport}>Cancel</button>
                   <button className="btn btn-primary" onClick={handleParsePDF} disabled={!importFile || importLoading}>
@@ -912,24 +989,24 @@ export default function MutualFundsPage() {
 
             {importStep === 'preview' && (
               <div>
-                <p style={{ marginBottom: 12 }}>Found <strong>{parsedFunds.length}</strong> funds with <strong>{parsedFunds.reduce((s, f) => s + f.transactions.length, 0)}</strong> transactions:</p>
-                <div style={{ maxHeight: 400, overflow: 'auto', marginBottom: 16 }}>
+                <p className="mb-3">Found <strong>{parsedFunds.length}</strong> funds with <strong>{parsedFunds.reduce((s, f) => s + f.transactions.length, 0)}</strong> transactions:</p>
+                <div className="mb-4" style={{ maxHeight: 400, overflow: 'auto' }}>
                   {parsedFunds.map((f, fi) => (
-                    <div key={fi} style={{ marginBottom: 16 }}>
+                    <div className="mb-4" key={fi}>
                       <h4 style={{ margin: '0 0 4px' }}>{f.fund_name}</h4>
-                      <div className="text-muted" style={{ fontSize: 12, marginBottom: 8 }}>Folio: {f.folio_number} | {f.category} | {f.transactions.length} transactions</div>
-                      <table style={{ fontSize: 12 }}>
+                      <div className="text-muted text-sm mb-2">Folio: {f.folio_number} | {f.category} | {f.transactions.length} transactions</div>
+                      <table className="text-sm">
                         <thead>
-                          <tr><th>Date</th><th>Type</th><th>Units</th><th>NAV</th><th>Amount</th></tr>
+                          <tr><th>Date</th><th>Type</th><th className="num">Units</th><th className="num">NAV</th><th className="num">Amount</th></tr>
                         </thead>
                         <tbody>
                           {f.transactions.map((tx, ti) => (
                             <tr key={ti}>
                               <td>{tx.date}</td>
                               <td>{tx.type}</td>
-                              <td>{tx.units.toFixed(3)}</td>
-                              <td>₹{tx.nav.toFixed(4)}</td>
-                              <td>{formatCurrency(tx.amount)}</td>
+                              <td className="num">{tx.units.toFixed(3)}</td>
+                              <td className="num">₹{tx.nav.toFixed(4)}</td>
+                              <td className="num">{formatCurrency(tx.amount)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -937,7 +1014,7 @@ export default function MutualFundsPage() {
                     </div>
                   ))}
                 </div>
-                {importMessage && <div className="text-success" style={{ marginBottom: 12 }}>{importMessage}</div>}
+                {importMessage && <div className="text-success mb-3">{importMessage}</div>}
                 <div className="modal-actions">
                   <button className="btn btn-outline" onClick={() => { setImportStep('upload'); setParsedFunds([]); }}>Back</button>
                   <button className="btn btn-primary" onClick={handleImport} disabled={importLoading}>

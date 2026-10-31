@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { apiErrorMessage } from '../utils/errors';
+import AuthLayout from '../components/AuthLayout';
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -36,42 +37,36 @@ export default function ResetPasswordPage() {
 
   if (done) {
     return (
-      <div className="auth-page">
-        <div className="auth-card">
-          <h1>Investment Tracker</h1>
-          <h2>Password Reset</h2>
-          <p>Your password has been reset successfully.</p>
-          <div className="auth-links">
-            <Link to="/login">Sign In</Link>
-          </div>
+      <AuthLayout>
+        <h2>Password Reset</h2>
+        <p>Your password has been reset successfully.</p>
+        <div className="auth-links">
+          <Link to="/login">Sign In</Link>
         </div>
-      </div>
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <h1>Investment Tracker</h1>
-        <h2>Reset Password</h2>
-        {error && <div className="auth-error">{error}</div>}
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>New Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} autoFocus />
-          </div>
-          <div className="form-group">
-            <label>Confirm Password</label>
-            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6} />
-          </div>
-          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? 'Resetting...' : 'Reset Password'}
-          </button>
-        </form>
-        <div className="auth-links">
-          <Link to="/login">Back to Sign In</Link>
+    <AuthLayout>
+      <h2>Reset Password</h2>
+      {error && <div className="auth-error">{error}</div>}
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label>New Password</label>
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} autoFocus />
         </div>
+        <div className="form-group">
+          <label>Confirm Password</label>
+          <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6} />
+        </div>
+        <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+          {loading ? 'Resetting...' : 'Reset Password'}
+        </button>
+      </form>
+      <div className="auth-links">
+        <Link to="/login">Back to Sign In</Link>
       </div>
-    </div>
+    </AuthLayout>
   );
 }

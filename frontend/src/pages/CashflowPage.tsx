@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { getMonthlyCashflows, getMonthDetail, type MonthlyCashflow, type CashflowDetail } from '../api/cashflow';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatCompactINR } from '../utils/format';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { PageSkeleton } from '../components/ui';
+import { SERIES } from '../components/chartUtils';
 
 export default function CashflowPage() {
   const { viewAsUserId } = useAuth();
@@ -27,7 +29,7 @@ export default function CashflowPage() {
     return () => { cancelled = true; };
   }, [requestKey, months, toast]);
 
-  if (result?.key !== requestKey) return <div className="loading">Loading cashflow data...</div>;
+  if (result?.key !== requestKey) return <PageSkeleton label="Loading cashflow data" />;
   const data = result.data;
 
   const totalInflow = data.reduce((s, d) => s + d.inflow, 0);
@@ -43,23 +45,23 @@ export default function CashflowPage() {
 
   const categoryColor = (cat: string) => {
     switch (cat) {
-      case 'Mutual Fund': return '#1a73e8';
-      case 'Stock': return '#e8710a';
-      case 'Corporate Bond': return '#9c27b0';
-      case 'Fixed Deposit': return '#0f9d58';
-      case 'Provident Fund': return '#ea4335';
+      case 'Mutual Fund': return SERIES.primary;
+      case 'Stock': return SERIES.orange;
+      case 'Corporate Bond': return SERIES.purple;
+      case 'Fixed Deposit': return SERIES.positive;
+      case 'Provident Fund': return SERIES.negative;
       default: return '#666';
     }
   };
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <div className="flex justify-between items-center mb-5">
         <h1>Cashflow Analysis</h1>
-        <select
+        <select className="text-base"
           value={months}
           onChange={e => setMonths(Number(e.target.value))}
-          style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border-color)', fontSize: 14 }}
+          style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border-color)' }}
         >
           <option value={6}>Last 6 months</option>
           <option value={12}>Last 12 months</option>
@@ -69,7 +71,7 @@ export default function CashflowPage() {
         </select>
       </div>
 
-      <div className="card-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 20 }}>
+      <div className="card-grid stat-grid mb-5">
         <div className="stat-card">
           <div className="label">Total Inflows</div>
           <div className="value positive">{formatCurrency(totalInflow)}</div>
@@ -86,36 +88,36 @@ export default function CashflowPage() {
 
       {data.length > 0 && (
         <>
-          <div className="card" style={{ marginBottom: 20 }}>
-            <h3 style={{ marginBottom: 16 }}>Monthly Inflows vs Outflows</h3>
+          <div className="card mb-5">
+            <h3 className="mb-4">Monthly Inflows vs Outflows</h3>
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" fontSize={12} />
-                <YAxis tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}K`} fontSize={11} />
+                <YAxis tickFormatter={(v) => formatCompactINR(Number(v))} fontSize={11} />
                 <Tooltip formatter={(val) => formatCurrency(val as number)} />
                 <Legend />
-                <Bar dataKey="inflow" name="Inflows" fill="#0f9d58" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="outflow" name="Outflows" fill="#ea4335" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="inflow" name="Inflows" fill={SERIES.positive} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="outflow" name="Outflows" fill={SERIES.negative} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="card" style={{ marginBottom: 20 }}>
-            <h3 style={{ marginBottom: 16 }}>Cumulative Net Cashflow</h3>
+          <div className="card mb-5">
+            <h3 className="mb-4">Cumulative Net Cashflow</h3>
             <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={cumulativeData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" fontSize={12} />
-                <YAxis tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}K`} fontSize={11} />
+                <YAxis tickFormatter={(v) => formatCompactINR(Number(v))} fontSize={11} />
                 <Tooltip formatter={(val) => formatCurrency(val as number)} />
-                <Area type="monotone" dataKey="cumulative" name="Cumulative Net" stroke="#1a73e8" fill="#1a73e8" fillOpacity={0.15} />
+                <Area type="monotone" dataKey="cumulative" name="Cumulative Net" stroke={SERIES.primary} fill={SERIES.primary} fillOpacity={0.15} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
 
           <div className="card">
-            <h3 style={{ marginBottom: 16 }}>Monthly Breakdown</h3>
+            <h3 className="mb-4">Monthly Breakdown</h3>
             <div className="table-container">
               <table>
                 <thead>
@@ -128,7 +130,7 @@ export default function CashflowPage() {
                 </thead>
                 <tbody>
                   {[...data].reverse().map(d => (
-                    <tr
+                    <tr className="cursor-pointer"
                       key={d.month}
                       onClick={async () => {
                         if (selectedMonth === d.month) {
@@ -148,7 +150,7 @@ export default function CashflowPage() {
                           setDetailLoading(false);
                         }
                       }}
-                      style={{ cursor: 'pointer', background: selectedMonth === d.month ? 'var(--bg-hover, #f0f4ff)' : undefined }}
+                      style={{ background: selectedMonth === d.month ? 'var(--bg-hover, #f0f4ff)' : undefined }}
                     >
                       <td>{d.month} {selectedMonth === d.month ? '▼' : '▶'}</td>
                       <td className="text-right text-success">{formatCurrency(d.inflow)}</td>
@@ -161,8 +163,8 @@ export default function CashflowPage() {
             </div>
 
             {selectedMonth && (
-              <div style={{ marginTop: 16, padding: 16, background: 'var(--bg-secondary, #f8f9fa)', borderRadius: 8 }}>
-                <h4 style={{ marginBottom: 12, fontSize: 15 }}>Transactions for {selectedMonth}</h4>
+              <div className="mt-4 p-4" style={{ background: 'var(--bg-secondary, #f8f9fa)', borderRadius: 8 }}>
+                <h4 className="mb-3" style={{ fontSize: 15 }}>Transactions for {selectedMonth}</h4>
                 {detailLoading ? (
                   <div className="text-muted">Loading...</div>
                 ) : details.length === 0 ? (
@@ -183,12 +185,12 @@ export default function CashflowPage() {
                       <tbody>
                         {details.map((d, i) => (
                           <tr key={i}>
-                            <td style={{ fontSize: 13 }}>{d.date}</td>
-                            <td><span style={{ fontSize: 12, background: categoryColor(d.category), color: '#fff', borderRadius: 4, padding: '2px 6px' }}>{d.category}</span></td>
+                            <td className="text-md">{d.date}</td>
+                            <td><span className="text-sm" style={{ background: categoryColor(d.category), color: '#fff', borderRadius: 4, padding: '2px 6px' }}>{d.category}</span></td>
                             <td>{d.name}</td>
-                            <td className="text-muted" style={{ fontSize: 13, textTransform: 'capitalize' }}>{d.type.replace(/_/g, ' ')}</td>
+                            <td className="text-muted text-md capitalize">{d.type.replace(/_/g, ' ')}</td>
                             <td className="text-right">{formatCurrency(d.amount)}</td>
-                            <td><span className={d.direction === 'inflow' ? 'text-success' : 'text-danger'} style={{ fontWeight: 600, fontSize: 12 }}>{d.direction === 'inflow' ? '↓ IN' : '↑ OUT'}</span></td>
+                            <td><span className={`${d.direction === 'inflow' ? 'text-success' : 'text-danger'} fw-semibold text-sm`}>{d.direction === 'inflow' ? '↓ IN' : '↑ OUT'}</span></td>
                           </tr>
                         ))}
                       </tbody>
@@ -202,7 +204,7 @@ export default function CashflowPage() {
       )}
 
       {data.length === 0 && (
-        <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+        <div className="card text-center" style={{ padding: 40 }}>
           <p className="text-muted">No cashflow data found for the selected period.</p>
         </div>
       )}

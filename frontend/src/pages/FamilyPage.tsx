@@ -8,6 +8,8 @@ import { formatCurrency } from '../utils/format';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { apiErrorMessage } from '../utils/errors';
+import { PageSkeleton } from '../components/ui';
+import { SERIES } from '../components/chartUtils';
 
 const UNASSIGNED_COLOR = '#9aa0a6';
 
@@ -24,34 +26,34 @@ function topEntries(map: Record<string, number> | null | undefined, n = 5) {
 
 function MemberCard({ m }: { m: MemberSummary }) {
   const unassigned = m.profile_id === '';
-  const color = unassigned ? UNASSIGNED_COLOR : (m.color || '#1a73e8');
+  const color = unassigned ? UNASSIGNED_COLOR : (m.color || SERIES.primary);
   const assets = topEntries(m.assets);
   const liabilities = topEntries(m.liabilities, 3);
   return (
     <div className="stat-card" style={{ borderTop: `4px solid ${color}`, opacity: unassigned && m.item_count === 0 ? 0.6 : 1 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+      <div className="flex items-center gap-2 mb-2">
         <span style={{ width: 12, height: 12, borderRadius: '50%', background: color, display: 'inline-block' }} />
-        <strong style={{ fontSize: 16 }}>{unassigned ? 'Unassigned' : m.name}</strong>
+        <strong className="text-lg">{unassigned ? 'Unassigned' : m.name}</strong>
         {!unassigned && m.relationship && (
-          <span className="badge" style={{ background: 'var(--bg-secondary, #f1f3f4)', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
+          <span className="badge text-muted capitalize" style={{ background: 'var(--bg-secondary, #f1f3f4)' }}>
             {m.relationship}
           </span>
         )}
-        <span className="text-muted" style={{ marginLeft: 'auto', fontSize: 12 }}>{m.item_count} item{m.item_count === 1 ? '' : 's'}</span>
+        <span className="text-muted ml-auto text-sm">{m.item_count} item{m.item_count === 1 ? '' : 's'}</span>
       </div>
       <div className="label">Net Worth</div>
       <div className={`value ${m.net_worth >= 0 ? '' : 'negative'}`}>{formatCurrency(m.net_worth)}</div>
-      <div style={{ display: 'flex', gap: 16, fontSize: 13, marginTop: 6 }}>
+      <div className="flex gap-4 text-md mt-2">
         <span>Assets: <span className="text-success">{formatCurrency(m.total_assets)}</span></span>
         <span>Liabilities: <span className="text-danger">{formatCurrency(m.total_liabilities)}</span></span>
       </div>
       {(assets.length > 0 || liabilities.length > 0) && (
-        <div style={{ marginTop: 10, fontSize: 12 }}>
+        <div className="text-sm" style={{ marginTop: 10 }}>
           {assets.map(([cat, v]) => {
             const pct = m.total_assets > 0 ? (v / m.total_assets) * 100 : 0;
             return (
-              <div key={`a-${cat}`} style={{ marginBottom: 4 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div className="mb-1" key={`a-${cat}`}>
+                <div className="flex justify-between">
                   <span className="text-muted">{cat}</span>
                   <span>{formatCurrency(v)}</span>
                 </div>
@@ -62,7 +64,7 @@ function MemberCard({ m }: { m: MemberSummary }) {
             );
           })}
           {liabilities.map(([cat, v]) => (
-            <div key={`l-${cat}`} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+            <div className="flex justify-between" key={`l-${cat}`} style={{ marginBottom: 2 }}>
               <span className="text-muted">{cat}</span>
               <span className="text-danger">−{formatCurrency(v)}</span>
             </div>
@@ -138,7 +140,7 @@ export default function FamilyPage() {
       </div>
     );
   }
-  if (!summary) return <div className="loading">Loading family...</div>;
+  if (!summary) return <PageSkeleton label="Loading family" />;
 
   const totalNet = members.reduce((s, m) => s + m.net_worth, 0);
   const unassignedCount = items.filter(i => !i.profile_id).length;
@@ -147,13 +149,13 @@ export default function FamilyPage() {
     <div>
       <div className="page-header">
         <h1>Family</h1>
-        <div className="text-muted" style={{ fontSize: 14 }}>
+        <div className="text-muted text-base">
           Household net worth: <strong style={{ color: 'var(--text)' }}>{formatCurrency(totalNet)}</strong>
         </div>
       </div>
 
       {profiles.length === 0 && (
-        <div className="card" style={{ marginBottom: 20, borderLeft: '4px solid #f9ab00' }}>
+        <div className="card mb-5" style={{ borderLeft: '4px solid var(--warning)' }}>
           <strong>No family members yet.</strong>{' '}
           <span className="text-muted">
             Add profiles (you, spouse, parents, children…) in <Link to="/settings">Settings</Link>, then come back to assign
@@ -162,12 +164,12 @@ export default function FamilyPage() {
         </div>
       )}
 
-      <div className="card-grid" style={{ marginBottom: 24 }}>
+      <div className="card-grid mb-6">
         {members.map(m => <MemberCard key={m.profile_id || 'unassigned'} m={m} />)}
       </div>
 
-      <div className="page-header" style={{ marginBottom: 12 }}>
-        <h2 style={{ fontSize: 18 }}>Assign owners</h2>
+      <div className="page-header mb-3">
+        <h2 className="text-xl">Assign owners</h2>
         {unassignedCount > 0 && <span className="badge badge-pending">{unassignedCount} unassigned</span>}
       </div>
 
@@ -184,7 +186,7 @@ export default function FamilyPage() {
               <option value="all">All categories</option>
               {categories.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-            <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <label className="text-md flex items-center gap-1">
               <input type="checkbox" checked={onlyUnassigned} onChange={e => setOnlyUnassigned(e.target.checked)} />
               Unassigned only
             </label>
@@ -221,7 +223,7 @@ export default function FamilyPage() {
                       </td>
                       <td>
                         {isViewOnly || profiles.length === 0 ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <span className="inline-flex items-center gap-2">
                             <span style={{ width: 10, height: 10, borderRadius: '50%', background: owner?.color || UNASSIGNED_COLOR, display: 'inline-block' }} />
                             {owner?.name || 'Unassigned'}
                           </span>

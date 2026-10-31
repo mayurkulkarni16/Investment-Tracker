@@ -4,12 +4,14 @@ import { getRebalanceSuggestions, type RebalanceSuggestion, type RebalanceRespon
 import { formatCurrency } from '../utils/format';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
+import SeverityIcon from '../components/SeverityIcon';
+import { PageSkeleton } from '../components/ui';
 
-const severityConfig: Record<string, { color: string; bg: string; icon: string; label: string }> = {
-  critical: { color: 'var(--danger-text)', bg: 'var(--danger-soft)', icon: '🚨', label: 'Critical' },
-  warning: { color: 'var(--warning-text)', bg: 'var(--warning-soft)', icon: '⚠️', label: 'Warning' },
-  info: { color: 'var(--primary-text)', bg: 'var(--primary-soft)', icon: 'ℹ️', label: 'Info' },
-  positive: { color: 'var(--success-text)', bg: 'var(--success-soft)', icon: '✅', label: 'Positive' },
+const severityConfig: Record<string, { color: string; bg: string; label: string }> = {
+  critical: { color: 'var(--danger-text)', bg: 'var(--danger-soft)', label: 'Critical' },
+  warning: { color: 'var(--warning-text)', bg: 'var(--warning-soft)', label: 'Warning' },
+  info: { color: 'var(--primary-text)', bg: 'var(--primary-soft)', label: 'Info' },
+  positive: { color: 'var(--success-text)', bg: 'var(--success-soft)', label: 'Positive' },
 };
 
 const categoryLabels: Record<string, string> = {
@@ -51,7 +53,7 @@ export default function InsightsPage() {
     return () => { cancelled = true; };
   }, [requestKey, toast]);
 
-  if (result?.key !== requestKey) return <div className="loading">Analyzing your portfolio...</div>;
+  if (result?.key !== requestKey) return <PageSkeleton label="Analyzing your portfolio" />;
   const data = result.data;
   if (!data) return <div className="card">Failed to load insights.</div>;
 
@@ -59,36 +61,36 @@ export default function InsightsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <div className="flex justify-between items-center mb-5">
         <h1>Portfolio Insights</h1>
-        <span className="text-muted" style={{ fontSize: 13 }}>{data.insights.length} insights generated</span>
+        <span className="text-muted text-md">{data.insights.length} insights generated</span>
       </div>
 
-      <div className="card-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 20 }}>
-        <div className="stat-card" style={{ cursor: 'pointer', outline: filter === 'critical' ? '2px solid #c62828' : undefined }} onClick={() => setFilter(filter === 'critical' ? 'all' : 'critical')}>
+      <div className="card-grid stat-grid mb-5">
+        <div className="stat-card cursor-pointer" style={{ outline: filter === 'critical' ? '2px solid #c62828' : undefined }} onClick={() => setFilter(filter === 'critical' ? 'all' : 'critical')}>
           <div className="label">Critical</div>
           <div className="value" style={{ color: 'var(--danger-text)' }}>{data.critical_count}</div>
         </div>
-        <div className="stat-card" style={{ cursor: 'pointer', outline: filter === 'warning' ? '2px solid #e65100' : undefined }} onClick={() => setFilter(filter === 'warning' ? 'all' : 'warning')}>
+        <div className="stat-card cursor-pointer" style={{ outline: filter === 'warning' ? '2px solid #e65100' : undefined }} onClick={() => setFilter(filter === 'warning' ? 'all' : 'warning')}>
           <div className="label">Warnings</div>
-          <div className="value" style={{ color: 'var(--warning-text)' }}>{data.warning_count}</div>
+          <div className="value text-warning">{data.warning_count}</div>
         </div>
-        <div className="stat-card" style={{ cursor: 'pointer', outline: filter === 'info' ? '2px solid #1565c0' : undefined }} onClick={() => setFilter(filter === 'info' ? 'all' : 'info')}>
+        <div className="stat-card cursor-pointer" style={{ outline: filter === 'info' ? '2px solid #1565c0' : undefined }} onClick={() => setFilter(filter === 'info' ? 'all' : 'info')}>
           <div className="label">Info</div>
           <div className="value" style={{ color: 'var(--primary-text)' }}>{data.info_count}</div>
         </div>
-        <div className="stat-card" style={{ cursor: 'pointer', outline: filter === 'positive' ? '2px solid #2e7d32' : undefined }} onClick={() => setFilter(filter === 'positive' ? 'all' : 'positive')}>
+        <div className="stat-card cursor-pointer" style={{ outline: filter === 'positive' ? '2px solid #2e7d32' : undefined }} onClick={() => setFilter(filter === 'positive' ? 'all' : 'positive')}>
           <div className="label">Positive</div>
           <div className="value" style={{ color: 'var(--success-text)' }}>{data.positive_count}</div>
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+        <div className="card text-center" style={{ padding: 40 }}>
           <p className="text-muted">No insights in this category.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="flex flex-col gap-3">
           {filtered.map(insight => (
             <InsightCard key={insight.id} insight={insight} />
           ))}
@@ -96,17 +98,17 @@ export default function InsightsPage() {
       )}
 
       {/* Rebalancing Tool */}
-      <div style={{ marginTop: 32 }}>
-        <h2 style={{ marginBottom: 16 }}>Portfolio Rebalancing Tool</h2>
-        <div className="card" style={{ padding: 20 }}>
-          <p className="text-muted" style={{ fontSize: 13, marginBottom: 16 }}>
+      <div className="mt-8">
+        <h2 className="mb-4">Portfolio Rebalancing Tool</h2>
+        <div className="card p-5">
+          <p className="text-muted text-md mb-4">
             Set your target allocation percentages. Total must equal 100%. The tool will compare against your actual portfolio and suggest adjustments.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
+          <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
             {CATEGORIES.map(cat => (
-              <div key={cat} className="form-group" style={{ marginBottom: 0 }}>
-                <label style={{ fontSize: 13 }}>{cat}</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div key={cat} className="form-group mb-0">
+                <label className="text-md">{cat}</label>
+                <div className="flex items-center gap-1">
                   <input
                     type="number" min="0" max="100" step="1"
                     value={targets[cat] || ''}
@@ -118,8 +120,8 @@ export default function InsightsPage() {
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 13, color: Math.abs(Object.values(targets).reduce((s, v) => s + v, 0) - 100) > 0.01 ? 'var(--danger-text)' : undefined }}>
+          <div className="flex justify-between items-center">
+            <span className="text-md" style={{ color: Math.abs(Object.values(targets).reduce((s, v) => s + v, 0) - 100) > 0.01 ? 'var(--danger-text)' : undefined }}>
               Total: {Object.values(targets).reduce((s, v) => s + v, 0).toFixed(0)}%
               {Math.abs(Object.values(targets).reduce((s, v) => s + v, 0) - 100) > 0.01 && ' (must equal 100%)'}
             </span>
@@ -143,45 +145,41 @@ export default function InsightsPage() {
         </div>
 
         {rebalanceResult && rebalanceResult.suggestions && (
-          <div className="card" style={{ marginTop: 16, padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0 }}>Rebalancing Suggestions</h3>
-              <span className="text-muted" style={{ fontSize: 13 }}>Portfolio: {formatCurrency(rebalanceResult.total_value)}</span>
+          <div className="card mt-4 p-5">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="m-0">Rebalancing Suggestions</h3>
+              <span className="text-muted text-md">Portfolio: {formatCurrency(rebalanceResult.total_value)}</span>
             </div>
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
                     <th>Category</th>
-                    <th>Current %</th>
-                    <th>Target %</th>
-                    <th>Difference</th>
-                    <th>Current Value</th>
-                    <th>Target Value</th>
-                    <th>Adjustment</th>
+                    <th className="num">Current %</th>
+                    <th className="num">Target %</th>
+                    <th className="num">Difference</th>
+                    <th className="num">Current Value</th>
+                    <th className="num">Target Value</th>
+                    <th className="num">Adjustment</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rebalanceResult.suggestions.map((s: RebalanceSuggestion) => (
                     <tr key={s.category}>
-                      <td style={{ fontWeight: 600 }}>{s.category}</td>
-                      <td>{s.current_pct.toFixed(1)}%</td>
-                      <td>{s.target_pct.toFixed(1)}%</td>
-                      <td style={{ color: s.diff_pct > 1 ? 'var(--success-text)' : s.diff_pct < -1 ? 'var(--danger-text)' : undefined }}>
+                      <td className="fw-semibold">{s.category}</td>
+                      <td className="num">{s.current_pct.toFixed(1)}%</td>
+                      <td className="num">{s.target_pct.toFixed(1)}%</td>
+                      <td className="num" style={{ color: s.diff_pct > 1 ? 'var(--success-text)' : s.diff_pct < -1 ? 'var(--danger-text)' : undefined }}>
                         {s.diff_pct > 0 ? '+' : ''}{s.diff_pct.toFixed(1)}%
                       </td>
-                      <td>{formatCurrency(s.current_value)}</td>
-                      <td>{formatCurrency(s.target_value)}</td>
-                      <td style={{ fontWeight: 600, color: s.adjustment_amount > 0 ? 'var(--success-text)' : s.adjustment_amount < 0 ? 'var(--danger-text)' : undefined }}>
+                      <td className="num">{formatCurrency(s.current_value)}</td>
+                      <td className="num">{formatCurrency(s.target_value)}</td>
+                      <td className="fw-semibold num" style={{ color: s.adjustment_amount > 0 ? 'var(--success-text)' : s.adjustment_amount < 0 ? 'var(--danger-text)' : undefined }}>
                         {s.adjustment_amount > 0 ? '+' : ''}{formatCurrency(Math.abs(s.adjustment_amount))}
                       </td>
                       <td>
-                        <span style={{
-                          padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
-                          background: s.action === 'buy_more' ? 'var(--success-soft)' : s.action === 'reduce' ? 'var(--danger-soft)' : 'var(--surface-muted)',
-                          color: s.action === 'buy_more' ? 'var(--success-text)' : s.action === 'reduce' ? 'var(--danger-text)' : 'var(--text-secondary)',
-                        }}>
+                        <span className="text-xs fw-semibold" style={{ padding: '2px 8px', borderRadius: 10, background: s.action === 'buy_more' ? 'var(--success-soft)' : s.action === 'reduce' ? 'var(--danger-soft)' : 'var(--surface-muted)', color: s.action === 'buy_more' ? 'var(--success-text)' : s.action === 'reduce' ? 'var(--danger-text)' : 'var(--text-secondary)' }}>
                           {s.action === 'buy_more' ? 'Buy More' : s.action === 'reduce' ? 'Reduce' : 'On Target'}
                         </span>
                       </td>
@@ -205,28 +203,19 @@ function InsightCard({ insight }: { insight: Insight }) {
       borderLeft: `4px solid ${config.color}`,
       padding: '16px 20px',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 18 }}>{config.icon}</span>
-          <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>{insight.title}</h3>
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex items-center gap-2">
+          <SeverityIcon severity={insight.severity} size={18} />
+          <h3 className="fw-semibold m-0" style={{ fontSize: 15 }}>{insight.title}</h3>
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <span style={{
-            padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
-            background: config.bg, color: config.color,
-          }}>{config.label}</span>
-          <span style={{
-            padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 500,
-            background: 'var(--surface-muted)', color: 'var(--text-secondary)',
-          }}>{categoryLabels[insight.category] || insight.category}</span>
+        <div className="flex gap-2">
+          <span className="text-xs fw-semibold" style={{ padding: '2px 8px', borderRadius: 10, background: config.bg, color: config.color }}>{config.label}</span>
+          <span className="text-xs fw-medium text-muted" style={{ padding: '2px 8px', borderRadius: 10, background: 'var(--surface-muted)' }}>{categoryLabels[insight.category] || insight.category}</span>
         </div>
       </div>
-      <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: '0 0 8px 26px', lineHeight: 1.5 }}>{insight.description}</p>
+      <p className="text-base text-muted" style={{ margin: '0 0 8px 26px', lineHeight: 1.5 }}>{insight.description}</p>
       {insight.action && (
-        <div style={{
-          margin: '0 0 0 26px', padding: '8px 12px', borderRadius: 6,
-          background: 'var(--surface-muted)', fontSize: 13, color: 'var(--text)', lineHeight: 1.5,
-        }}>
+        <div className="text-md" style={{ margin: '0 0 0 26px', padding: '8px 12px', borderRadius: 6, background: 'var(--surface-muted)', color: 'var(--text)', lineHeight: 1.5 }}>
           <strong>Action:</strong> {insight.action}
         </div>
       )}

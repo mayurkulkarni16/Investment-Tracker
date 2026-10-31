@@ -11,6 +11,9 @@ import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
 import { apiErrorMessage } from '../utils/errors';
+import { Pencil, Trash2, Plus } from 'lucide-react';
+import RowActions from '../components/RowActions';
+import { PageSkeleton } from '../components/ui';
 
 const POLICY_TYPES: { value: PolicyType; label: string; color: string }[] = [
   { value: 'term', label: 'Term', color: '#2563eb' },
@@ -53,7 +56,7 @@ const emptyForm = (): InsurancePolicyRequest => ({
 });
 
 const pill = (text: string, color: string) => (
-  <span className="badge" style={{ background: `${color}22`, color, border: `1px solid ${color}55`, whiteSpace: 'nowrap' }}>{text}</span>
+  <span className="badge nowrap" style={{ background: `${color}22`, color, border: `1px solid ${color}55` }}>{text}</span>
 );
 
 export default function InsurancePage() {
@@ -156,7 +159,7 @@ export default function InsurancePage() {
 
   const num = (v: string) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <PageSkeleton label="Loading" />;
 
   const upcoming = summary?.upcoming_premiums || [];
   const suggestions = summary?.suggestions || [];
@@ -177,8 +180,8 @@ export default function InsurancePage() {
     const pct = recommended > 0 ? Math.min(100, (actual / recommended) * 100) : (actual > 0 ? 100 : 0);
     const ok = gap <= 0;
     return (
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
+      <div className="mb-4">
+        <div className="flex justify-between flex-wrap gap-2 mb-2">
           <strong>{label}</strong>
           <span className="text-muted">
             Actual {formatCurrency(actual)} / Recommended {formatCurrency(recommended)}
@@ -187,7 +190,7 @@ export default function InsurancePage() {
         <div style={{ height: 10, borderRadius: 5, background: 'var(--border, #e2e8f0)', overflow: 'hidden' }}>
           <div style={{ width: `${pct}%`, height: '100%', background: ok ? '#16a34a' : '#f59e0b' }} />
         </div>
-        <div className={ok ? 'text-success' : 'text-danger'} style={{ marginTop: 4, fontSize: 13 }}>
+        <div className={`${ok ? 'text-success' : 'text-danger'} mt-1 text-md`}>
           {ok ? 'Adequately covered' : `Gap: ${formatCurrency(gap)}`}
         </div>
       </div>
@@ -200,11 +203,11 @@ export default function InsurancePage() {
     <div>
       <div className="page-header">
         <h1>Insurance</h1>
-        {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}>+ Add Policy</button>}
+        {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}><Plus size={16} aria-hidden="true" />Add Policy</button>}
       </div>
 
       {summary && (
-        <div className="card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: 20 }}>
+        <div className="card-grid stat-grid mb-5">
           <div className="stat-card"><div className="label">Life Cover</div><div className="value">{formatCurrency(summary.total_life_cover)}</div></div>
           <div className="stat-card"><div className="label">Health Cover</div><div className="value">{formatCurrency(summary.total_health_cover)}</div></div>
           <div className="stat-card"><div className="label">Annual Premium</div><div className="value">{formatCurrency(summary.annual_premium)}</div></div>
@@ -215,11 +218,11 @@ export default function InsurancePage() {
       )}
 
       {summary && (
-        <div className="card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', marginBottom: 20 }}>
+        <div className="card-grid stat-grid mb-5">
           <div className="card">
-            <h3 style={{ marginBottom: 12 }}>Cover adequacy</h3>
-            <form onSubmit={applyIncome} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 8 }}>
-              <div className="form-group" style={{ marginBottom: 0, flex: 1, minWidth: 160 }}>
+            <h3 className="mb-3">Cover adequacy</h3>
+            <form className="flex gap-2 items-end flex-wrap mb-2" onSubmit={applyIncome}>
+              <div className="form-group mb-0 flex-1" style={{ minWidth: 160 }}>
                 <label>Annual income (₹)</label>
                 <input type="number" min="0" step="1000" placeholder={summary.annual_income > 0 ? String(Math.round(summary.annual_income)) : 'e.g. 1200000'}
                   value={incomeInput} onChange={e => setIncomeInput(e.target.value)} />
@@ -227,7 +230,7 @@ export default function InsurancePage() {
               <button type="submit" className="btn btn-sm btn-primary">Recalculate</button>
               {appliedIncome !== undefined && <button type="button" className="btn btn-sm btn-outline" onClick={clearIncome}>Reset</button>}
             </form>
-            <div className="text-muted" style={{ fontSize: 13, marginBottom: 16 }}>
+            <div className="text-muted text-md mb-4">
               Using income {formatCurrency(summary.annual_income)} ({incomeSourceLabel(summary.annual_income_source)})
               {summary.outstanding_loans > 0 && <> · Outstanding loans {formatCurrency(summary.outstanding_loans)}</>}
             </div>
@@ -236,35 +239,35 @@ export default function InsurancePage() {
             {suggestions.length > 0 && (
               <>
                 <h4 style={{ margin: '12px 0 6px' }}>Suggestions</h4>
-                <ul style={{ paddingLeft: 20, margin: 0 }}>
-                  {suggestions.map((s, i) => <li key={i} style={{ marginBottom: 4 }}>{s}</li>)}
+                <ul className="m-0" style={{ paddingLeft: 20 }}>
+                  {suggestions.map((s, i) => <li className="mb-1" key={i}>{s}</li>)}
                 </ul>
               </>
             )}
           </div>
 
           <div className="card">
-            <h3 style={{ marginBottom: 12 }}>Upcoming premiums (next 60 days)</h3>
+            <h3 className="mb-3">Upcoming premiums (next 60 days)</h3>
             {upcoming.length === 0 ? (
               <div className="text-muted">No premiums due in the next 60 days.</div>
             ) : (
               <div className="table-container">
                 <table>
-                  <thead><tr><th>Policy</th><th>Due</th><th>Amount</th></tr></thead>
+                  <thead><tr><th>Policy</th><th>Due</th><th className="num">Amount</th></tr></thead>
                   <tbody>
                     {upcoming.map(u => (
                       <tr key={`${u.policy_id}-${u.date}`}>
                         <td>
                           <div>{u.policy_name || u.insurer}</div>
-                          {u.policy_name && <div className="text-muted" style={{ fontSize: 12 }}>{u.insurer}</div>}
+                          {u.policy_name && <div className="text-muted text-sm">{u.insurer}</div>}
                         </td>
                         <td>
                           <div>{formatDate(u.date)}</div>
-                          <div className={u.days_left <= 7 ? 'text-danger' : 'text-muted'} style={{ fontSize: 12 }}>
+                          <div className={`${u.days_left <= 7 ? 'text-danger' : 'text-muted'} text-sm`}>
                             {u.days_left <= 0 ? 'Due today' : `in ${u.days_left} day${u.days_left === 1 ? '' : 's'}`}
                           </div>
                         </td>
-                        <td>{formatCurrency(u.amount)}</td>
+                        <td className="num">{formatCurrency(u.amount)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -285,17 +288,17 @@ export default function InsurancePage() {
         <div className="empty-state">
           <h3>No insurance policies yet</h3>
           <p>Add your term, health, life and other policies to track cover and premiums.</p>
-          {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}>+ Add Policy</button>}
+          {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}><Plus size={16} aria-hidden="true" />Add Policy</button>}
         </div>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div className="search-bar" style={{ flex: 1, marginBottom: 0, minWidth: 200 }}>
+          <div className="flex gap-3 mb-4 items-center flex-wrap">
+            <div className="search-bar flex-1 mb-0" style={{ minWidth: 200 }}>
               <input type="search" placeholder="Search by insurer, policy name/number, insured..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            <div className="flex gap-1 flex-wrap">
               {(['all', ...STATUSES] as const).map(s => (
-                <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-outline'}`} onClick={() => setStatusFilter(s)}>
+                <button key={s} className={`chip${statusFilter === s ? ' active' : ''}`} aria-pressed={statusFilter === s} onClick={() => setStatusFilter(s)}>
                   {s.charAt(0).toUpperCase() + s.slice(1)}
                 </button>
               ))}
@@ -323,29 +326,29 @@ export default function InsurancePage() {
                     <tr key={p.id}>
                       <td>{pill(meta.label, meta.color)}</td>
                       <td>
-                        <div style={{ fontWeight: 500 }}>{p.insurer}</div>
-                        <div className="text-muted" style={{ fontSize: 12 }}>
+                        <div className="fw-medium">{p.insurer}</div>
+                        <div className="text-muted text-sm">
                           {[p.policy_name, p.policy_number && `#${p.policy_number}`].filter(Boolean).join(' · ') || '-'}
                         </div>
-                        {p.insured_persons && <div className="text-muted" style={{ fontSize: 12 }}>Insured: {p.insured_persons}</div>}
+                        {p.insured_persons && <div className="text-muted text-sm">Insured: {p.insured_persons}</div>}
                       </td>
                       <td>
                         <div>{formatCurrency(p.sum_assured)}</div>
                         {hasCashValue(p.policy_type) && p.current_value > 0 && (
-                          <div className="text-muted" style={{ fontSize: 12 }}>Value {formatCurrency(p.current_value)}</div>
+                          <div className="text-muted text-sm">Value {formatCurrency(p.current_value)}</div>
                         )}
                       </td>
                       <td>
-                        <div>{formatCurrency(p.premium_amount)} <span className="text-muted" style={{ fontSize: 12 }}>{freqLabel(p.premium_frequency)}</span></div>
+                        <div>{formatCurrency(p.premium_amount)} <span className="text-muted text-sm">{freqLabel(p.premium_frequency)}</span></div>
                         {p.premium_frequency !== 'single' && p.premium_frequency !== 'yearly' && (
-                          <div className="text-muted" style={{ fontSize: 12 }}>{formatCurrency(p.annual_premium)}/yr</div>
+                          <div className="text-muted text-sm">{formatCurrency(p.annual_premium)}/yr</div>
                         )}
                       </td>
                       <td>{p.next_premium_date ? formatDate(p.next_premium_date) : '-'}</td>
                       <td>
                         <div>{p.end_date ? formatDate(p.end_date) : '-'}</div>
                         {p.days_to_expiry !== undefined && p.days_to_expiry !== null && (
-                          <div className={p.days_to_expiry < 0 ? 'text-danger' : p.days_to_expiry <= 60 ? 'text-danger' : 'text-muted'} style={{ fontSize: 12 }}>
+                          <div className={`${p.days_to_expiry < 0 ? 'text-danger' : p.days_to_expiry <= 60 ? 'text-danger' : 'text-muted'} text-sm`}>
                             {p.days_to_expiry < 0 ? `Expired ${-p.days_to_expiry}d ago` : `${p.days_to_expiry}d left`}
                           </div>
                         )}
@@ -353,11 +356,15 @@ export default function InsurancePage() {
                       <td>{p.tax_section ? pill(p.tax_section, p.tax_section === '80D' ? '#16a34a' : '#2563eb') : '-'}</td>
                       <td>{pill(p.status, STATUS_COLORS[p.status] || '#64748b')}</td>
                       {!isViewOnly && (
-                        <td>
-                          <div style={{ display: 'flex', gap: 4 }}>
-                            <button className="btn btn-sm btn-outline" onClick={() => openEdit(p)}>Edit</button>
-                            <button className="btn btn-sm btn-danger" onClick={() => handleDelete(p)}>Del</button>
-                          </div>
+                        <td className="cell-actions">
+                          <RowActions
+                            inline={1}
+                            label={`Actions for ${p.policy_name || p.insurer}`}
+                            actions={[
+                              { label: 'Edit', icon: Pencil, onClick: () => openEdit(p) },
+                              { label: 'Delete', icon: Trash2, onClick: () => handleDelete(p), danger: true },
+                            ]}
+                          />
                         </td>
                       )}
                     </tr>

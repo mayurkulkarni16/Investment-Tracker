@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
+import TopBar from './components/TopBar';
 import ErrorBoundary from './components/ErrorBoundary';
+import { LogoMark } from './components/Logo';
 import DashboardPage from './pages/DashboardPage';
 import MutualFundsPage from './pages/MutualFundsPage';
 import CorporateBondsPage from './pages/CorporateBondsPage';
@@ -36,12 +39,21 @@ import { ConfirmProvider } from './components/ConfirmProvider';
 import { AuthProvider } from './context/AuthProvider';
 import { useAuth } from './context/AuthContext';
 import { useKeyboardShortcuts } from './utils/shortcuts';
+import { useModalKeyboard } from './utils/useModalKeyboard';
 import './index.css';
 
 function AppShell() {
   useKeyboardShortcuts();
+  useModalKeyboard();
   const { isViewOnly, setViewAsUser, viewAsUserId, user } = useAuth();
   const { pathname } = useLocation();
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar_collapsed') === '1');
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const toggleCollapsed = useCallback(() => setCollapsed(c => !c), []);
+  useEffect(() => {
+    localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0');
+  }, [collapsed]);
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
   return (
     <>
       {isViewOnly && (
@@ -50,8 +62,10 @@ function AppShell() {
           <button onClick={() => setViewAsUser(null)}>Exit View Mode</button>
         </div>
       )}
-      <div className={`app${isViewOnly ? ' view-only' : ''}`}>
-      <Sidebar />
+      <div className={`app${isViewOnly ? ' view-only' : ''}${collapsed ? ' sidebar-collapsed' : ''}`}>
+      <Sidebar collapsed={collapsed} mobileOpen={mobileOpen} onCloseMobile={closeMobile} onToggleCollapsed={toggleCollapsed} />
+      <div className="main-area">
+      <TopBar onOpenMenu={() => setMobileOpen(true)} />
       <main className="main-content">
         <ErrorBoundary key={pathname}>
         <Routes>
@@ -86,6 +100,7 @@ function AppShell() {
         </Routes>
         </ErrorBoundary>
       </main>
+      </div>
     </div>
     </>
   );
@@ -107,7 +122,12 @@ function AppRouter() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="auth-page"><div className="auth-card"><p>Loading...</p></div></div>;
+    return (
+      <div className="app-splash" role="status" aria-label="Loading FinBoard">
+        <LogoMark size={44} />
+        <span className="spinner" aria-hidden="true" />
+      </div>
+    );
   }
 
   return user ? <AppShell /> : <AuthRoutes />;

@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { getCorporateBonds, createCorporateBond, deleteCorporateBond, markPayoutReceived, updateCorporateBond } from '../api/corporateBonds';
 import type { CorporateBond, CreateCorporateBondRequest, PrincipalRepaymentInput, PayoutFrequency, MaturityType } from '../types';
-import { formatCurrency, formatDate, formatPercent, toInputDate } from '../utils/format';
+import { formatCurrency, formatDate, formatPercent, toInputDate, statusLabel } from '../utils/format';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
+import { ChevronDown, Pencil, Trash2, Plus } from 'lucide-react';
+import RowActions from '../components/RowActions';
+import { FilterChips, PageSkeleton } from '../components/ui';
 
 export default function CorporateBondsPage() {
   const { isViewOnly, viewAsUserId } = useAuth();
@@ -101,13 +104,13 @@ export default function CorporateBondsPage() {
   const addRepayment = () => setRepayments([...repayments, { scheduled_date: '', amount: 0 }]);
   const removeRepayment = (i: number) => setRepayments(repayments.filter((_, idx) => idx !== i));
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <PageSkeleton label="Loading" />;
 
   return (
     <div>
       <div className="page-header">
         <h1>Corporate Bonds</h1>
-        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Bond</button>}
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={16} aria-hidden="true" />Add Bond</button>}
       </div>
 
       {bonds.length > 0 && (() => {
@@ -122,7 +125,7 @@ export default function CorporateBondsPage() {
         const thisYear = now.getFullYear();
         const interestThisMonth = bonds.reduce((s, b) => s + (b.interest_payouts || []).filter(p => { const d = new Date(p.scheduled_date); return d.getMonth() === thisMonth && d.getFullYear() === thisYear; }).reduce((s2, p) => s2 + p.amount, 0), 0);
         return (
-          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 20 }}>
+          <div className="card-grid stat-grid mb-5">
             <div className="stat-card">
               <div className="label">Active / Total Bonds</div>
               <div className="value">{activeBonds} / {bonds.length}</div>
@@ -165,19 +168,25 @@ export default function CorporateBondsPage() {
         <div className="empty-state">
           <h3>No corporate bonds yet</h3>
           <p>Add your first corporate bond to track interest payouts and principal repayments.</p>
-          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Bond</button>}
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={16} aria-hidden="true" />Add Bond</button>}
         </div>
       ) : (
         <>
-        <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center' }}>
-          <div className="search-bar" style={{ flex: 1, marginBottom: 0 }}>
-            <input type="search" placeholder="Search by bond name or issuer..." value={search} onChange={e => setSearch(e.target.value)} />
+        <div className="toolbar">
+          <div className="search-bar">
+            <input type="search" placeholder="Search by bond name or issuer" aria-label="Search bonds" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {['all', 'active', 'partially_matured', 'matured'].map(s => (
-              <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-outline'}`} onClick={() => setStatusFilter(s)}>{s === 'partially_matured' ? 'Partial' : s.charAt(0).toUpperCase() + s.slice(1)}</button>
-            ))}
-          </div>
+          <FilterChips
+            ariaLabel="Filter by status"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: 'all', label: 'All', count: bonds.length },
+              { value: 'active', label: 'Active', count: bonds.filter(b => b.status === 'active').length },
+              { value: 'partially_matured', label: 'Partially matured', count: bonds.filter(b => b.status === 'partially_matured').length },
+              { value: 'matured', label: 'Matured', count: bonds.filter(b => b.status === 'matured').length },
+            ]}
+          />
         </div>
         {bonds.filter(b => {
           const matchSearch = !search || b.bond_name.toLowerCase().includes(search.toLowerCase()) || b.issuer.toLowerCase().includes(search.toLowerCase());
@@ -185,46 +194,53 @@ export default function CorporateBondsPage() {
           return matchSearch && matchStatus;
         }).map(bond => (
           <div key={bond.id} className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div className="flex justify-between items-start">
               <div>
-                <h3 style={{ fontSize: 16 }}>
+                <h3 className="text-lg">
                   {bond.bond_name}
-                  <span className={`badge badge-${bond.status}`} style={{ marginLeft: 8 }}>{bond.status}</span>
+                  <span className={`badge badge-${bond.status} ml-2`}>{statusLabel(bond.status)}</span>
                 </h3>
-                <div className="text-muted" style={{ fontSize: 13 }}>{bond.issuer}</div>
+                <div className="text-muted text-md">{bond.issuer}</div>
               </div>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => openEdit(bond)}>Edit</button>}
-                <button className="btn btn-sm btn-outline" onClick={() => setExpanded(expanded === bond.id ? null : bond.id)}>
-                  {expanded === bond.id ? 'Hide' : 'Details'}
+              <div className="flex gap-1 items-center">
+                <button className="btn btn-sm btn-ghost" aria-expanded={expanded === bond.id} onClick={() => setExpanded(expanded === bond.id ? null : bond.id)}>
+                  <ChevronDown size={14} className={`row-chevron${expanded === bond.id ? ' flip' : ''}`} aria-hidden="true" />{expanded === bond.id ? 'Hide details' : 'Details'}
                 </button>
-                {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(bond.id)}>Del</button>}
+                {!isViewOnly && (
+                  <RowActions
+                    label={`More actions for ${bond.bond_name}`}
+                    actions={[
+                      { label: 'Edit bond', icon: Pencil, onClick: () => openEdit(bond) },
+                      { label: 'Delete bond', icon: Trash2, onClick: () => handleDelete(bond.id), danger: true },
+                    ]}
+                  />
+                )}
               </div>
             </div>
 
-            <div className="card-grid" style={{ marginTop: 12 }}>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>Investment</span><div style={{ fontWeight: 600 }}>{formatCurrency(bond.investment_amount)}</div></div>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>Coupon Rate</span><div style={{ fontWeight: 600 }}>{bond.coupon_rate}%</div></div>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>Frequency</span><div style={{ fontWeight: 600 }}>{bond.interest_payout_frequency}</div></div>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>Maturity</span><div style={{ fontWeight: 600 }}>{formatDate(bond.maturity_date)} ({bond.maturity_type})</div></div>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>Remaining Principal</span><div style={{ fontWeight: 600 }}>{formatCurrency(bond.remaining_principal)}</div></div>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>Total Interest Earned</span><div style={{ fontWeight: 600, color: 'var(--success)' }}>{formatCurrency(bond.total_interest_earned)}</div></div>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>XIRR</span><div style={{ fontWeight: 600, color: bond.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercent(bond.xirr)}</div></div>
+            <div className="card-grid mt-3">
+              <div><span className="text-muted text-sm">Investment</span><div className="fw-semibold">{formatCurrency(bond.investment_amount)}</div></div>
+              <div><span className="text-muted text-sm">Coupon Rate</span><div className="fw-semibold">{bond.coupon_rate}%</div></div>
+              <div><span className="text-muted text-sm">Frequency</span><div className="fw-semibold">{bond.interest_payout_frequency}</div></div>
+              <div><span className="text-muted text-sm">Maturity</span><div className="fw-semibold">{formatDate(bond.maturity_date)} ({bond.maturity_type})</div></div>
+              <div><span className="text-muted text-sm">Remaining Principal</span><div className="fw-semibold">{formatCurrency(bond.remaining_principal)}</div></div>
+              <div><span className="text-muted text-sm">Total Interest Earned</span><div className="fw-semibold text-success">{formatCurrency(bond.total_interest_earned)}</div></div>
+              <div><span className="text-muted text-sm">XIRR</span><div className="fw-semibold" style={{ color: bond.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercent(bond.xirr)}</div></div>
             </div>
 
             {expanded === bond.id && (
-              <div style={{ marginTop: 16 }}>
-                <h4 style={{ marginBottom: 8 }}>Interest Payouts</h4>
-                <div className="table-container" style={{ marginBottom: 16 }}>
+              <div className="mt-4">
+                <h4 className="mb-2">Interest Payouts</h4>
+                <div className="table-container mb-4">
                   <table>
-                    <thead><tr><th>Date</th><th>Principal at Time</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Date</th><th className="num">Principal at Time</th><th className="num">Amount</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody>
                       {(bond.interest_payouts || []).map(p => (
                         <tr key={p.payout_id}>
                           <td>{formatDate(p.scheduled_date)}</td>
-                          <td>{formatCurrency(p.principal_at_time)}</td>
-                          <td>{formatCurrency(p.amount)}</td>
-                          <td><span className={`badge badge-${p.status}`}>{p.status}</span></td>
+                          <td className="num">{formatCurrency(p.principal_at_time)}</td>
+                          <td className="num">{formatCurrency(p.amount)}</td>
+                          <td><span className={`badge badge-${p.status}`}>{statusLabel(p.status)}</span></td>
                           <td>
                             {!isViewOnly && p.status === 'pending' && <button className="btn btn-sm btn-success" onClick={() => handleMarkReceived(bond.id, p.payout_id)}>Mark Received</button>}
                           </td>
@@ -234,16 +250,16 @@ export default function CorporateBondsPage() {
                   </table>
                 </div>
 
-                <h4 style={{ marginBottom: 8 }}>Principal Repayments</h4>
+                <h4 className="mb-2">Principal Repayments</h4>
                 <div className="table-container">
                   <table>
-                    <thead><tr><th>Date</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Date</th><th className="num">Amount</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody>
                       {(bond.principal_repayments || []).map(p => (
                         <tr key={p.repayment_id}>
                           <td>{formatDate(p.scheduled_date)}</td>
-                          <td>{formatCurrency(p.amount)}</td>
-                          <td><span className={`badge badge-${p.status}`}>{p.status}</span></td>
+                          <td className="num">{formatCurrency(p.amount)}</td>
+                          <td><span className={`badge badge-${p.status}`}>{statusLabel(p.status)}</span></td>
                           <td>
                             {!isViewOnly && p.status === 'pending' && <button className="btn btn-sm btn-success" onClick={() => handleMarkReceived(bond.id, p.repayment_id)}>Mark Received</button>}
                           </td>
@@ -312,20 +328,20 @@ export default function CorporateBondsPage() {
               </div>
 
               {form.maturity_type === 'staggered' && (
-                <div style={{ background: 'var(--surface-muted)', padding: 16, borderRadius: 8, marginBottom: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <label style={{ fontWeight: 600, fontSize: 14 }}>Principal Repayment Schedule</label>
-                    <button type="button" className="btn btn-sm btn-outline" onClick={addRepayment}>+ Add Repayment</button>
+                <div className="p-4 mb-4" style={{ background: 'var(--surface-muted)', borderRadius: 8 }}>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="fw-semibold text-base">Principal Repayment Schedule</label>
+                    <button type="button" className="btn btn-sm btn-outline" onClick={addRepayment}><Plus size={14} aria-hidden="true" />Add Repayment</button>
                   </div>
                   {repayments.map((r, i) => (
-                    <div key={i} className="form-row" style={{ marginBottom: 8 }}>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
+                    <div key={i} className="form-row mb-2">
+                      <div className="form-group mb-0">
                         <input type="date" placeholder="Date" value={r.scheduled_date} onChange={e => {
                           const copy = [...repayments]; copy[i].scheduled_date = e.target.value; setRepayments(copy);
                         }} />
                       </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
+                      <div className="flex gap-2">
+                        <div className="form-group mb-0 flex-1">
                           <input type="number" step="0.01" placeholder="Amount" value={r.amount || ''} onChange={e => {
                             const copy = [...repayments]; copy[i].amount = parseFloat(e.target.value); setRepayments(copy);
                           }} />
@@ -334,7 +350,7 @@ export default function CorporateBondsPage() {
                       </div>
                     </div>
                   ))}
-                  {repayments.length === 0 && <div className="text-muted" style={{ fontSize: 13 }}>No repayments added. Click "+ Add Repayment" to define the schedule.</div>}
+                  {repayments.length === 0 && <div className="text-muted text-md">No repayments added. Click "+ Add Repayment" to define the schedule.</div>}
                 </div>
               )}
 
@@ -404,20 +420,20 @@ export default function CorporateBondsPage() {
                 </select>
               </div>
               {editForm.maturity_type === 'staggered' && (
-                <div style={{ background: 'var(--surface-muted)', padding: 16, borderRadius: 8, marginBottom: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <label style={{ fontWeight: 600, fontSize: 14 }}>Principal Repayment Schedule</label>
-                    <button type="button" className="btn btn-sm btn-outline" onClick={() => setEditRepayments([...editRepayments, { scheduled_date: '', amount: 0 }])}>+ Add</button>
+                <div className="p-4 mb-4" style={{ background: 'var(--surface-muted)', borderRadius: 8 }}>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="fw-semibold text-base">Principal Repayment Schedule</label>
+                    <button type="button" className="btn btn-sm btn-outline" onClick={() => setEditRepayments([...editRepayments, { scheduled_date: '', amount: 0 }])}><Plus size={14} aria-hidden="true" />Add</button>
                   </div>
                   {editRepayments.map((r, i) => (
-                    <div key={i} className="form-row" style={{ marginBottom: 8 }}>
-                      <div className="form-group" style={{ marginBottom: 0 }}>
+                    <div key={i} className="form-row mb-2">
+                      <div className="form-group mb-0">
                         <input type="date" value={r.scheduled_date} onChange={e => {
                           const copy = [...editRepayments]; copy[i].scheduled_date = e.target.value; setEditRepayments(copy);
                         }} />
                       </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
+                      <div className="flex gap-2">
+                        <div className="form-group mb-0 flex-1">
                           <input type="number" step="0.01" value={r.amount || ''} onChange={e => {
                             const copy = [...editRepayments]; copy[i].amount = parseFloat(e.target.value); setEditRepayments(copy);
                           }} />

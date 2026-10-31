@@ -5,6 +5,9 @@ import { formatCurrency } from '../utils/format';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
+import { Gauge, Pencil, Plus, Trash2 } from 'lucide-react';
+import RowActions from '../components/RowActions';
+import { PageSkeleton } from '../components/ui';
 
 export default function CreditCardsPage() {
   const { isViewOnly, viewAsUserId } = useAuth();
@@ -49,23 +52,23 @@ export default function CreditCardsPage() {
   const totalOutstanding = cards.reduce((s, c) => s + c.current_outstanding, 0);
   const totalLimit = cards.reduce((s, c) => s + c.credit_limit, 0);
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <PageSkeleton label="Loading" />;
 
   return (
     <div>
       <div className="page-header">
         <div>
           <h1>Credit Cards</h1>
-          <p className="text-muted" style={{ fontSize: 14 }}>Outstanding: {formatCurrency(totalOutstanding)} / Limit: {formatCurrency(totalLimit)}</p>
+          <p className="text-muted text-base">Outstanding: {formatCurrency(totalOutstanding)} / Limit: {formatCurrency(totalLimit)}</p>
         </div>
-        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Card</button>}
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={16} aria-hidden="true" />Add Card</button>}
       </div>
 
       {cards.length > 0 && (() => {
         const totalRewards = cards.reduce((s, c) => s + (c.reward_points || 0), 0);
         const utilization = totalLimit > 0 ? (totalOutstanding / totalLimit) * 100 : 0;
         return (
-          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 20 }}>
+          <div className="card-grid stat-grid mb-5">
             <div className="stat-card">
               <div className="label">Total Cards</div>
               <div className="value">{cards.length}</div>
@@ -90,27 +93,27 @@ export default function CreditCardsPage() {
         <div className="empty-state">
           <h3>No credit cards added yet</h3>
           <p>Add your first card to start tracking.</p>
-          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Card</button>}
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={16} aria-hidden="true" />Add Card</button>}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="search-bar" style={{ marginBottom: 0 }}>
+        <div className="flex flex-col gap-4">
+          <div className="search-bar mb-0">
             <input type="search" placeholder="Search by card name or bank..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           {cards.filter(card => !search || card.card_name.toLowerCase().includes(search.toLowerCase()) || card.bank_name.toLowerCase().includes(search.toLowerCase())).map(card => (
             <div key={card.id} className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer' }} onClick={() => setExpanded(expanded === card.id ? null : card.id)}>
+              <div className="flex justify-between items-start cursor-pointer" onClick={() => setExpanded(expanded === card.id ? null : card.id)}>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 600 }}>{card.card_name} <span className="text-muted" style={{ fontSize: 13 }}>•••• {card.last_four_digits}</span></h3>
-                  <p className="text-muted" style={{ fontSize: 13 }}>{card.bank_name} | {card.card_network}</p>
+                  <h3 className="text-lg fw-semibold">{card.card_name} <span className="text-muted text-md">•••• {card.last_four_digits}</span></h3>
+                  <p className="text-muted text-md">{card.bank_name} | {card.card_network}</p>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 20, fontWeight: 700 }}>{formatCurrency(card.current_outstanding)}</div>
-                  <div className="text-muted" style={{ fontSize: 13 }}>Limit: {formatCurrency(card.credit_limit)}</div>
+                <div className="text-right">
+                  <div className="text-2xl fw-bold">{formatCurrency(card.current_outstanding)}</div>
+                  <div className="text-muted text-md">Limit: {formatCurrency(card.credit_limit)}</div>
                 </div>
               </div>
 
-              <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div className="mt-2 flex gap-2 flex-wrap">
                 <span className={`badge ${card.utilization_pct > 30 ? 'badge-matured' : 'badge-active'}`}>
                   Utilization: {card.utilization_pct?.toFixed(1)}%
                 </span>
@@ -119,25 +122,32 @@ export default function CreditCardsPage() {
               </div>
 
               {card.credit_score_tips?.length > 0 && (
-                <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--primary-soft)', borderRadius: 6, fontSize: 13 }}>
+                <div className="mt-2 text-md" style={{ padding: '8px 12px', background: 'var(--primary-soft)', borderRadius: 6 }}>
                   <strong>Tips:</strong>
-                  <ul style={{ listStyle: 'disc', marginLeft: 16, marginTop: 4 }}>{card.credit_score_tips.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                  <ul className="ml-4 mt-1" style={{ listStyle: 'disc' }}>{card.credit_score_tips.map((t, i) => <li key={i}>{t}</li>)}</ul>
                 </div>
               )}
 
-              <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
-                {!isViewOnly && <button className="btn btn-sm btn-primary" onClick={() => setShowStatement(card.id)}>+ Statement</button>}
-                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowEMI(card.id)}>+ EMI</button>}
-                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => { setShowEdit(card); setEditForm({ card_name: card.card_name, credit_limit: card.credit_limit, billing_date: card.billing_date, due_date_offset: card.due_date_offset, reward_points: card.reward_points }); }}>Edit</button>}
-                {!isViewOnly && <button className="btn btn-sm btn-success" onClick={() => setShowScore(card.id)}>+ Credit Score</button>}
-                {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(card.id)}>Delete</button>}
+              <div className="mt-3 flex gap-2 flex-wrap items-center" onClick={e => e.stopPropagation()}>
+                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowStatement(card.id)}><Plus size={14} aria-hidden="true" />Statement</button>}
+                {!isViewOnly && (
+                  <RowActions
+                    label={`More actions for ${card.card_name}`}
+                    actions={[
+                      { label: 'Add EMI', icon: Plus, onClick: () => setShowEMI(card.id) },
+                      { label: 'Record credit score', icon: Gauge, onClick: () => setShowScore(card.id) },
+                      { label: 'Edit card', icon: Pencil, onClick: () => { setShowEdit(card); setEditForm({ card_name: card.card_name, credit_limit: card.credit_limit, billing_date: card.billing_date, due_date_offset: card.due_date_offset, reward_points: card.reward_points }); } },
+                      { label: 'Delete card', icon: Trash2, onClick: () => handleDelete(card.id), danger: true },
+                    ]}
+                  />
+                )}
               </div>
 
               {expanded === card.id && (
-                <div style={{ marginTop: 16 }}>
+                <div className="mt-4">
                   {card.statements?.length > 0 && (
-                    <div style={{ marginBottom: 16 }}>
-                      <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Statements</h4>
+                    <div className="mb-4">
+                      <h4 className="text-base fw-semibold mb-2">Statements</h4>
                       <table>
                         <thead><tr><th>Month</th><th className="text-right">Amount</th><th className="text-right">Paid</th><th>Status</th><th></th></tr></thead>
                         <tbody>
@@ -147,9 +157,9 @@ export default function CreditCardsPage() {
                               <td className="text-right">{formatCurrency(s.total_amount)}</td>
                               <td className="text-right">{formatCurrency(s.amount_paid)}</td>
                               <td><span className={`badge ${s.is_paid ? 'badge-active' : 'badge-matured'}`}>{s.is_paid ? (s.paid_full ? 'Full' : 'Partial') : 'Unpaid'}</span></td>
-                              <td style={{ display: 'flex', gap: 4 }}>
+                              <td className="flex gap-1">
                                 {!isViewOnly && !s.is_paid && <button className="btn btn-sm btn-primary" onClick={() => { setShowPay({ cardId: card.id, statementId: s.statement_id }); setPayForm({ statement_id: s.statement_id, amount_paid: s.total_amount, paid_date: '' }); }}>Pay</button>}
-                                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => { setShowTxn({ cardId: card.id, statementId: s.statement_id }); setTxnForm({ statement_id: s.statement_id, date: '', description: '', amount: 0, category: '' }); }}>+ Txn</button>}
+                                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => { setShowTxn({ cardId: card.id, statementId: s.statement_id }); setTxnForm({ statement_id: s.statement_id, date: '', description: '', amount: 0, category: '' }); }}><Plus size={14} aria-hidden="true" />Txn</button>}
                               </td>
                             </tr>
                           ))}
@@ -159,8 +169,8 @@ export default function CreditCardsPage() {
                   )}
 
                   {card.card_emis?.length > 0 && (
-                    <div style={{ marginBottom: 16 }}>
-                      <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Card EMIs</h4>
+                    <div className="mb-4">
+                      <h4 className="text-base fw-semibold mb-2">Card EMIs</h4>
                       <table>
                         <thead><tr><th>Description</th><th className="text-right">EMI</th><th className="text-right">Remaining</th><th>Status</th></tr></thead>
                         <tbody>
@@ -179,12 +189,12 @@ export default function CreditCardsPage() {
 
                   {card.credit_scores?.length > 0 && (
                     <div>
-                      <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Credit Score History</h4>
-                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      <h4 className="text-base fw-semibold mb-2">Credit Score History</h4>
+                      <div className="flex gap-3 flex-wrap">
                         {card.credit_scores.map(s => (
-                          <div key={s.score_id} className="stat-card" style={{ minWidth: 100, textAlign: 'center', padding: 12 }}>
+                          <div key={s.score_id} className="stat-card text-center p-3" style={{ minWidth: 100 }}>
                             <div className={`value ${s.score >= 750 ? 'positive' : s.score >= 650 ? '' : 'negative'}`} style={{ fontSize: 28 }}>{s.score}</div>
-                            <div className="text-muted" style={{ fontSize: 11 }}>{s.bureau} • {new Date(s.date).toLocaleDateString()}</div>
+                            <div className="text-muted text-xs">{s.bureau} • {new Date(s.date).toLocaleDateString()}</div>
                           </div>
                         ))}
                       </div>
@@ -236,7 +246,7 @@ export default function CreditCardsPage() {
 
       {showStatement && (
         <div className="modal-overlay" onClick={() => setShowStatement(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <h2>Add Statement</h2>
             <form onSubmit={handleStatement}>
               <div className="form-group"><label>Month (e.g. Jan-2025)</label><input required value={stmtForm.month} onChange={e => setStmtForm({ ...stmtForm, month: e.target.value })} /></div>
@@ -259,7 +269,7 @@ export default function CreditCardsPage() {
 
       {showPay && (
         <div className="modal-overlay" onClick={() => setShowPay(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <h2>Pay Statement</h2>
             <form onSubmit={handlePay}>
               <div className="form-group"><label>Amount Paid (₹)</label><input type="number" required value={payForm.amount_paid || ''} onChange={e => setPayForm({ ...payForm, amount_paid: +e.target.value })} /></div>
@@ -275,7 +285,7 @@ export default function CreditCardsPage() {
 
       {showEMI && (
         <div className="modal-overlay" onClick={() => setShowEMI(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <h2>Add Card EMI</h2>
             <form onSubmit={handleEMI}>
               <div className="form-group"><label>Description</label><input required value={emiForm.description} onChange={e => setEmiForm({ ...emiForm, description: e.target.value })} /></div>
@@ -299,7 +309,7 @@ export default function CreditCardsPage() {
 
       {showScore && (
         <div className="modal-overlay" onClick={() => setShowScore(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <h2>Add Credit Score</h2>
             <form onSubmit={handleScore}>
               <div className="form-group"><label>Date</label><input type="date" required value={scoreForm.date} onChange={e => setScoreForm({ ...scoreForm, date: e.target.value })} /></div>
@@ -323,7 +333,7 @@ export default function CreditCardsPage() {
 
       {showEdit && (
         <div className="modal-overlay" onClick={() => setShowEdit(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <h2>Edit Card</h2>
             <form onSubmit={handleEdit}>
               <div className="form-group"><label>Card Name</label><input value={editForm.card_name || ''} onChange={e => setEditForm({ ...editForm, card_name: e.target.value })} /></div>
@@ -347,7 +357,7 @@ export default function CreditCardsPage() {
 
       {showTxn && (
         <div className="modal-overlay" onClick={() => setShowTxn(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <h2>Add Transaction</h2>
             <form onSubmit={handleTxn}>
               <div className="form-group"><label>Description</label><input required value={txnForm.description} onChange={e => setTxnForm({ ...txnForm, description: e.target.value })} /></div>

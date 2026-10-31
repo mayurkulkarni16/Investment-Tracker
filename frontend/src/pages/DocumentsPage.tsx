@@ -6,6 +6,9 @@ import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
 import { apiErrorMessage } from '../utils/errors';
+import { Download, Trash2, Plus } from 'lucide-react';
+import RowActions from '../components/RowActions';
+import { PageSkeleton } from '../components/ui';
 
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.doc,.docx,.xls,.xlsx';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -153,7 +156,7 @@ export default function DocumentsPage() {
     }
   };
 
-  if (docs === null) return <div className="loading">Loading documents...</div>;
+  if (docs === null) return <PageSkeleton label="Loading documents" />;
 
   const q = search.trim().toLowerCase();
   const filtered = docs.filter(d => {
@@ -170,13 +173,13 @@ export default function DocumentsPage() {
     <div>
       <div className="page-header">
         <h1>Documents</h1>
-        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowUpload(true)}>+ Upload</button>}
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowUpload(true)}><Plus size={16} aria-hidden="true" />Upload</button>}
       </div>
 
-      {loadError && <div className="card text-danger" style={{ marginBottom: 16 }}>{loadError}</div>}
+      {loadError && <div className="card text-danger mb-4">{loadError}</div>}
 
       {docs.length > 0 && (
-        <div className="card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', marginBottom: 20 }}>
+        <div className="card-grid stat-grid mb-5">
           <div className="stat-card"><div className="label">Documents</div><div className="value">{docs.length}</div></div>
           <div className="stat-card"><div className="label">Storage used</div><div className="value">{formatSize(totalSize)}</div></div>
           <div className="stat-card"><div className="label">Expiring in 30 days</div><div className="value" style={{ color: expiringSoon ? 'var(--warning-text)' : undefined }}>{expiringSoon}</div></div>
@@ -188,16 +191,16 @@ export default function DocumentsPage() {
         <div className="empty-state">
           <h3>No documents yet</h3>
           <p>Keep agreements, policies, receipts, statements and ID proofs in one place, linked to the investments they belong to.</p>
-          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowUpload(true)}>+ Upload document</button>}
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowUpload(true)}><Plus size={16} aria-hidden="true" />Upload document</button>}
         </div>
       ) : (
         <>
           <div className="search-bar">
             <input type="search" placeholder="Search title, file name, notes or linked item..." value={search} onChange={e => setSearch(e.target.value)} />
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              <button className={`btn btn-sm ${category === 'all' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setCategory('all')}>All</button>
+            <div className="flex gap-1 flex-wrap">
+              <button className={`chip${category === 'all' ? ' active' : ''}`} aria-pressed={category === 'all'} onClick={() => setCategory('all')}>All</button>
               {DOCUMENT_CATEGORIES.map(c => (
-                <button key={c.value} className={`btn btn-sm ${category === c.value ? 'btn-primary' : 'btn-outline'}`} onClick={() => setCategory(c.value)}>{c.label}</button>
+                <button key={c.value} className={`chip${category === c.value ? ' active' : ''}`} aria-pressed={category === c.value} onClick={() => setCategory(c.value)}>{c.label}</button>
               ))}
             </div>
           </div>
@@ -227,14 +230,14 @@ export default function DocumentsPage() {
                   return (
                     <tr key={d.id} style={rowStyle}>
                       <td>
-                        <div style={{ fontWeight: 500 }}>{d.title}</div>
-                        <div className="text-muted" style={{ fontSize: 12 }}>{d.file_name}</div>
-                        {d.notes && <div className="text-muted" style={{ fontSize: 12, fontStyle: 'italic' }}>{d.notes}</div>}
+                        <div className="fw-medium">{d.title}</div>
+                        <div className="text-muted text-sm">{d.file_name}</div>
+                        {d.notes && <div className="text-muted text-sm italic">{d.notes}</div>}
                       </td>
                       <td><span className="badge badge-completed">{categoryLabel(d.category)}</span></td>
                       <td>
                         {linked
-                          ? <>{linked.name}<div className="text-muted" style={{ fontSize: 12 }}>{linked.category}</div></>
+                          ? <>{linked.name}<div className="text-muted text-sm">{linked.category}</div></>
                           : d.asset_type ? <span className="text-muted">{d.asset_type.replace(/_/g, ' ')}</span> : <span className="text-muted">-</span>}
                       </td>
                       <td>{formatSize(d.size)}</td>
@@ -250,11 +253,15 @@ export default function DocumentsPage() {
                         ) : '-'}
                       </td>
                       <td>{formatDate(d.created_at)}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <button className="btn btn-sm btn-outline" disabled={busyId === d.id} onClick={() => handleDownload(d)}>Download</button>
-                          {!isViewOnly && <button className="btn btn-sm btn-danger" disabled={busyId === d.id} onClick={() => handleDelete(d)}>Del</button>}
-                        </div>
+                      <td className="cell-actions">
+                        <RowActions
+                          inline={1}
+                          label={`Actions for ${d.title}`}
+                          actions={[
+                            { label: 'Download', icon: Download, onClick: () => handleDownload(d), disabled: busyId === d.id },
+                            { label: 'Delete', icon: Trash2, onClick: () => handleDelete(d), danger: true, hidden: isViewOnly, disabled: busyId === d.id },
+                          ]}
+                        />
                       </td>
                     </tr>
                   );
@@ -273,7 +280,7 @@ export default function DocumentsPage() {
               <div className="form-group">
                 <label>File (max 10 MB)</label>
                 <input type="file" accept={ACCEPT} onChange={onFileChange} required />
-                {file && <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>{file.name} · {formatSize(file.size)}</div>}
+                {file && <div className="text-muted text-sm mt-1">{file.name} · {formatSize(file.size)}</div>}
               </div>
               <div className="form-row">
                 <div className="form-group">

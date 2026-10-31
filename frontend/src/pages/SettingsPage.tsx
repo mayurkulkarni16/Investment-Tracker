@@ -8,6 +8,7 @@ import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
 import { apiErrorMessage } from '../utils/errors';
 import NotificationSettingsCard from '../components/NotificationSettingsCard';
+import { PageSkeleton } from '../components/ui';
 
 export default function SettingsPage() {
   const { user, updateUser, viewAsUserId } = useAuth();
@@ -16,7 +17,7 @@ export default function SettingsPage() {
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState<UpdateProfileRequest>({});
-  const [createForm, setCreateForm] = useState<CreateProfileRequest>({ name: '', relationship: 'self', color: '#1a73e8' });
+  const [createForm, setCreateForm] = useState<CreateProfileRequest>({ name: '', relationship: 'self', color: '#4f46e5' });
   const [msg, setMsg] = useState('');
   const [restoring, setRestoring] = useState(false);
   const [editingAccount, setEditingAccount] = useState(false);
@@ -83,7 +84,7 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <PageSkeleton label="Loading" />;
 
   return (
     <div>
@@ -92,19 +93,19 @@ export default function SettingsPage() {
       </div>
 
       {msg && (
-        <div style={{ padding: '10px 16px', marginBottom: 16, borderRadius: 8, background: 'var(--success-soft)', color: 'var(--success-text)', fontWeight: 500 }}>
+        <div className="mb-4 fw-medium" style={{ padding: '10px 16px', borderRadius: 8, background: 'var(--success-soft)', color: 'var(--success-text)' }}>
           {msg}
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600 }}>Profile</h3>
+      <div className="card mb-4">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-lg fw-semibold">Profile</h3>
           {!editing && !creating && profile && <button className="btn btn-sm btn-primary" onClick={() => setEditing(true)}>Edit</button>}
         </div>
         {creating ? (
           <form onSubmit={handleCreate}>
-            <p className="text-muted" style={{ marginBottom: 16 }}>No profile found. Create one to get started.</p>
+            <p className="text-muted mb-4">No profile found. Create one to get started.</p>
             <div className="form-row">
               <div className="form-group"><label>Name</label><input required value={createForm.name} onChange={e => setCreateForm({ ...createForm, name: e.target.value })} /></div>
               <div className="form-group">
@@ -126,8 +127,8 @@ export default function SettingsPage() {
         ) : !editing ? (
           <div className="payout-list">
             <div className="payout-item"><span>Name</span><span>{profile?.name || '-'}</span></div>
-            <div className="payout-item"><span>Relationship</span><span style={{ textTransform: 'capitalize' }}>{profile?.relationship || '-'}</span></div>
-            <div className="payout-item"><span>Color</span><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 16, height: 16, borderRadius: '50%', background: profile?.color || '#ccc', display: 'inline-block' }}></span>{profile?.color || '-'}</span></div>
+            <div className="payout-item"><span>Relationship</span><span className="capitalize">{profile?.relationship || '-'}</span></div>
+            <div className="payout-item"><span>Color</span><span className="flex items-center gap-2"><span style={{ width: 16, height: 16, borderRadius: '50%', background: profile?.color || '#ccc', display: 'inline-block' }}></span>{profile?.color || '-'}</span></div>
             <div className="payout-item"><span>Default</span><span>{profile?.is_default ? 'Yes' : 'No'}</span></div>
           </div>
         ) : (
@@ -144,7 +145,7 @@ export default function SettingsPage() {
             </div>
             <div className="form-group">
               <label>Color</label>
-              <input type="color" value={form.color || '#1a73e8'} onChange={e => setForm({ ...form, color: e.target.value })} style={{ width: 60, height: 36, padding: 2 }} />
+              <input type="color" value={form.color || '#4f46e5'} onChange={e => setForm({ ...form, color: e.target.value })} style={{ width: 60, height: 36, padding: 2 }} />
             </div>
             <div className="modal-actions">
               <button type="button" className="btn btn-outline" onClick={() => setEditing(false)}>Cancel</button>
@@ -154,10 +155,10 @@ export default function SettingsPage() {
         )}
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Backup & Export</h3>
-        <p className="text-muted" style={{ fontSize: 13, marginBottom: 12 }}>Download a full backup, restore from a previous backup, or export your data.</p>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="card mb-4">
+        <h3 className="text-lg fw-semibold mb-3">Backup & Export</h3>
+        <p className="text-muted text-md mb-3">Download a full backup, restore from a previous backup, or export your data.</p>
+        <div className="flex gap-2 flex-wrap items-center">
           <button className="btn btn-primary" onClick={handleBackup}>Download Backup (JSON)</button>
           <label className="btn btn-outline" style={{ cursor: restoring ? 'wait' : 'pointer', opacity: restoring ? 0.6 : 1 }}>
             {restoring ? 'Restoring...' : 'Restore from Backup'}
@@ -165,22 +166,22 @@ export default function SettingsPage() {
           </label>
           <button className="btn btn-outline" onClick={handleExportCSV}>Export CSV</button>
         </div>
-        <p className="text-muted" style={{ fontSize: 11, marginTop: 8 }}>⚠️ Restore will replace all existing data with the backup contents.</p>
+        <p className="text-muted text-xs mt-2">⚠️ Restore will replace all existing data with the backup contents.</p>
       </div>
 
       <NotificationSettingsCard />
 
       {/* Account section */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600 }}>Account</h3>
+      <div className="card mb-4">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-lg fw-semibold">Account</h3>
           {!editingAccount && <button className="btn btn-sm btn-primary" onClick={() => { setEditingAccount(true); setAccountName(user?.name || ''); }}>Edit</button>}
         </div>
         {!editingAccount ? (
           <div className="payout-list">
             <div className="payout-item"><span>Name</span><span>{user?.name || '-'}</span></div>
             <div className="payout-item"><span>Email</span><span>{user?.email || '-'}</span></div>
-            <div className="payout-item"><span>Role</span><span style={{ textTransform: 'capitalize' }}>{user?.role || '-'}</span></div>
+            <div className="payout-item"><span>Role</span><span className="capitalize">{user?.role || '-'}</span></div>
           </div>
         ) : (
           <form onSubmit={async (e) => {
@@ -203,9 +204,9 @@ export default function SettingsPage() {
       </div>
 
       {/* Change Password */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600 }}>Change Password</h3>
+      <div className="card mb-4">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-lg fw-semibold">Change Password</h3>
         </div>
         <form onSubmit={async (e) => {
           e.preventDefault();

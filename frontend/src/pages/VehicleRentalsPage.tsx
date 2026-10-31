@@ -4,11 +4,14 @@ import {
   updateRentalPayout, markDueRentalPayoutsReceived, updateRentalBuyback,
 } from '../api/vehicleRentals';
 import type { VehicleRental, RentalPayout, CreateVehicleRentalRequest } from '../types';
-import { formatCurrency, formatDate, formatPercent, toInputDate } from '../utils/format';
+import { formatCurrency, formatDate, formatPercent, toInputDate, statusLabel } from '../utils/format';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
 import InfoTooltip from '../components/InfoTooltip';
+import { ChevronDown, Pencil, Trash2, Plus } from 'lucide-react';
+import RowActions from '../components/RowActions';
+import { PageSkeleton } from '../components/ui';
 
 const emptyForm: CreateVehicleRentalRequest = {
   provider: '', vehicle_model: '', units: 1, unit_price: 0, gst_percent: 5, other_charges: 0,
@@ -163,7 +166,7 @@ export default function VehicleRentalsPage() {
     } catch { toast('Failed to update', 'error'); }
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <PageSkeleton label="Loading" />;
 
   const active = items.filter(i => i.status === 'active');
   const totalInvested = items.reduce((s, i) => s + i.investment_amount, 0);
@@ -187,22 +190,22 @@ export default function VehicleRentalsPage() {
     <div>
       <div className="page-header">
         <h1>Vehicle Rentals</h1>
-        {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}>+ Add Investment</button>}
+        {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}><Plus size={16} aria-hidden="true" />Add Investment</button>}
       </div>
 
       {overdueCount > 0 && (
-        <div className="card" style={{ borderLeft: '4px solid var(--danger)', marginBottom: 16 }}>
-          <strong style={{ color: 'var(--danger)' }}>
+        <div className="card mb-4" style={{ borderLeft: '4px solid var(--danger)' }}>
+          <strong className="text-danger">
             {overdueCount} rental payout{overdueCount > 1 ? 's' : ''} overdue ({formatCurrency(overdueAmount)})
           </strong>
-          <div className="text-muted" style={{ fontSize: 13, marginTop: 4 }}>
+          <div className="text-muted text-md mt-1">
             Payouts more than 5 days past their scheduled date. Follow up with the provider, and keep the written agreement and payment records.
           </div>
         </div>
       )}
 
       {items.length > 0 && (
-        <div className="card-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 20 }}>
+        <div className="card-grid stat-grid mb-5">
           <div className="stat-card">
             <div className="label">Vehicles (active)</div>
             <div className="value">{active.reduce((s, i) => s + i.units, 0)}</div>
@@ -246,58 +249,65 @@ export default function VehicleRentalsPage() {
         <div className="empty-state">
           <h3>No vehicle rental investments yet</h3>
           <p>Track EV fleet leasing schemes: monthly rental payouts, overdue payments, buyback and actual returns.</p>
-          {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}>+ Add Investment</button>}
+          {!isViewOnly && <button className="btn btn-primary" onClick={openAdd}><Plus size={16} aria-hidden="true" />Add Investment</button>}
         </div>
       ) : items.map(v => {
         const dueCount = v.payouts.filter(p => p.status === 'pending' && toInputDate(p.scheduled_date) <= today).length;
         return (
           <div key={v.id} className="card" style={v.overdue_count > 0 ? { borderLeft: '4px solid var(--danger)' } : undefined}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div className="flex justify-between items-start">
               <div>
-                <h3 style={{ fontSize: 16 }}>
+                <h3 className="text-lg">
                   {v.provider}{v.vehicle_model ? ` · ${v.vehicle_model}` : ''}
-                  <span className={`badge badge-${v.status}`} style={{ marginLeft: 8 }}>{v.status}</span>
-                  {v.overdue_count > 0 && <span className="badge badge-overdue" style={{ marginLeft: 6 }}>{v.overdue_count} overdue</span>}
+                  <span className={`badge badge-${v.status} ml-2`}>{statusLabel(v.status)}</span>
+                  {v.overdue_count > 0 && <span className="badge badge-overdue ml-2">{v.overdue_count} overdue</span>}
                 </h3>
-                <div className="text-muted" style={{ fontSize: 13 }}>
+                <div className="text-muted text-md">
                   {v.units} vehicle{v.units > 1 ? 's' : ''} · {formatDate(v.purchase_date)} → {formatDate(v.agreement_end_date)}
                   {v.agreement_number ? ` · Agreement ${v.agreement_number}` : ''}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => openEdit(v)}>Edit</button>}
-                <button className="btn btn-sm btn-outline" onClick={() => setExpanded(expanded === v.id ? null : v.id)}>
-                  {expanded === v.id ? 'Hide' : 'Payouts'}
+              <div className="flex gap-1 items-center">
+                <button className="btn btn-sm btn-ghost" aria-expanded={expanded === v.id} onClick={() => setExpanded(expanded === v.id ? null : v.id)}>
+                  <ChevronDown size={14} className={`row-chevron${expanded === v.id ? ' flip' : ''}`} aria-hidden="true" />{expanded === v.id ? 'Hide payouts' : 'Payouts'}
                 </button>
-                {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(v)}>Del</button>}
+                {!isViewOnly && (
+                  <RowActions
+                    label={`More actions for ${v.provider}`}
+                    actions={[
+                      { label: 'Edit rental', icon: Pencil, onClick: () => openEdit(v) },
+                      { label: 'Delete rental', icon: Trash2, onClick: () => handleDelete(v), danger: true },
+                    ]}
+                  />
+                )}
               </div>
             </div>
 
-            <div className="card-grid" style={{ marginTop: 12 }}>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>Invested</span><div style={{ fontWeight: 600 }}>{formatCurrency(v.investment_amount)}</div></div>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>Monthly Payout</span><div style={{ fontWeight: 600 }}>{formatCurrency(v.monthly_payout)} <span className="text-muted" style={{ fontSize: 12 }}>({formatCurrency(v.monthly_payout_per_unit)}/unit)</span></div></div>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>Payouts Received</span><div style={{ fontWeight: 600 }}>{v.payouts_received_count} / {v.payouts.length} · {formatCurrency(v.total_payouts_received)}</div></div>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>Next Payout</span><div style={{ fontWeight: 600 }}>{v.next_payout_date ? formatDate(v.next_payout_date) : '-'}</div></div>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>Capital Recovered</span><div style={{ fontWeight: 600 }}>{(v.investment_amount > 0 ? (v.total_payouts_received + v.buyback_received) / v.investment_amount * 100 : 0).toFixed(1)}%</div></div>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>Book Value</span><div style={{ fontWeight: 600 }}>{formatCurrency(v.current_value)}</div></div>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>Net Return</span><div style={{ fontWeight: 600, color: v.total_return >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatCurrency(v.total_return)}</div></div>
-              <div><span className="text-muted" style={{ fontSize: 12 }}>XIRR</span><div style={{ fontWeight: 600, color: v.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercent(v.xirr)}</div></div>
+            <div className="card-grid mt-3">
+              <div><span className="text-muted text-sm">Invested</span><div className="fw-semibold">{formatCurrency(v.investment_amount)}</div></div>
+              <div><span className="text-muted text-sm">Monthly Payout</span><div className="fw-semibold">{formatCurrency(v.monthly_payout)} <span className="text-muted text-sm">({formatCurrency(v.monthly_payout_per_unit)}/unit)</span></div></div>
+              <div><span className="text-muted text-sm">Payouts Received</span><div className="fw-semibold">{v.payouts_received_count} / {v.payouts.length} · {formatCurrency(v.total_payouts_received)}</div></div>
+              <div><span className="text-muted text-sm">Next Payout</span><div className="fw-semibold">{v.next_payout_date ? formatDate(v.next_payout_date) : '-'}</div></div>
+              <div><span className="text-muted text-sm">Capital Recovered</span><div className="fw-semibold">{(v.investment_amount > 0 ? (v.total_payouts_received + v.buyback_received) / v.investment_amount * 100 : 0).toFixed(1)}%</div></div>
+              <div><span className="text-muted text-sm">Book Value</span><div className="fw-semibold">{formatCurrency(v.current_value)}</div></div>
+              <div><span className="text-muted text-sm">Net Return</span><div className="fw-semibold" style={{ color: v.total_return >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatCurrency(v.total_return)}</div></div>
+              <div><span className="text-muted text-sm">XIRR</span><div className="fw-semibold" style={{ color: v.xirr >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatPercent(v.xirr)}</div></div>
             </div>
             {v.registration_numbers?.length > 0 && (
-              <div className="text-muted" style={{ fontSize: 12, marginTop: 8 }}>Registration: {v.registration_numbers.join(', ')}</div>
+              <div className="text-muted text-sm mt-2">Registration: {v.registration_numbers.join(', ')}</div>
             )}
 
             {expanded === v.id && (
-              <div style={{ marginTop: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div className="mt-4">
+                <div className="flex justify-between items-center mb-2">
                   <h4>Monthly Payouts</h4>
                   {!isViewOnly && dueCount > 0 && (
                     <button className="btn btn-sm btn-success" onClick={() => markAllDue(v)}>Mark all due as received ({dueCount})</button>
                   )}
                 </div>
-                <div className="table-container" style={{ marginBottom: 16, maxHeight: 420, overflowY: 'auto' }}>
+                <div className="table-container mb-4" style={{ maxHeight: 420, overflowY: 'auto' }}>
                   <table>
-                    <thead><tr><th>#</th><th>Scheduled</th><th>Amount</th><th>Status</th><th>Received</th><th>Action</th></tr></thead>
+                    <thead><tr><th>#</th><th>Scheduled</th><th className="num">Amount</th><th>Status</th><th>Received</th><th>Action</th></tr></thead>
                     <tbody>
                       {v.payouts.map((p, idx) => {
                         const st = payoutState(p, today);
@@ -306,13 +316,13 @@ export default function VehicleRentalsPage() {
                           <tr key={p.payout_id}>
                             <td>{idx + 1}</td>
                             <td>{formatDate(p.scheduled_date)}</td>
-                            <td>{formatCurrency(p.amount)}</td>
+                            <td className="num">{formatCurrency(p.amount)}</td>
                             <td><span className={`badge ${stateBadge[st]}`}>{st}</span></td>
                             <td>
                               {p.status === 'received' ? (
                                 <>
                                   {formatCurrency(p.received_amount)} on {formatDate(p.received_date || p.scheduled_date)}
-                                  {short && <span className="badge badge-overdue" style={{ marginLeft: 6 }}>short {formatCurrency(p.amount - p.received_amount)}</span>}
+                                  {short && <span className="badge badge-overdue ml-2">short {formatCurrency(p.amount - p.received_amount)}</span>}
                                 </>
                               ) : '-'}
                             </td>
@@ -330,14 +340,14 @@ export default function VehicleRentalsPage() {
 
                 {v.buyback_amount > 0 && (
                   <>
-                    <h4 style={{ marginBottom: 8 }}>Buyback ({v.buyback_percent}% of vehicle cost)</h4>
+                    <h4 className="mb-2">Buyback ({v.buyback_percent}% of vehicle cost)</h4>
                     <div className="table-container">
                       <table>
-                        <thead><tr><th>Due</th><th>Amount</th><th>Status</th><th>Received</th><th>Action</th></tr></thead>
+                        <thead><tr><th>Due</th><th className="num">Amount</th><th>Status</th><th>Received</th><th>Action</th></tr></thead>
                         <tbody>
                           <tr>
                             <td>{formatDate(v.agreement_end_date)}</td>
-                            <td>{formatCurrency(v.buyback_amount)}</td>
+                            <td className="num">{formatCurrency(v.buyback_amount)}</td>
                             <td><span className={`badge badge-${v.buyback_status}`}>{v.buyback_status}</span></td>
                             <td>{v.buyback_status === 'received' ? `${formatCurrency(v.buyback_received)} on ${formatDate(v.buyback_received_date || '')}` : '-'}</td>
                             <td>
@@ -351,7 +361,7 @@ export default function VehicleRentalsPage() {
                     </div>
                   </>
                 )}
-                {v.notes && <div className="text-muted" style={{ fontSize: 13, marginTop: 12 }}>{v.notes}</div>}
+                {v.notes && <div className="text-muted text-md mt-3">{v.notes}</div>}
               </div>
             )}
           </div>
@@ -431,8 +441,8 @@ export default function VehicleRentalsPage() {
               </div>
 
               {previewInvestment > 0 && previewMonthly > 0 && form.tenure_months > 0 && (
-                <div className="card" style={{ padding: 12, marginBottom: 16, fontSize: 13 }}>
-                  <div className="form-row" style={{ gap: 8 }}>
+                <div className="card p-3 mb-4 text-md">
+                  <div className="form-row gap-2">
                     <div>Total investment: <strong>{formatCurrency(previewInvestment)}</strong></div>
                     <div>Monthly payout: <strong>{formatCurrency(previewMonthly)}</strong></div>
                     <div>Total payouts ({form.tenure_months} mo): <strong>{formatCurrency(previewPayouts)}</strong></div>
@@ -441,7 +451,7 @@ export default function VehicleRentalsPage() {
                     <div>Promised return: <strong>{previewIrr === null ? '-' : `${previewIrr.toFixed(0)}% / year`}</strong></div>
                   </div>
                   {previewIrr !== null && previewIrr > 25 && (
-                    <div style={{ color: 'var(--danger)', marginTop: 8 }}>
+                    <div className="text-danger mt-2">
                       This promises about {previewIrr.toFixed(0)}% a year. Fixed returns this high are far above what regulated investments pay, so make sure you've verified the provider.
                     </div>
                   )}
@@ -459,9 +469,9 @@ export default function VehicleRentalsPage() {
 
       {receipt && (
         <div className="modal-overlay" onClick={() => setReceipt(null)}>
-          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
             <h2>{receipt.payout ? 'Record Payout Received' : 'Record Buyback Received'}</h2>
-            <p className="text-muted" style={{ fontSize: 13, marginBottom: 12 }}>
+            <p className="text-muted text-md mb-3">
               {receipt.payout
                 ? `Scheduled ${formatDate(receipt.payout.scheduled_date)} · ${formatCurrency(receipt.payout.amount)}`
                 : `Buyback ${formatCurrency(receipt.rental.buyback_amount)}`}

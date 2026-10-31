@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { getPersonalLoans, createPersonalLoan, deletePersonalLoan, updatePersonalLoan, recordPersonalLoanEMI, addPersonalLoanPrepayment, changePersonalLoanRate, getPersonalLoanAmortization } from '../api/personalLoans';
 import type { PersonalLoan, CreatePersonalLoanRequest, UpdatePersonalLoanRequest, AddEMIPaymentRequest, AddPrepaymentRequest, ChangeRateRequest, LoanRateType, AmortizationEntry } from '../types';
-import { formatCurrency, formatDate } from '../utils/format';
+import { formatCurrency, formatDate, formatCompactINR } from '../utils/format';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line } from 'recharts';
+import { Pencil, Trash2, Plus } from 'lucide-react';
+import RowActions from '../components/RowActions';
+import { PageSkeleton } from '../components/ui';
 
 const PURPOSES: Record<string, string> = {
   personal: 'Personal', education: 'Education', vehicle: 'Vehicle',
@@ -106,16 +109,16 @@ export default function PersonalLoansPage() {
   const totalInterestPaid = loans.reduce((s, l) => s + l.total_interest_paid, 0);
   const totalPrepayments = loans.reduce((s, l) => s + l.total_prepayments, 0);
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <PageSkeleton label="Loading" />;
 
   return (
     <div>
       <div className="page-header">
         <h1>Personal Loans</h1>
-        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Loan</button>}
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={16} aria-hidden="true" />Add Loan</button>}
       </div>
 
-      <div className="card-grid" style={{ marginBottom: 20 }}>
+      <div className="card-grid mb-5">
         <div className="stat-card"><div className="label">Outstanding Principal</div><div className="value">{formatCurrency(totalOutstanding)}</div></div>
         <div className="stat-card"><div className="label">Monthly EMI</div><div className="value">{formatCurrency(totalEMI)}</div></div>
         <div className="stat-card"><div className="label">Total Interest Paid</div><div className="value negative">{formatCurrency(totalInterestPaid)}</div></div>
@@ -126,17 +129,17 @@ export default function PersonalLoansPage() {
         <div className="empty-state">
           <h3>No personal loans yet</h3>
           <p>Add your first personal loan to start tracking.</p>
-          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Loan</button>}
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={16} aria-hidden="true" />Add Loan</button>}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <div className="search-bar" style={{ flex: 1, marginBottom: 0 }}>
+        <div className="flex flex-col gap-4">
+          <div className="flex gap-3 items-center">
+            <div className="search-bar flex-1 mb-0">
               <input type="search" placeholder="Search by lender name..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
-            <div style={{ display: 'flex', gap: 4 }}>
+            <div className="flex gap-1">
               {['all', 'active', 'closed'].map(s => (
-                <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-outline'}`} onClick={() => setStatusFilter(s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
+                <button key={s} className={`chip${statusFilter === s ? ' active' : ''}`} aria-pressed={statusFilter === s} onClick={() => setStatusFilter(s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
               ))}
             </div>
           </div>
@@ -145,48 +148,40 @@ export default function PersonalLoansPage() {
             const matchStatus = statusFilter === 'all' || l.status === statusFilter;
             return matchSearch && matchStatus;
           }).map(l => (
-            <div key={l.id} className="card" style={{ padding: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+            <div key={l.id} className="card p-5">
+              <div className="flex justify-between items-start mb-3">
                 <div>
-                  <h3 style={{ margin: 0 }}>{l.lender_name}</h3>
-                  <div className="text-muted" style={{ fontSize: 12 }}>
+                  <h3 className="m-0">{l.lender_name}</h3>
+                  <div className="text-muted text-sm">
                     A/C: {l.loan_account_number || '-'} | Purpose: {PURPOSES[l.loan_purpose] || l.loan_purpose || '-'}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span style={{
-                    padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
-                    background: l.status === 'active' ? 'var(--success-soft)' : l.status === 'closed' ? 'var(--primary-soft)' : 'var(--warning-soft)',
-                    color: l.status === 'active' ? 'var(--success-text)' : l.status === 'closed' ? 'var(--primary-text)' : 'var(--warning-text)',
-                  }}>{l.status.toUpperCase()}</span>
-                  <span style={{
-                    padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
-                    background: l.rate_type === 'floating' ? 'var(--pink-soft)' : 'var(--indigo-soft)',
-                    color: l.rate_type === 'floating' ? 'var(--danger-text)' : '#283593',
-                  }}>{l.rate_type.toUpperCase()}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs fw-semibold" style={{ padding: '3px 10px', borderRadius: 12, background: l.status === 'active' ? 'var(--success-soft)' : l.status === 'closed' ? 'var(--primary-soft)' : 'var(--warning-soft)', color: l.status === 'active' ? 'var(--success-text)' : l.status === 'closed' ? 'var(--primary-text)' : 'var(--warning-text)' }}>{l.status.toUpperCase()}</span>
+                  <span className="text-xs fw-semibold" style={{ padding: '3px 10px', borderRadius: 12, background: l.rate_type === 'floating' ? 'var(--pink-soft)' : 'var(--indigo-soft)', color: l.rate_type === 'floating' ? 'var(--danger-text)' : '#283593' }}>{l.rate_type.toUpperCase()}</span>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 12 }}>
-                <div><div className="text-muted" style={{ fontSize: 12 }}>Disbursed</div><strong>{formatCurrency(l.disbursed_amount)}</strong></div>
-                <div><div className="text-muted" style={{ fontSize: 12 }}>Outstanding</div><strong>{formatCurrency(l.outstanding_principal)}</strong></div>
-                <div><div className="text-muted" style={{ fontSize: 12 }}>Interest Rate</div><strong>{l.interest_rate}%</strong></div>
-                <div><div className="text-muted" style={{ fontSize: 12 }}>EMI</div><strong>{formatCurrency(l.emi_amount)}</strong></div>
-                <div><div className="text-muted" style={{ fontSize: 12 }}>Tenure</div><strong>{Math.floor(l.tenure_months / 12)}y {l.tenure_months % 12}m</strong></div>
-                <div><div className="text-muted" style={{ fontSize: 12 }}>Remaining</div><strong>{Math.floor(l.remaining_tenure_months / 12)}y {l.remaining_tenure_months % 12}m</strong></div>
-                <div><div className="text-muted" style={{ fontSize: 12 }}>Principal Paid</div><strong>{formatCurrency(l.total_principal_paid)}</strong></div>
-                <div><div className="text-muted" style={{ fontSize: 12 }}>Interest Paid</div><strong>{formatCurrency(l.total_interest_paid)}</strong></div>
+              <div className="grid gap-3 mb-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+                <div><div className="text-muted text-sm">Disbursed</div><strong>{formatCurrency(l.disbursed_amount)}</strong></div>
+                <div><div className="text-muted text-sm">Outstanding</div><strong>{formatCurrency(l.outstanding_principal)}</strong></div>
+                <div><div className="text-muted text-sm">Interest Rate</div><strong>{l.interest_rate}%</strong></div>
+                <div><div className="text-muted text-sm">EMI</div><strong>{formatCurrency(l.emi_amount)}</strong></div>
+                <div><div className="text-muted text-sm">Tenure</div><strong>{Math.floor(l.tenure_months / 12)}y {l.tenure_months % 12}m</strong></div>
+                <div><div className="text-muted text-sm">Remaining</div><strong>{Math.floor(l.remaining_tenure_months / 12)}y {l.remaining_tenure_months % 12}m</strong></div>
+                <div><div className="text-muted text-sm">Principal Paid</div><strong>{formatCurrency(l.total_principal_paid)}</strong></div>
+                <div><div className="text-muted text-sm">Interest Paid</div><strong>{formatCurrency(l.total_interest_paid)}</strong></div>
               </div>
 
               {(l.processing_fee > 0 || l.foreclosure_charges > 0) && (
-                <div style={{ background: 'var(--warning-soft)', padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
+                <div className="mb-3 text-md" style={{ background: 'var(--warning-soft)', padding: '8px 12px', borderRadius: 6 }}>
                   {l.processing_fee > 0 && <span>Processing Fee: {formatCurrency(l.processing_fee)}</span>}
                   {l.processing_fee > 0 && l.foreclosure_charges > 0 && <span> | </span>}
                   {l.foreclosure_charges > 0 && <span>Foreclosure Charges: {l.foreclosure_charges}%</span>}
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <div className="flex flex-wrap gap-2">
                 {l.status === 'active' && (
                   <>
                     {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => setShowEMI(l.id)}>Record EMI</button>}
@@ -200,41 +195,48 @@ export default function PersonalLoansPage() {
                 <button className="btn btn-sm btn-outline" onClick={() => setExpandedLoan(expandedLoan === l.id ? null : l.id)}>
                   History ({(l.emis_paid?.length || 0) + (l.prepayments?.length || 0)})
                 </button>
-                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => openEdit(l)}>Edit</button>}
-                {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(l.id)}>Del</button>}
+                {!isViewOnly && (
+                  <RowActions
+                    label={`More actions for ${l.lender_name} loan`}
+                    actions={[
+                      { label: 'Edit loan', icon: Pencil, onClick: () => openEdit(l) },
+                      { label: 'Delete loan', icon: Trash2, onClick: () => handleDelete(l.id), danger: true },
+                    ]}
+                  />
+                )}
               </div>
 
               {expandedLoan === l.id && (
-                <div style={{ marginTop: 12 }}>
+                <div className="mt-3">
                   {l.emis_paid?.length > 0 && (
-                    <div style={{ marginBottom: 12 }}>
-                      <strong style={{ fontSize: 13 }}>EMI History</strong>
-                      <table style={{ fontSize: 12, marginTop: 6 }}>
-                        <thead><tr><th>Month</th><th>EMI</th><th>Principal</th><th>Interest</th><th>Outstanding</th><th>Paid On</th></tr></thead>
+                    <div className="mb-3">
+                      <strong className="text-md">EMI History</strong>
+                      <table className="text-sm mt-2">
+                        <thead><tr><th>Month</th><th className="num">EMI</th><th className="num">Principal</th><th className="num">Interest</th><th className="num">Outstanding</th><th>Paid On</th></tr></thead>
                         <tbody>{[...l.emis_paid].reverse().map(e => (
-                          <tr key={e.emi_id}><td>{e.month}</td><td>{formatCurrency(e.emi_amount)}</td><td>{formatCurrency(e.principal_portion)}</td><td>{formatCurrency(e.interest_portion)}</td><td>{formatCurrency(e.outstanding_after)}</td><td>{e.paid_date ? formatDate(e.paid_date) : '-'}</td></tr>
+                          <tr key={e.emi_id}><td>{e.month}</td><td className="num">{formatCurrency(e.emi_amount)}</td><td className="num">{formatCurrency(e.principal_portion)}</td><td className="num">{formatCurrency(e.interest_portion)}</td><td className="num">{formatCurrency(e.outstanding_after)}</td><td>{e.paid_date ? formatDate(e.paid_date) : '-'}</td></tr>
                         ))}</tbody>
                       </table>
                     </div>
                   )}
                   {l.prepayments?.length > 0 && (
-                    <div style={{ marginBottom: 12 }}>
-                      <strong style={{ fontSize: 13 }}>Prepayments</strong>
-                      <table style={{ fontSize: 12, marginTop: 6 }}>
-                        <thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Notes</th></tr></thead>
+                    <div className="mb-3">
+                      <strong className="text-md">Prepayments</strong>
+                      <table className="text-sm mt-2">
+                        <thead><tr><th>Date</th><th className="num">Amount</th><th>Type</th><th>Notes</th></tr></thead>
                         <tbody>{l.prepayments.map(p => (
-                          <tr key={p.prepayment_id}><td>{formatDate(p.date)}</td><td>{formatCurrency(p.amount)}</td><td>{p.type.replace('_', ' ').toUpperCase()}</td><td>{p.notes || '-'}</td></tr>
+                          <tr key={p.prepayment_id}><td>{formatDate(p.date)}</td><td className="num">{formatCurrency(p.amount)}</td><td>{p.type.replace('_', ' ').toUpperCase()}</td><td>{p.notes || '-'}</td></tr>
                         ))}</tbody>
                       </table>
                     </div>
                   )}
                   {l.rate_change_history?.length > 0 && (
                     <div>
-                      <strong style={{ fontSize: 13 }}>Rate Change History</strong>
-                      <table style={{ fontSize: 12, marginTop: 6 }}>
-                        <thead><tr><th>Date</th><th>Old Rate</th><th>New Rate</th><th>New EMI</th></tr></thead>
+                      <strong className="text-md">Rate Change History</strong>
+                      <table className="text-sm mt-2">
+                        <thead><tr><th>Date</th><th>Old Rate</th><th>New Rate</th><th className="num">New EMI</th></tr></thead>
                         <tbody>{l.rate_change_history.map((r, i) => (
-                          <tr key={i}><td>{formatDate(r.effective_date)}</td><td>{r.old_rate}%</td><td>{r.new_rate}%</td><td>{formatCurrency(r.new_emi)}</td></tr>
+                          <tr key={i}><td>{formatDate(r.effective_date)}</td><td>{r.old_rate}%</td><td>{r.new_rate}%</td><td className="num">{formatCurrency(r.new_emi)}</td></tr>
                         ))}</tbody>
                       </table>
                     </div>
@@ -243,27 +245,27 @@ export default function PersonalLoansPage() {
               )}
 
               {showAmort === l.id && amortization && (
-                <div style={{ marginTop: 12 }}>
-                  <strong style={{ fontSize: 13 }}>Amortization Schedule (Remaining)</strong>
-                  <div style={{ marginTop: 12, marginBottom: 16 }}>
+                <div className="mt-3">
+                  <strong className="text-md">Amortization Schedule (Remaining)</strong>
+                  <div className="mt-3 mb-4">
                     <ResponsiveContainer width="100%" height={250}>
                       <AreaChart data={amortization}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="month" fontSize={11} />
-                        <YAxis tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}K`} fontSize={11} />
+                        <YAxis tickFormatter={(v) => formatCompactINR(Number(v))} fontSize={11} />
                         <Tooltip formatter={(v) => formatCurrency(v as number)} />
                         <Legend />
-                        <Area type="monotone" dataKey="principal_portion" name="Principal" stackId="emi" stroke="#1a73e8" fill="#bbdefb" />
-                        <Area type="monotone" dataKey="interest_portion" name="Interest" stackId="emi" stroke="#ea4335" fill="#ffcdd2" />
+                        <Area type="monotone" dataKey="principal_portion" name="Principal" stackId="emi" stroke="#6366f1" fill="#6366f1" fillOpacity={0.25} />
+                        <Area type="monotone" dataKey="interest_portion" name="Interest" stackId="emi" stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} />
                         <Line type="monotone" dataKey="outstanding_after" name="Outstanding" stroke="#f57f17" strokeWidth={2} dot={false} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
                   <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                  <table style={{ fontSize: 12, marginTop: 6 }}>
-                    <thead><tr><th>#</th><th>EMI</th><th>Principal</th><th>Interest</th><th>Outstanding</th></tr></thead>
+                  <table className="text-sm mt-2">
+                    <thead><tr><th>#</th><th className="num">EMI</th><th className="num">Principal</th><th className="num">Interest</th><th className="num">Outstanding</th></tr></thead>
                     <tbody>{amortization.map(a => (
-                      <tr key={a.month}><td>{a.month}</td><td>{formatCurrency(a.emi)}</td><td>{formatCurrency(a.principal_portion)}</td><td>{formatCurrency(a.interest_portion)}</td><td>{formatCurrency(a.outstanding_after)}</td></tr>
+                      <tr key={a.month}><td>{a.month}</td><td className="num">{formatCurrency(a.emi)}</td><td className="num">{formatCurrency(a.principal_portion)}</td><td className="num">{formatCurrency(a.interest_portion)}</td><td className="num">{formatCurrency(a.outstanding_after)}</td></tr>
                     ))}</tbody>
                   </table>
                   </div>

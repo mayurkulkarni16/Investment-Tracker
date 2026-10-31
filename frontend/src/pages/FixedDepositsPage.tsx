@@ -1,10 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { Fragment, useEffect, useState } from 'react';
+import { ChevronRight, List, Pencil, Plus, Trash2 } from 'lucide-react';
 import { getFixedDeposits, createFixedDeposit, deleteFixedDeposit, updateFixedDeposit } from '../api/fixedDeposits';
 import type { FixedDeposit, CreateFixedDepositRequest, InterestType, PayoutFrequency } from '../types';
-import { formatCurrency, formatDate, formatPercent, toInputDate } from '../utils/format';
+import { formatCurrency, formatDate, formatPercent, toInputDate, statusLabel } from '../utils/format';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../components/ConfirmDialog';
+import RowActions from '../components/RowActions';
+import { FilterChips, PageSkeleton, SortableTh } from '../components/ui';
+import { useSort } from '../utils/useSort';
+
+const FD_SORT: Record<string, (f: FixedDeposit) => string | number> = {
+  bank_name: f => f.bank_name,
+  principal_amount: f => f.principal_amount,
+  interest_rate: f => f.interest_rate,
+  maturity_date: f => f.maturity_date,
+  xirr: f => f.xirr,
+};
 
 export default function FixedDepositsPage() {
   const { isViewOnly, viewAsUserId } = useAuth();
@@ -14,8 +26,6 @@ export default function FixedDepositsPage() {
   const [showEdit, setShowEdit] = useState<FixedDeposit | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortCol, setSortCol] = useState<string>('');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [expanded, setExpanded] = useState<string | null>(null);
   const { toast } = useToast();
   const { confirm } = useConfirm();
@@ -72,161 +82,191 @@ export default function FixedDepositsPage() {
     catch { toast('Failed to update FD', 'error'); }
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  const filtered = fds.filter(fd => {
+    const matchSearch = !search || fd.bank_name.toLowerCase().includes(search.toLowerCase()) || (fd.fd_number || '').toLowerCase().includes(search.toLowerCase());
+    const matchStatus = statusFilter === 'all' || fd.status === statusFilter;
+    return matchSearch && matchStatus;
+  });
+  const { sorted, sortCol, sortDir, onSort } = useSort(filtered, FD_SORT);
+  const sortProps = { sortCol, sortDir, onSort };
+
+  if (loading) return <PageSkeleton label="Loading fixed deposits" />;
+
+  const activeFDs = fds.filter(f => f.status === 'active');
+  const totalPrincipal = activeFDs.reduce((s, f) => s + f.principal_amount, 0);
+  const totalMaturity = activeFDs.reduce((s, f) => s + f.maturity_amount, 0);
+  const totalInterest = fds.reduce((s, f) => s + f.interest_earned, 0);
+  const avgRate = totalPrincipal > 0 ? activeFDs.reduce((s, f) => s + f.interest_rate * f.principal_amount, 0) / totalPrincipal : 0;
+  const xirrBase = fds.filter(f => f.principal_amount > 0);
+  const xirrWeight = xirrBase.reduce((s, f) => s + f.principal_amount, 0);
+  const avgXirr = xirrWeight > 0 ? xirrBase.reduce((s, f) => s + f.xirr * f.principal_amount, 0) / xirrWeight : 0;
+  const countBy = (status: string) => fds.filter(f => f.status === status).length;
 
   return (
     <div>
       <div className="page-header">
         <h1>Fixed Deposits</h1>
-        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add FD</button>}
+        {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={16} aria-hidden="true" />Add FD</button>}
       </div>
 
-      {fds.length > 0 && (() => {
-        const activeFDs = fds.filter(f => f.status === 'active');
-        const totalPrincipal = activeFDs.reduce((s, f) => s + f.principal_amount, 0);
-        const totalMaturity = activeFDs.reduce((s, f) => s + f.maturity_amount, 0);
-        const totalInterest = fds.reduce((s, f) => s + f.interest_earned, 0);
-        const avgRate = activeFDs.length > 0 ? activeFDs.reduce((s, f) => s + f.interest_rate, 0) / activeFDs.length : 0;
-        return (
-          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', marginBottom: 20 }}>
-            <div className="stat-card">
-              <div className="label">Active / Total FDs</div>
-              <div className="value">{activeFDs.length} / {fds.length}</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">Total Principal</div>
-              <div className="value">{formatCurrency(totalPrincipal)}</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">Total Maturity Value</div>
-              <div className="value">{formatCurrency(totalMaturity)}</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">Total Interest Earned</div>
-              <div className="value positive">{formatCurrency(totalInterest)}</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">Avg Interest Rate</div>
-              <div className="value">{avgRate.toFixed(2)}%</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">Avg XIRR</div>
-              <div className={`value ${(() => { const w = fds.filter(f => f.principal_amount > 0); const t = w.reduce((s, f) => s + f.principal_amount, 0); const x = t > 0 ? w.reduce((s, f) => s + f.xirr * f.principal_amount, 0) / t : 0; return x >= 0 ? 'positive' : 'negative'; })()}`}>
-                {formatPercent((() => { const w = fds.filter(f => f.principal_amount > 0); const t = w.reduce((s, f) => s + f.principal_amount, 0); return t > 0 ? w.reduce((s, f) => s + f.xirr * f.principal_amount, 0) / t : 0; })())}
-              </div>
-            </div>
+      {fds.length > 0 && (
+        <div className="card-grid stat-grid mb-5">
+          <div className="stat-card">
+            <div className="label">Active principal</div>
+            <div className="value">{formatCurrency(totalPrincipal)}</div>
+            <div className="text-muted text-sm" style={{ marginTop: 2 }}>{activeFDs.length} of {fds.length} FDs active</div>
           </div>
-        );
-      })()}
+          <div className="stat-card">
+            <div className="label">Maturity value</div>
+            <div className="value">{formatCurrency(totalMaturity)}</div>
+          </div>
+          <div className="stat-card">
+            <div className="label">Interest earned</div>
+            <div className="value positive">{formatCurrency(totalInterest)}</div>
+          </div>
+          <div className="stat-card">
+            <div className="label">Avg rate</div>
+            <div className="value">{avgRate.toFixed(2)}%</div>
+            <div className="text-muted text-sm" style={{ marginTop: 2 }}>Weighted by principal</div>
+          </div>
+          <div className="stat-card">
+            <div className="label">Avg XIRR</div>
+            <div className={`value ${avgXirr >= 0 ? 'positive' : 'negative'}`}>{formatPercent(avgXirr)}</div>
+          </div>
+        </div>
+      )}
 
       {fds.length === 0 ? (
         <div className="empty-state">
           <h3>No fixed deposits yet</h3>
-          <p>Add your first FD to start tracking.</p>
-          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add FD</button>}
+          <p>Add an FD to track its maturity date, interest payouts and returns.</p>
+          {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}><Plus size={16} aria-hidden="true" />Add FD</button>}
         </div>
-      ) : (() => {
-        const filtered = fds.filter(fd => {
-          const matchSearch = !search || fd.bank_name.toLowerCase().includes(search.toLowerCase()) || (fd.fd_number || '').toLowerCase().includes(search.toLowerCase());
-          const matchStatus = statusFilter === 'all' || fd.status === statusFilter;
-          return matchSearch && matchStatus;
-        });
-        const toggleSort = (col: string) => { if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(col); setSortDir('asc'); } };
-        const sorted = [...filtered].sort((a, b) => {
-          if (!sortCol) return 0;
-          const dir = sortDir === 'asc' ? 1 : -1;
-          const av = (a as unknown as Record<string, unknown>)[sortCol], bv = (b as unknown as Record<string, unknown>)[sortCol];
-          if (typeof av === 'string' || typeof bv === 'string') return String(av ?? '').localeCompare(String(bv ?? '')) * dir;
-          return (Number(av ?? 0) - Number(bv ?? 0)) * dir;
-        });
-        return (
-          <>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center' }}>
-              <div className="search-bar" style={{ flex: 1, marginBottom: 0 }}>
-                <input type="search" placeholder="Search by bank name or FD number..." value={search} onChange={e => setSearch(e.target.value)} />
-              </div>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {['all', 'active', 'matured'].map(s => (
-                  <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-outline'}`} onClick={() => setStatusFilter(s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</button>
-                ))}
-              </div>
+      ) : (
+        <>
+          <div className="toolbar">
+            <div className="search-bar">
+              <input type="search" placeholder="Search by bank or FD number" aria-label="Search fixed deposits" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('bank_name')}>Bank {sortCol === 'bank_name' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th>FD Number</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('principal_amount')}>Principal {sortCol === 'principal_amount' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('interest_rate')}>Rate {sortCol === 'interest_rate' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('tenure_months')}>Tenure {sortCol === 'tenure_months' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('start_date')}>Start {sortCol === 'start_date' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('maturity_date')}>Maturity {sortCol === 'maturity_date' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('maturity_amount')}>Maturity Amt {sortCol === 'maturity_amount' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => toggleSort('xirr')}>XIRR {sortCol === 'xirr' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map(fd => (
-                <React.Fragment key={fd.id}>
-                <tr style={{ cursor: fd.interest_type === 'non_cumulative' ? 'pointer' : undefined }} onClick={() => fd.interest_type === 'non_cumulative' && setExpanded(expanded === fd.id ? null : fd.id)}>
-                  <td>{fd.bank_name}</td>
-                  <td>{fd.fd_number || '-'}</td>
-                  <td>{formatCurrency(fd.principal_amount)}</td>
-                  <td>{fd.interest_rate}%</td>
-                  <td>{fd.tenure_months}m</td>
-                  <td>{formatDate(fd.start_date)}</td>
-                  <td>{formatDate(fd.maturity_date)}</td>
-                  <td>{formatCurrency(fd.maturity_amount)}</td>
-                  <td>{fd.interest_type === 'cumulative' ? 'Cumulative' : 'Non-Cumulative'}</td>
-                  <td><span className={`badge badge-${fd.status}`}>{fd.status}</span></td>
-                  <td className={fd.xirr >= 0 ? 'text-success' : 'text-danger'}>{formatPercent(fd.xirr)}</td>
-                  {!isViewOnly && <td>
-                    <div style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
-                      {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => openEdit(fd)}>Edit</button>}
-                      {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(fd.id)}>Del</button>}
-                    </div>
-                  </td>}
-                </tr>
-                {expanded === fd.id && fd.interest_payouts && fd.interest_payouts.length > 0 && (
+            <FilterChips
+              ariaLabel="Filter by status"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={[
+                { value: 'all', label: 'All', count: fds.length },
+                { value: 'active', label: 'Active', count: countBy('active') },
+                { value: 'matured', label: 'Matured', count: countBy('matured') },
+              ]}
+            />
+          </div>
+
+          {sorted.length === 0 ? (
+            <div className="empty-state">
+              <h3>No FDs match</h3>
+              <p>Nothing matches your search or filter.</p>
+              <button className="btn btn-outline" onClick={() => { setSearch(''); setStatusFilter('all'); }}>Clear filters</button>
+            </div>
+          ) : (
+            <div className="table-container table-stack">
+              <table>
+                <thead>
                   <tr>
-                    <td colSpan={12} style={{ padding: '8px 16px', background: 'var(--bg-secondary)' }}>
-                      <h4 style={{ marginBottom: 8 }}>Interest Payouts ({fd.payout_frequency})</h4>
-                      <div className="table-container">
-                        <table>
-                          <thead><tr><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
-                          <tbody>
-                            {fd.interest_payouts.map(p => (
-                              <tr key={p.payout_id}>
-                                <td>{formatDate(p.scheduled_date)}</td>
-                                <td>{formatCurrency(p.amount)}</td>
-                                <td><span className={`badge badge-${p.status}`}>{p.status}</span></td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr style={{ fontWeight: 'bold' }}>
-                              <td>Total</td>
-                              <td>{formatCurrency(fd.interest_payouts.reduce((s, p) => s + p.amount, 0))}</td>
-                              <td>{fd.interest_payouts.filter(p => p.status === 'received').length}/{fd.interest_payouts.length} received</td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    </td>
+                    <SortableTh col="bank_name" {...sortProps}>Bank</SortableTh>
+                    <SortableTh col="principal_amount" align="right" {...sortProps}>Principal</SortableTh>
+                    <SortableTh col="interest_rate" align="right" {...sortProps}>Rate</SortableTh>
+                    <SortableTh col="maturity_date" align="right" {...sortProps}>Maturity</SortableTh>
+                    <th>Interest</th>
+                    <th>Status</th>
+                    <SortableTh col="xirr" align="right" {...sortProps}>XIRR</SortableTh>
+                    <th><span className="sr-only">Actions</span></th>
                   </tr>
+                </thead>
+                <tbody>
+                  {sorted.map(fd => {
+                    const payouts = fd.interest_payouts || [];
+                    const canExpand = fd.interest_type === 'non_cumulative' && payouts.length > 0;
+                    const open = expanded === fd.id && canExpand;
+                    const toggle = () => { if (canExpand) setExpanded(open ? null : fd.id); };
+                    return (
+                      <Fragment key={fd.id}>
+                        <tr className={open ? 'is-expanded' : undefined} style={{ cursor: canExpand ? 'pointer' : undefined }} onClick={toggle}>
+                          <td className="cell-primary">
+                            <div className="cell-title">
+                              {canExpand && <ChevronRight size={15} className={`row-chevron${open ? ' open' : ''}`} aria-hidden="true" />}
+                              <span className="cell-main">{fd.bank_name}</span>
+                              {fd.is_auto_renewed && <span className="badge badge-neutral">Auto-renew</span>}
+                            </div>
+                            <span className="cell-sub">{fd.fd_number ? `FD ${fd.fd_number} · ` : ''}{fd.tenure_months} mo from {formatDate(fd.start_date)}</span>
+                          </td>
+                          <td className="num cell-main" data-label="Principal">{formatCurrency(fd.principal_amount)}</td>
+                          <td className="num" data-label="Rate">{fd.interest_rate}%</td>
+                          <td className="num" data-label="Maturity">
+                            {formatCurrency(fd.maturity_amount)}
+                            <span className="cell-sub">on {formatDate(fd.maturity_date)}</span>
+                          </td>
+                          <td data-label="Interest">
+                            {fd.interest_type === 'cumulative' ? 'Cumulative' : 'Paid out'}
+                            {fd.interest_type !== 'cumulative' && fd.payout_frequency && <span className="cell-sub capitalize">{fd.payout_frequency.replace(/_/g, ' ')}</span>}
+                          </td>
+                          <td data-label="Status"><span className={`badge badge-${fd.status} capitalize`}>{statusLabel(fd.status)}</span></td>
+                          <td className={`num ${fd.xirr >= 0 ? 'text-success' : 'text-danger'}`} data-label="XIRR">{formatPercent(fd.xirr)}</td>
+                          <td className="cell-actions">
+                            <RowActions
+                              label={`Actions for ${fd.bank_name} FD`}
+                              actions={[
+                                { label: open ? 'Hide payouts' : `View payouts (${payouts.length})`, icon: List, onClick: toggle, hidden: !canExpand },
+                                { label: 'Edit FD', icon: Pencil, onClick: () => openEdit(fd), hidden: isViewOnly },
+                                { label: 'Delete FD', icon: Trash2, onClick: () => handleDelete(fd.id), danger: true, hidden: isViewOnly },
+                              ]}
+                            />
+                          </td>
+                        </tr>
+                        {open && (
+                          <tr className="row-detail">
+                            <td className="p-0" colSpan={8}>
+                              <div className="row-detail-panel">
+                                <div className="row-detail-head">
+                                  <strong className="text-base">Interest payouts</strong>
+                                  <span className="text-muted text-sm">
+                                    {payouts.filter(p => p.status === 'received').length} of {payouts.length} received · {formatCurrency(payouts.reduce((s, p) => s + p.amount, 0))} total
+                                  </span>
+                                </div>
+                                <table>
+                                  <thead><tr><th>Date</th><th className="num">Amount</th><th>Status</th></tr></thead>
+                                  <tbody>
+                                    {payouts.map(p => (
+                                      <tr key={p.payout_id}>
+                                        <td>{formatDate(p.scheduled_date)}</td>
+                                        <td className="num">{formatCurrency(p.amount)}</td>
+                                        <td><span className={`badge badge-${p.status} capitalize`}>{statusLabel(p.status)}</span></td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+                {sorted.length > 1 && (
+                  <tfoot>
+                    <tr>
+                      <td className="cell-primary">Total · {sorted.length} FDs</td>
+                      <td className="num">{formatCurrency(sorted.reduce((s, f) => s + f.principal_amount, 0))}</td>
+                      <td />
+                      <td className="num">{formatCurrency(sorted.reduce((s, f) => s + f.maturity_amount, 0))}</td>
+                      <td /><td /><td /><td className="cell-actions" />
+                    </tr>
+                  </tfoot>
                 )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-          </>
-        );
-      })()}
+              </table>
+            </div>
+          )}
+        </>
+      )}
 
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>
@@ -290,7 +330,7 @@ export default function FixedDepositsPage() {
               </div>
               <div className="form-group">
                 <label>
-                  <input type="checkbox" checked={form.is_auto_renewed} onChange={e => setForm({ ...form, is_auto_renewed: e.target.checked })} style={{ width: 'auto', marginRight: 6 }} />
+                  <input className="w-auto mr-2" type="checkbox" checked={form.is_auto_renewed} onChange={e => setForm({ ...form, is_auto_renewed: e.target.checked })} />
                   Auto-Renew on Maturity
                 </label>
               </div>
@@ -365,7 +405,7 @@ export default function FixedDepositsPage() {
               </div>
               <div className="form-group">
                 <label>
-                  <input type="checkbox" checked={editForm.is_auto_renewed} onChange={e => setEditForm({ ...editForm, is_auto_renewed: e.target.checked })} style={{ width: 'auto', marginRight: 6 }} />
+                  <input className="w-auto mr-2" type="checkbox" checked={editForm.is_auto_renewed} onChange={e => setEditForm({ ...editForm, is_auto_renewed: e.target.checked })} />
                   Auto-Renew on Maturity
                 </label>
               </div>

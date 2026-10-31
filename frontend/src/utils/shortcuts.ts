@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const SHORTCUTS: Record<string, string> = {
+export const SHORTCUTS: Record<string, string> = {
   'd': '/',
   'm': '/mutual-funds',
   's': '/stocks',
