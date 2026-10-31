@@ -15,6 +15,44 @@
 
 ## System Architecture
 
+### Household finance extension
+
+The existing models -> repositories -> services -> handlers -> routes layering
+also covers accounts, budgets, insurance, gold, property, family assignments,
+FIRE planning and documents. Dependencies are wired in `backend/container/container.go`;
+`backend/routes/personal_finance_routes.go` registers their authenticated routes.
+All user data uses the effective user ID, including read-only admin view-as.
+
+- `GET /api/v1/finance/overview` aggregates net worth, bank/cash snapshots,
+  confirmed ledger income/expenses, budget status and insurance premiums due
+  within 30 days. The web Dashboard loads it independently from portfolio charts;
+  mobile clients can reuse the same response. Account, budget and insurance query
+  failures return errors rather than presenting unavailable figures as zeros.
+- The ledger stores integer paise. Summary endpoints convert to rupees, exclude
+  pending/rejected records, and keep bills/transfers separate from expenses.
+  Account balances are dated snapshots, not reconciled or live-bank balances.
+- `bank_accounts`, `budgets`, `insurance_policies`, `gold_holdings`, `properties`,
+  `profile_assignments` and `notification_settings` extend persisted user data.
+  Family summaries combine existing profiles with ownership assignments.
+- Documents use MongoDB GridFS plus metadata, are limited to 10 MB each and
+  support links to holdings and expiry dates. Binary uploads are not backed up
+  by the JSON backup endpoint.
+- Broker import parses Zerodha/Groww holdings/tradebook CSVs with dry-run preview
+  and duplicate-trade detection before writing to existing stock records.
+- FIRE calculations derive defaults from ledger/investment data, then run
+  deterministic planning and Monte Carlo estimates using explicit assumptions.
+- The scheduler generates household reminders alongside investment reminders.
+  Settings enable email/Telegram per user; server-side delivery uses `SMTP_HOST`,
+  `SMTP_PORT` (587 by default), `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`
+  and `TELEGRAM_BOT_TOKEN`. Password resets share the SMTP configuration;
+  without it, reset links are logged instead of emailed.
+- JSON backup/restore includes the new financial collections and assignments;
+  CSV exports include accounts, budgets, insurance, gold and property.
+- `POST /api/v1/auth/refresh` renews an authenticated client's JWT.
+
+The diagram below describes the original investment core; the extension above
+adds household-finance modules to the same frontend/backend/database structure.
+
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
 │                              React Frontend                                   │
@@ -461,7 +499,7 @@ Complex schema to handle different payout frequencies and maturity types (bullet
 }
 ```
 
-Computed fields (not stored): `current_value`, `progress_pct`, `monthly_needed`, `months_remaining`, `on_track`, `projected_date`, `shortfall`, `projection_points`.
+Computed fields (not stored): `current_value`, `inflated_target`, `effective_return_rate`, `monthly_contribution`, `projected_value`, `progress_pct`, `monthly_needed`, `additional_monthly_needed`, `months_remaining`, `on_track`, `projected_date`, `shortfall`, `projection_points`. Stored `inflation_rate` (0 = none); `assumed_return_rate` 0 = derive from linked investments.
 
 ### 13. Collection: `net_worth_snapshots`
 
@@ -655,7 +693,8 @@ investment-tracker/
 │       ├── components/
 │       │   └── Sidebar.tsx
 │       ├── context/
-│       │   └── AuthContext.tsx           # JWT token + user state
+│       │   ├── AuthContext.ts            # Auth context + useAuth hook
+│       │   └── AuthProvider.tsx          # JWT token + user state
 │       ├── pages/                       # 21 pages
 │       │   ├── LoginPage.tsx
 │       │   ├── SignupPage.tsx
@@ -699,6 +738,7 @@ investment-tracker/
 - Passwords hashed with bcrypt (cost 10)
 - JWT tokens with user ID and role claims
 - Middleware extracts user ID from token for all authenticated routes
+- Data isolation: `ScopeToEffectiveUser` middleware binds the effective user ID to the request context (`repository.WithOwner`); every user-owned repository query (`GetAll`, `GetByID`, `Update`, `Delete`, etc.) adds `user_id` to its filter, so a user can never read or modify another user's documents by ID. Background jobs (scheduler) use an unscoped context
 - Admin role can list users and impersonate via `X-View-As-User` header (read-only)
 - Forgot password generates a reset token (stored hashed) with expiry
 
@@ -733,13 +773,17 @@ When a principal repayment is marked as received:
 - `avg_buy_price = total_invested / total_quantity`
 
 ### 6. Monte Carlo Projection Engine
-- Runs 2,000 simulated growth paths per investment using Geometric Brownian Motion
-- Monthly step: `value *= (1 + monthlyDrift + randomShock * monthlyVolatility)`
-- Extracts P10 (pessimistic), P50 (median), P90 (optimistic) percentiles at each month
-- **Volatility estimation**: Computed from historical transaction NAV/price data where available, otherwise category-specific defaults (18% equity MF, 22% stocks, 3% debt, 1% FD/PF, 10% hybrid)
-- **Rate estimation**: Historical CAGR from transaction data, with fallbacks by asset type
-- Replaces simple bull/bear multipliers with statistically grounded confidence intervals
-- FDs and PF produce tight bands (near-deterministic); stocks and equity MFs produce wide bands
+- **Market-linked holdings** (mutual funds, stocks, NPS) are simulated *jointly* over 2,000 paths so portfolio percentiles reflect diversification (percentiles are taken of the portfolio total, not summed per holding)
+- Monthly step (log-normal): `value = (value + contribution) * exp(mu + sigma * z)`, `mu = ln(1 + rate)/12`, so the median (P50) path grows at exactly the assumed rate
+- Correlation via a one-factor model: `z = beta * M + sqrt(1 - beta²) * e`, with `M` a market shock shared by all holdings (beta ≈ 0.9 for equity, 0.2 for debt, 0.8 for single stocks)
+- **Rate estimation**: the holding's XIRR blended with the category's long-term return (`services/asset_class.go`); credibility = years / (years + 5), capped at 50%, so short track records barely move the assumption
+- **Volatility**: category-specific (e.g. large cap 16%, small cap 26%, gilt 5%, liquid/overnight 0.8%, stocks 25%)
+- **Contributions**: active SIPs (converted to monthly, until their end date), PF and NPS contributions at last year's pace
+- **Scheduled holdings** follow contracts with no randomness: FD accrued value (proceeds held as cash after maturity), PF at its declared rate, bond principal + scheduled coupons, vehicle rentals at book value + promised payouts
+- **Scenarios** shift only market-linked returns (bull: equity +3%, debt +0.5%; bear: equity −4%, debt −1%)
+- **Liabilities**: home/personal loans amortised at their current EMI → net-worth projection (credit cards excluded)
+- Optional `inflation` parameter expresses all values in today's money
+- Deterministic per-user seed (stable results across refreshes); memory is O(months × paths) regardless of holding count
 - Supports 1–30 year projection horizons
 
 ### 7. Home Loan Under-Construction Support
@@ -751,7 +795,17 @@ When a principal repayment is marked as received:
 - Scans entire portfolio to generate actionable insights
 - Categories: risk, performance, tax, diversification, loan, goal, opportunity
 - Severity levels: critical, warning, info, positive
-- Examples: concentration risk, unused 80C limit, high-interest loans, underperforming funds
+- Examples: concentration risk, overdue rental payouts, unregulated-scheme exposure, 80C room (from the Tax Center's FY figures), high-cost loans (≥9% warning, ≥12% critical), underperforming funds (held ≥1 year), goals off track
+- Fund classification (equity/debt share) comes from the shared `asset_class.go`, also used by the dashboard
+- Insight IDs are derived from the rule and entity (e.g. `goal-behind:<goalId>`) so they are stable across requests
+
+### 8b. Goal Planning
+- Current value = linked investments × allocation % (FDs at accrued value)
+- Ongoing contributions = active SIPs on linked funds + PF/NPS contributions, × allocation %
+- Return = the goal's assumed rate, or (if 0/blank) the value-weighted long-term return of linked investments
+- Optional inflation rate: the target is treated as today's money and inflated to the target date
+- **On track** when current value + contributions, grown at that return, reach the (inflated) target by the target date; shortfall, projected completion date and additional monthly investment needed are derived from the same trajectory
+- An investment can't be allocated more than 100% across active goals
 
 ### 9. Tax Computation
 - **Section 80C** (₹1.5L limit): EPF contributions + ELSS investments + home loan principal + PPF + NPS (80CCD1)
@@ -760,15 +814,24 @@ When a principal repayment is marked as received:
 - **Capital gains**: Tracks LTCG/STCG from MF redemptions and stock sells
 
 ### 10. Notification Generator
-- Scans all modules for events within next 7 days
-- Event types: EMI due dates, FD maturity, bond interest/principal payouts, SIP installment dates, credit card due dates, goal deadlines
-- Deduplicates against existing notifications
+- Scans all modules for upcoming events: EMIs and SIPs (7 days), FD maturities, bond coupons and rental buybacks (30 days), credit card dues (15 days), overdue rental payouts, goals at risk and goal milestones
+- Each notification carries a `dedupe_key` (event type + record + date, e.g. `emi_due:home_loan:<id>:2026-11-05`), backed by a unique partial index on `(user_id, dedupe_key)`; repeat scans never create duplicates and dismissed alerts stay dismissed
+- Runs automatically per user from the daily scheduler, and on app load from the sidebar (skipped in admin view-as mode); the "Scan" button still triggers it manually
 
 ### 11. Daily Scheduler
-- Runs at 20:00 IST daily (after Indian market close)
-- Refreshes NAV for all mutual funds
-- Refreshes stock prices for all holdings
-- Takes a net worth snapshot for historical tracking
+- Runs at 20:00 IST daily (after Indian market close), plus a catch-up run 30 seconds after server start (so hosts that sleep or restart still get current snapshots and alerts)
+- Refreshes NAV for all mutual funds and stock prices for all holdings
+- For **each user** (with an owner-scoped context): upserts this month's net worth snapshot and generates notifications
+- Removes legacy net worth snapshots that have no user, and read notifications older than a year
+
+### 11b. Derived State for Bonds and FDs
+- `services/normalize.go` applies the same read-time rules everywhere (dashboard, net worth, cashflow, tax, goals, projections, export): past bond/FD payouts count as received, and an FD past its maturity date (and not auto-renewed) is `matured`
+- FD current value = accrued value while active (quarterly compounding for cumulative FDs), 0 once matured; maturity proceeds and payouts count as cash returned
+- Dashboard "Total Gains" = current value − invested + cash already returned (bond interest/principal, FD payouts/maturities, rental payouts)
+- FD XIRR uses actual cash movements (principal out, interest payouts and maturity in) plus accrued value
+
+### 11c. API Error Responses
+- Handlers use `respondError`: not found (including malformed IDs and records owned by another user) → 404, invalid input (`services.ErrInvalidInput`, e.g. bad dates) → 400, otherwise 500
 
 ### 12. ELSS Lock-in Tracking
 - Each ELSS transaction has its own `lock_in_end` (purchase_date + 3 years)
@@ -792,17 +855,17 @@ The dashboard aggregates across all investment and liability types:
 
 | Metric                     | Source                                                                         |
 |----------------------------|--------------------------------------------------------------------------------|
-| Total Invested             | Sum across MF + Stocks + Bonds + FD + PF + NPS                                |
-| Current Value              | MF (units×NAV) + Stocks (qty×price) + FD + Bonds + PF + NPS current values    |
-| Total Gains                | Current Value - Total Invested                                                 |
+| Total Invested             | Sum across MF + Stocks + Bonds + FD + PF + NPS + Vehicle Rentals              |
+| Current Value              | MF (units×NAV) + Stocks (qty×price) + FD + Bonds + PF + NPS current values + Vehicle Rental book value |
+| Total Gains                | Current Value - Total Invested + vehicle rental payouts/buyback received       |
 | Overall Return %           | (Gains / Invested) × 100                                                       |
 | Portfolio XIRR             | Time-weighted return from all transaction cashflows                             |
 | Risk Score                 | Composite of equity/debt ratio, diversification, concentration, loan-to-asset  |
-| Upcoming Payouts           | Next 30 days: bond interest, FD maturity, bond principal                       |
+| Upcoming Payouts           | Next 30 days: bond interest, FD maturity, bond principal, vehicle rental payouts/buyback |
 | Loan Summary               | Total outstanding, total EMI, total prepayments (home + personal)              |
 | Credit Card Summary        | Total outstanding, total limit, avg utilization                                |
 | ELSS Tax Saving (80C)      | Sum of ELSS investments in current FY (max ₹1.5L)                             |
-| Asset Allocation Pie       | % in MF, Stocks, Bonds, FD, PF, NPS                                           |
+| Asset Allocation Pie       | % in MF, Stocks, Bonds, FD, PF, NPS, Vehicle Rentals                          |
 | Rebalancing Suggestions    | User provides target allocation → system suggests buy/sell actions             |
 
 ---

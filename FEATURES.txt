@@ -1,6 +1,38 @@
 INVESTMENT TRACKER - COMPLETE FEATURE LIST
 ==========================================
 
+MOBILE COMPANION - INITIAL RELEASE
+---------------------------------
+- Android Capacitor project sharing the existing login, screens and backend
+- Personal income/expense/refund/transfer/bill ledger with integer paise amounts
+- Monthly confirmed totals, review/edit/reject inbox, web CSV, JSON backup/restore
+- Local bank/card SMS parsing and opt-in, user-triggered Android inbox scanning
+- Initial templates: HDFC, ICICI, Axis, SBI, OneCard and YES BANK
+- SMS imports remain pending until reviewed; identical rescans/retries deduplicated
+- OTP/promo exclusion; no raw SMS storage/upload; last four account digits only
+- Not yet: background SMS listener, automatic card reconciliation,
+  push reminders, offline sync, biometric lock or native secure token storage
+- Ledger totals are separate from investment cashflow and credit-card balances
+- Full mobile roadmap: MOBILE_FEATURES.md; build guide: frontend/ANDROID.md
+
+HOUSEHOLD FINANCE & PLANNING
+---------------------------
+- Bank, cash and wallet accounts with dated balance history and stale warnings
+- Recorded balances only; no live bank connection or automatic ledger reconciliation
+- Monthly confirmed income/expenses, savings rate and top spending categories
+- Category budgets: warning at 80%, limit alert at 100% or more
+- Dashboard money cards: liquid balance, monthly income/expense, budgets and cover
+- Insurance policies, premium schedules, cover gaps and estimated 80C/80D premiums
+- Gold and property holdings included in net worth
+- Family profile assignments and per-member assets, liabilities and net worth
+- FIRE planner: target corpus, required savings, retirement age and simulation
+- Document vault: 10 MB per file; files excluded from JSON backups
+- Zerodha/Groww CSV preview and import, with duplicate-trade detection
+- Optional SMTP email/Telegram reminders configured per user in Settings
+- SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM, TELEGRAM_BOT_TOKEN
+- Authenticated JWT refresh endpoint for companion clients
+- Backup/restore and CSV export include the new financial records
+
 1. AUTHENTICATION & USER MANAGEMENT
 ------------------------------------
 - Signup (email/password with bcrypt hashing)
@@ -87,6 +119,14 @@ INVESTMENT TRACKER - COMPLETE FEATURE LIST
   - Asset allocation tracking (equity, corporate bond, govt securities, alternate assets)
   - Fund manager tracking (SBI, LIC, HDFC, etc.)
 
+3h-2. Vehicle Rentals (EV fleet leasing, e.g. Ridoji)
+  - Track vehicles bought and leased to a fleet operator for a fixed monthly rental
+  - Auto-generated monthly payout schedule (units x payout per unit, for the agreement tenure)
+  - Payouts are confirmed manually (date + actual amount); unpaid payouts >5 days late are flagged overdue
+  - "Mark all due as received", undo, short-payment tracking, buyback tracking
+  - Straight-line book value (purchase cost -> buyback value), capital recovered %, net return, XIRR
+  - Overdue payout and agreement-end alerts; included in dashboard, net worth, cashflow, backup and CSV export
+
 3i. Credit Cards
   - CRUD for credit cards
   - Monthly billing statement recording
@@ -103,17 +143,17 @@ INVESTMENT TRACKER - COMPLETE FEATURE LIST
 
 4. ANALYTICS & INTELLIGENCE
 ----------------------------
-- Investment Projections (Monte Carlo simulation — 2000 paths, P10/P50/P90 confidence bands, 1-30 year horizon, bull/bear/base scenarios)
+- Investment Projections (Monte Carlo — 2000 jointly simulated, market-correlated paths; P10/P50/P90 bands; 1-30 year horizon; XIRR blended with category long-term returns; scheduled cashflows for FD/PF/bonds/vehicle rentals; bull/bear/base scenarios on market-linked returns; inflation-adjusted view; net-worth projection with loan amortisation)
 - Cashflow Analysis (monthly inflow/outflow aggregation across all investments, month drilldown)
 - Insights Engine (portfolio analysis — risk, performance, tax, diversification, loan, goal, and opportunity insights with severity levels: critical/warning/info/positive)
-- Benchmark Comparison (compare portfolio against Nifty 50 and Sensex via Yahoo Finance, 1m-10y periods)
+- Benchmark Comparison (Nifty 50 and Sensex via Yahoo Finance: 1Y/3Y/5Y returns with CAGR, hourly cache, 1m-5y chart periods)
 - Tax Center (Section 80C: EPF + ELSS + home loan principal + PPF + NPS; Section 24b: home loan interest; Section 80CCD: NPS; capital gains tracking)
 - Net Worth Tracking (real-time assets minus liabilities, daily snapshots, historical trends)
-- Financial Goals (target amount/date, link investments to goals, progress tracking, assumed return rate, batch linking)
+- Financial Goals (target amount/date with optional inflation, link investments to goals (≤100% per investment across goals), on-track based on actual SIP/PF/NPS contributions, auto return from linked investments, shortfall and extra monthly investment needed, batch linking)
 
 5. NOTIFICATIONS
 -----------------
-- Auto-generated notifications (scans all modules for upcoming events within 7 days — EMIs, FD maturity, bond payouts, SIP dates, credit card due dates, goal deadlines)
+- Auto-generated notifications (EMIs, SIP dates, FD maturity, bond payouts, credit card dues, overdue rental payouts, goals at risk; generated daily per user and on app load, de-duplicated so dismissed alerts stay dismissed)
 - List all / unread notifications
 - Mark individual or all notifications as read
 
@@ -126,7 +166,7 @@ INVESTMENT TRACKER - COMPLETE FEATURE LIST
 
 7. BACKGROUND SERVICES & AUTOMATION
 ------------------------------------
-- Daily scheduler (runs at 20:00 IST — refreshes MF NAVs, stock prices, takes net worth snapshot)
+- Daily scheduler (runs at 20:00 IST plus a catch-up after startup — refreshes MF NAVs and stock prices, takes each user's monthly net worth snapshot, generates notifications)
 - NAV fetcher service (AMFI API integration via api.mfapi.in)
 - Stock price fetcher service (Yahoo Finance API — NSE .NS / BSE .BO suffix)
 

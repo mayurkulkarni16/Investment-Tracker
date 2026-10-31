@@ -6,6 +6,17 @@ A comprehensive personal finance platform to track investments, loans, and net w
 
 ## Features
 
+### Android Companion and Income/Expense Ledger
+- Personal Android companion using the existing React app and Go API.
+- Manual income, expense, refund, transfer and bill records with monthly totals,
+  pending review, corrections, web CSV export and JSON backup/restore support.
+- Local SMS parsing plus an opt-in Android inbox scan for initial HDFC, ICICI,
+  Axis, SBI, OneCard and YES BANK templates. Imported records require review.
+- This is an initial slice: no background SMS ingestion or automatic statement
+  reconciliation yet. The ledger is separate from investment cashflow/card balances.
+- [Android setup and limitations](frontend/ANDROID.md) |
+  [Complete mobile feature list and roadmap](MOBILE_FEATURES.md).
+
 ### Investment Tracking
 - **Mutual Funds** — Add funds by AMFI scheme code with auto NAV fetching. CAS PDF import, ELSS lock-in tracking, SIP/purchase/redemption transactions, and 80C tax saving calculation.
 - **Stocks** — Live prices via Yahoo Finance, auto-refreshed every 60s during market hours (Mon–Fri 9:15 AM – 3:30 PM IST). Buy/sell transactions, dividends, average cost, P&L, and day change.
@@ -13,8 +24,21 @@ A comprehensive personal finance platform to track investments, loans, and net w
 - **Fixed Deposits** — Cumulative and non-cumulative FDs with maturity amount calculation and auto-renewal tracking.
 - **Provident Fund** — EPF, VPF, and PPF support. Monthly contribution tracking by financial year, employee + employer split, PF passbook PDF import, and interest calculation per EPFO rules.
 - **NPS (National Pension System)** — Tier 1/Tier 2 accounts, contribution tracking, asset allocation (equity/corporate bond/govt securities/alternate), fund manager tracking, and 80CCD tax deduction computation.
+- **Vehicle Rentals** — EV fleet leasing schemes (e.g. Ridoji): auto-generated monthly payout schedule, manual payout confirmation with overdue alerts, buyback tracking, straight-line book value, capital recovered, and XIRR.
 - **SIPs** — Systematic investment plan tracking with installment recording, fund linking, frequency/date management, and completion stats.
 - **Credit Cards** — Card management with billing statements, payment tracking, EMI conversions, transaction categorization, credit score history, and utilization monitoring.
+
+### Household Finance & Planning
+- **Bank & Cash** - Bank accounts, wallets and cash balances with dated balance history, emergency-fund flags and stale-balance warnings. These are recorded snapshots, not live bank feeds; ledger entries do not automatically reconcile balances.
+- **Income, Expenses & Budgets** - Confirmed ledger totals, monthly savings rates, top spending categories and category limits with warnings at 80% and alerts at 100% or more. Pending SMS imports are excluded until reviewed.
+- **Dashboard Money Overview** - Bank/cash totals, this month's income and expenses, budget alerts, life/health cover and premiums due within 30 days. Available independently of investment holdings.
+- **Insurance** - Policy tracking, premium schedules, cover gaps and estimated 80C/80D premium figures. Scheduled premiums are estimates, not proof of payment or tax eligibility.
+- **Gold & Real Estate** - Physical/digital gold, jewellery and property valuations, included in net worth.
+- **Family** - Assign holdings and liabilities to profiles and view member-level net worth.
+- **FIRE Planner** - Retirement corpus, required savings, earliest feasible retirement age and simulated success probability. Assumptions and simulations are planning estimates, not guaranteed returns.
+- **Document Vault** - Upload, download and delete supporting documents (10 MB per file), with expiry reminders. Document files are not included in JSON backups.
+- **Broker CSV Import** - Preview Zerodha/Groww holdings and tradebook imports; duplicate trades are skipped on re-import.
+- **Reminders** - In-app alerts plus optional email/Telegram delivery for premiums, policy expiry, budget overruns and expiring documents. Configure delivery channels in Settings.
 
 ### Loan Tracking
 - **Home Loans** — Full lifecycle management: EMI recording, prepayments, floating rate changes, amortization schedule, under-construction support (tranche disbursements, pre-EMI interest), and auto-recalculation.
@@ -22,21 +46,21 @@ A comprehensive personal finance platform to track investments, loans, and net w
 
 ### Analytics & Intelligence
 - **Dashboard** — Portfolio summary with XIRR, asset allocation, risk metrics (equity/debt ratio, risk score, diversification, concentration risk, loan-to-asset ratio), upcoming payouts, loan and credit card summaries, and rebalancing suggestions.
-- **Investment Projections** — Monte Carlo simulation (2,000 paths) with P10/P50/P90 confidence bands for 1–30 year horizons. Uses historical volatility per investment with bull/bear/base scenarios.
+- **Investment Projections** — Monte Carlo simulation (2,000 jointly simulated paths with market correlation) with P10/P50/P90 bands for 1–30 year horizons. Expected returns blend your XIRR with category long-term returns; FDs, PF, bonds and vehicle rentals follow their schedules. Bull/bear/base scenarios, optional "today's money" (inflation-adjusted) view, and a net-worth projection with loans amortised.
 - **Cashflow Analysis** — Monthly inflow/outflow aggregation across all investment types with month-level drilldown.
 - **Insights Engine** — Automated portfolio analysis generating actionable insights across risk, performance, tax, diversification, loan, goal, and opportunity categories with severity levels (critical/warning/info/positive).
-- **Benchmark Comparison** — Compare portfolio performance against Nifty 50 and Sensex over 1m–10y periods via Yahoo Finance.
+- **Benchmark Comparison** — Nifty 50 and Sensex levels with 1Y/3Y/5Y returns (absolute and annualised) via Yahoo Finance, cached hourly; chart periods 1m–5y.
 - **Tax Center** — Section 80C (EPF, ELSS, home loan principal, PPF, NPS), Section 24b (home loan interest), Section 80CCD (NPS additional deduction), and capital gains tracking.
 - **Net Worth Tracking** — Real-time net worth (assets minus liabilities), daily snapshots via scheduler, and historical trend charts.
-- **Financial Goals** — Set targets with amount/date, link investments with allocation %, track progress, projected completion date, shortfall analysis, and batch linking.
+- **Financial Goals** — Set targets with amount/date (optionally inflation-adjusted), link investments with allocation % (max 100% per investment across goals), and see on-track status, projected completion date, shortfall and extra monthly investment needed based on your actual SIP/PF/NPS contributions.
 
 ### Platform Features
 - **Authentication** — Email/password signup, JWT login, forgot/reset password, change password, admin role with user management and view-as capability.
 - **Notifications** — Auto-generated alerts for upcoming events (EMIs, FD maturity, bond payouts, SIP dates, credit card due dates, goal deadlines) within 7 days. Mark read individually or all at once.
 - **Data Export** — CSV export per module or all investments.
-- **Backup & Restore** — Full JSON backup of all user data (12 collections) with one-click restore.
+- **Backup & Restore** — JSON backup of investments, ledger, accounts, budgets, insurance, gold, property, profile assignments and reminder settings. Document files are excluded. Restore replaces only the current user's data; records are always re-assigned to the restoring user.
 - **Profiles** — Multi-profile support with name, relationship, and color coding.
-- **Background Scheduler** — Runs daily at 20:00 IST to refresh MF NAVs, stock prices, and take net worth snapshots.
+- **Background Scheduler** — Runs daily at 20:00 IST (plus a catch-up shortly after startup) to refresh MF NAVs and stock prices, take each user's monthly net worth snapshot, and generate their notifications.
 
 ---
 
@@ -115,7 +139,28 @@ The backend reads configuration from environment variables with sensible default
 | `MONGO_URI`   | `mongodb://localhost:27017` | MongoDB connection string |
 | `DB_NAME`     | `investment_tracker`        | MongoDB database name    |
 | `SERVER_PORT` | `8080`                      | Backend server port      |
-| `JWT_SECRET`  | (auto-generated)            | JWT signing secret       |
+| `JWT_SECRET`  | development default         | JWT signing secret; override in production |
+
+Optional outbound messaging configuration:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SMTP_HOST` | unset | SMTP server for reminders and password-reset emails |
+| `SMTP_PORT` | `587` | SMTP server port |
+| `SMTP_USERNAME` | unset | SMTP authentication username |
+| `SMTP_PASSWORD` | unset | SMTP authentication password |
+| `SMTP_FROM` | unset | Sender email address |
+| `TELEGRAM_BOT_TOKEN` | unset | Telegram bot token; each user sets their chat ID in Settings |
+
+Without SMTP, password-reset links are logged by the server rather than emailed.
+Keep credentials in deployment environment variables, not source control.
+The authenticated `POST /api/v1/auth/refresh` endpoint renews the current JWT for companion clients.
+
+Household-finance API groups (all under `/api/v1`): `/accounts`, `/ledger/summary`,
+`/budgets`, `/insurance`, `/gold`, `/properties`, `/family`, `/fire`, `/documents`,
+`/stocks/import-broker`, `/notifications/settings` and `/notifications/test`.
+`GET /finance/overview` supplies the web Dashboard and mobile home screen with the
+same household totals. CSV export also includes accounts, budgets, insurance, gold and property.
 
 ---
 
@@ -273,6 +318,18 @@ All endpoints are prefixed with `/api/v1`. Authenticated routes require `Authori
 | DELETE | `/nps/:id`                      | Delete NPS account           |
 | POST   | `/nps/:id/contributions`        | Add contribution             |
 
+### Vehicle Rentals
+| Method | Endpoint                                     | Description                                        |
+|--------|----------------------------------------------|----------------------------------------------------|
+| GET    | `/vehicle-rentals`                           | List vehicle rental investments                    |
+| POST   | `/vehicle-rentals`                           | Create (generates monthly payout schedule)         |
+| GET    | `/vehicle-rentals/:id`                       | Get by ID                                          |
+| PUT    | `/vehicle-rentals/:id`                       | Update terms (keeps recorded receipts)             |
+| DELETE | `/vehicle-rentals/:id`                       | Delete                                             |
+| PUT    | `/vehicle-rentals/:id/payouts/:payoutId`     | Mark payout received (date, amount) or pending     |
+| POST   | `/vehicle-rentals/:id/mark-due-received`     | Mark all due payouts as received in full           |
+| PUT    | `/vehicle-rentals/:id/buyback`               | Mark buyback received or pending                   |
+
 ### Credit Cards
 | Method | Endpoint                              | Description                    |
 |--------|---------------------------------------|--------------------------------|
@@ -312,7 +369,7 @@ All endpoints are prefixed with `/api/v1`. Authenticated routes require `Authori
 ### Analytics
 | Method | Endpoint                  | Description                                     |
 |--------|---------------------------|-------------------------------------------------|
-| GET    | `/projections`            | Monte Carlo projections (P10/P50/P90)           |
+| GET    | `/projections`            | Monte Carlo projections (P10/P50/P90); `years`, `scenario`, `inflation` |
 | GET    | `/cashflow`               | Monthly cashflow summary                        |
 | GET    | `/cashflow/:month`        | Cashflow drilldown for a month                  |
 | GET    | `/insights`               | Portfolio insights and recommendations          |
@@ -362,10 +419,11 @@ All endpoints are prefixed with `/api/v1`. Authenticated routes require `Authori
 | `home_loans`            | Home loan records with EMI/prepayment history     |
 | `personal_loans`        | Personal loan records with EMI history            |
 | `nps_accounts`          | NPS accounts with contributions                   |
+| `vehicle_rentals`       | Vehicle rental (EV leasing) investments with payouts |
 | `credit_cards`          | Credit cards with statements and EMIs             |
 | `sips`                  | SIP plans with installment records                |
 | `goals`                 | Financial goals with linked investments           |
-| `net_worth_snapshots`   | Daily net worth snapshots                         |
+| `net_worth_snapshots`   | Monthly net worth snapshots per user (updated daily) |
 | `notifications`         | User notifications                                |
 | `profiles`              | User profiles for multi-profile support           |
 
@@ -386,4 +444,3 @@ All endpoints are prefixed with `/api/v1`. Authenticated routes require `Authori
 2. Go to **Mutual Funds** → **Import CAS**.
 3. Upload the PDF (enter password if the file is protected).
 4. Review the parsed funds and transactions, then click **Import**.
-
