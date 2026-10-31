@@ -39,30 +39,33 @@ export default function NetWorthPage() {
     return history.slice(-months);
   })();
 
-  // Normalize benchmark data to overlay with portfolio
+  // Net worth growth overlaid with Nifty 50 (both rebased to 0%). This is not an
+  // investment-return comparison: net worth also grows with new savings and loan
+  // repayments. Only meaningful when the starting net worth is positive.
   const benchmarkOverlay = (() => {
     if (filteredHistory.length < 2 || benchmarks.length === 0) return null;
     const nifty = benchmarks.find(b => b.symbol === '^NSEI');
     if (!nifty || !nifty.points || nifty.points.length === 0) return null;
 
     const startNW = filteredHistory[0].net_worth;
-    const niftyStart = nifty.points[0].value;
-
-    return filteredHistory.map(snap => {
-      // Find closest benchmark point to this month
-      const snapDate = new Date(snap.month + '-15');
+    if (startNW <= 0) return null;
+    const startDate = new Date(filteredHistory[0].month + '-15');
+    const niftyAt = (d: Date) => {
       let closest = nifty.points[0];
-      let minDiff = Math.abs(new Date(closest.date).getTime() - snapDate.getTime());
+      let minDiff = Infinity;
       for (const p of nifty.points) {
-        const diff = Math.abs(new Date(p.date).getTime() - snapDate.getTime());
+        const diff = Math.abs(new Date(p.date).getTime() - d.getTime());
         if (diff < minDiff) { minDiff = diff; closest = p; }
       }
-      return {
-        month: snap.month,
-        portfolio: startNW > 0 ? ((snap.net_worth / startNW - 1) * 100) : 0,
-        nifty50: niftyStart > 0 ? ((closest.value / niftyStart - 1) * 100) : 0,
-      };
-    });
+      return closest.value;
+    };
+    const niftyStart = niftyAt(startDate);
+
+    return filteredHistory.map(snap => ({
+      month: snap.month,
+      portfolio: (snap.net_worth / startNW - 1) * 100,
+      nifty50: niftyStart > 0 ? ((niftyAt(new Date(snap.month + '-15')) / niftyStart - 1) * 100) : 0,
+    }));
   })();
 
   return (
@@ -90,7 +93,7 @@ export default function NetWorthPage() {
       )}
 
       {current && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+        <div className="chart-grid" style={{ gap: 16, marginBottom: 24 }}>
           <div className="card">
             <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Assets Breakdown</h3>
             <div className="payout-list">
@@ -139,7 +142,7 @@ export default function NetWorthPage() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" fontSize={11} />
               <YAxis tickFormatter={(v: number) => `₹${(v / 100000).toFixed(0)}L`} fontSize={11} />
-              <Tooltip formatter={(v: any) => formatCurrency(v)} />
+              <Tooltip formatter={(v) => formatCurrency(Number(v))} />
               <Legend />
               <Area type="monotone" dataKey="total_assets" name="Assets" stroke="#0f9d58" fill="#e6f4ea" />
               <Area type="monotone" dataKey="total_liabilities" name="Liabilities" stroke="#ea4335" fill="#fce8e6" />
@@ -152,16 +155,16 @@ export default function NetWorthPage() {
 
       {benchmarkOverlay && benchmarkOverlay.length > 1 && (
         <div className="card">
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Portfolio vs Nifty 50 (Normalized)</h3>
-          <p className="text-muted" style={{ fontSize: 12, marginBottom: 12 }}>Both normalized to 0% at start of period for comparison</p>
+          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Net Worth Growth vs Nifty 50</h3>
+          <p className="text-muted" style={{ fontSize: 12, marginBottom: 12 }}>Both rebased to 0% at the start of the period. Net worth also grows with new savings and loan repayments, so this is not a measure of investment returns — see Portfolio XIRR on the dashboard for that.</p>
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={benchmarkOverlay}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" fontSize={11} />
               <YAxis tickFormatter={(v: number) => `${v.toFixed(0)}%`} fontSize={11} />
-              <Tooltip formatter={(v: any) => `${Number(v).toFixed(1)}%`} />
+              <Tooltip formatter={(v) => `${Number(v).toFixed(1)}%`} />
               <Legend />
-              <Line type="monotone" dataKey="portfolio" name="Your Portfolio" stroke="#1a73e8" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="portfolio" name="Net worth" stroke="#1a73e8" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="nifty50" name="Nifty 50" stroke="#ea4335" strokeWidth={2} dot={false} strokeDasharray="5 5" />
             </LineChart>
           </ResponsiveContainer>

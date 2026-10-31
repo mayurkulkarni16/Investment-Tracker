@@ -12,6 +12,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   provident_fund: '#0f9d58',
   stock: '#ea4335',
   corporate_bond: '#9c27b0',
+  nps: '#00bcd4',
+  vehicle_rental: '#795548',
 };
 const CATEGORY_LABELS: Record<string, string> = {
   mutual_fund: 'Mutual Fund',
@@ -19,26 +21,33 @@ const CATEGORY_LABELS: Record<string, string> = {
   provident_fund: 'Provident Fund',
   stock: 'Stock',
   corporate_bond: 'Corporate Bond',
+  nps: 'NPS',
+  vehicle_rental: 'Vehicle Rental',
 };
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default function ProjectionsPage() {
   const { viewAsUserId } = useAuth();
-  const [data, setData] = useState<ProjectionsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
   const [years, setYears] = useState(5);
   const [scenario, setScenario] = useState<string>('base');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [todaysMoney, setTodaysMoney] = useState(false);
+  const [inflation, setInflation] = useState(6);
+  const [result, setResult] = useState<{ key: string; data: ProjectionsResponse | null } | null>(null);
 
-  const load = () => {
-    setLoading(true);
-    getProjections(years, scenario).then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false));
-  };
+  const effectiveInflation = todaysMoney ? inflation : 0;
+  const requestKey = `${years}|${scenario}|${effectiveInflation}|${viewAsUserId ?? ''}`;
+  useEffect(() => {
+    let cancelled = false;
+    getProjections(years, scenario, effectiveInflation)
+      .then(r => { if (!cancelled) setResult({ key: requestKey, data: r.data }); })
+      .catch(() => { if (!cancelled) setResult({ key: requestKey, data: null }); });
+    return () => { cancelled = true; };
+  }, [requestKey, years, scenario, effectiveInflation]);
 
-  useEffect(() => { load(); }, [years, scenario, viewAsUserId]);
-
-  if (loading) return <div className="loading">Loading projections...</div>;
+  if (result?.key !== requestKey) return <div className="loading">Loading projections...</div>;
+  const data = result.data;
   if (!data || data.investments.length === 0) {
     return (
       <div className="empty-state">
@@ -97,16 +106,34 @@ export default function ProjectionsPage() {
     };
   }).sort((a, b) => b.growth - a.growth);
 
-  // Growth percentage (projected total gain)
+  // Growth percentage (projected total gain at the end of the horizon)
   const projectedGrowth = data.total_current > 0
-    ? ((data.total_projected_5y - data.total_current) / data.total_current * 100)
+    ? ((data.total_projected_end - data.total_current) / data.total_current * 100)
     : 0;
+  const hasLiabilities = (data.liabilities || []).length > 0;
+  const endNetWorth = data.net_worth_monthly?.[data.net_worth_monthly.length - 1];
+  const netWorthChartData = hasLiabilities
+    ? data.net_worth_monthly
+      .map((pt, i) => ({
+        label: `${MONTH_NAMES[pt.month]} ${pt.year}`,
+        assets: data.aggregate_monthly[i]?.p50 ?? 0,
+        liabilities: data.liabilities_monthly[i]?.value ?? 0,
+        net: pt.p50, netP10: pt.p10, netP90: pt.p90,
+      }))
+      .filter((_, i, arr) => i % 3 === 0 || i === arr.length - 1)
+    : [];
+  const rangeNote = (r?: { p10: number; p90: number }) => r && (
+    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+      {formatCurrency(r.p10)} — {formatCurrency(r.p90)}
+      <span style={{ marginLeft: 4, opacity: 0.7 }}>(80% range)</span>
+    </div>
+  );
 
   return (
     <div>
       <div className="page-header">
         <h1>Investment Projections</h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <label style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Scenario:</label>
           <div style={{ display: 'flex', gap: 0 }}>
             {[{ key: 'bear', label: '🐻 Bear', color: '#ea4335' }, { key: 'base', label: '📊 Base', color: '#1a73e8' }, { key: 'bull', label: '🐂 Bull', color: '#0f9d58' }].map(s => (
@@ -128,9 +155,29 @@ export default function ProjectionsPage() {
             <option value={10}>10 Years</option>
             <option value={15}>15 Years</option>
             <option value={20}>20 Years</option>
+            <option value={25}>25 Years</option>
+            <option value={30}>30 Years</option>
           </select>
+          <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, marginLeft: 12 }}>
+            <input type="checkbox" checked={todaysMoney} onChange={e => setTodaysMoney(e.target.checked)} />
+            Today's money
+          </label>
+          {todaysMoney && (
+            <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+              inflation
+              <input type="number" min={0} max={20} step={0.5} value={inflation}
+                onChange={e => setInflation(Math.min(20, Math.max(0, parseFloat(e.target.value) || 0)))}
+                style={{ width: 60, padding: '4px 6px' }} />%
+            </label>
+          )}
         </div>
       </div>
+
+      {data.inflation_rate > 0 && (
+        <p className="text-muted" style={{ fontSize: 12, marginTop: -8, marginBottom: 12 }}>
+          All future values are shown in today's money, assuming {data.inflation_rate}% annual inflation.
+        </p>
+      )}
 
       {/* Summary cards */}
       <div className="card-grid" style={{ marginBottom: 20 }}>
@@ -138,45 +185,39 @@ export default function ProjectionsPage() {
           <div className="label">Current Portfolio</div>
           <div className="value">{formatCurrency(data.total_current)}</div>
         </div>
-        {data.total_projected_1y > 0 && (
+        {years > 1 && data.total_projected_1y > 0 && (
           <div className="stat-card">
             <div className="label">Projected (1Y)</div>
             <div className="value positive">{formatCurrency(data.total_projected_1y)}</div>
-            {data.projected_1y_range && (
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-                {formatCurrency(data.projected_1y_range.p10)} — {formatCurrency(data.projected_1y_range.p90)}
-                <span style={{ marginLeft: 4, opacity: 0.7 }}>(80% confidence)</span>
-              </div>
-            )}
+            {rangeNote(data.projected_1y_range)}
           </div>
         )}
-        {data.total_projected_3y > 0 && (
+        {years > 3 && data.total_projected_3y > 0 && (
           <div className="stat-card">
             <div className="label">Projected (3Y)</div>
             <div className="value positive">{formatCurrency(data.total_projected_3y)}</div>
-            {data.projected_3y_range && (
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-                {formatCurrency(data.projected_3y_range.p10)} — {formatCurrency(data.projected_3y_range.p90)}
-                <span style={{ marginLeft: 4, opacity: 0.7 }}>(80% confidence)</span>
-              </div>
-            )}
+            {rangeNote(data.projected_3y_range)}
           </div>
         )}
-        {data.total_projected_5y > 0 && (
+        {data.total_projected_end > 0 && (
           <div className="stat-card">
             <div className="label">Projected ({years}Y)</div>
             <div className="value positive">
-              {formatCurrency(data.total_projected_5y)}
-              <span style={{ fontSize: 13, marginLeft: 6, color: '#0f9d58' }}>
-                (+{projectedGrowth.toFixed(1)}%)
+              {formatCurrency(data.total_projected_end)}
+              <span style={{ fontSize: 13, marginLeft: 6, color: projectedGrowth >= 0 ? '#0f9d58' : '#ea4335' }}>
+                ({projectedGrowth >= 0 ? '+' : ''}{projectedGrowth.toFixed(1)}%)
               </span>
             </div>
-            {data.projected_5y_range && (
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-                {formatCurrency(data.projected_5y_range.p10)} — {formatCurrency(data.projected_5y_range.p90)}
-                <span style={{ marginLeft: 4, opacity: 0.7 }}>(80% confidence)</span>
-              </div>
-            )}
+            {rangeNote(data.projected_end_range)}
+          </div>
+        )}
+        {hasLiabilities && endNetWorth && (
+          <div className="stat-card">
+            <div className="label">Net Worth: Now → {years}Y</div>
+            <div className="value">{formatCurrency(data.current_net_worth)} → {formatCurrency(endNetWorth.p50)}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+              Loans {formatCurrency(data.total_liabilities)} → {formatCurrency(data.liabilities_monthly[data.liabilities_monthly.length - 1]?.value ?? 0)}
+            </div>
           </div>
         )}
       </div>
@@ -192,7 +233,7 @@ export default function ProjectionsPage() {
       </div>
 
       {/* Charts Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+      <div className="chart-grid">
         {/* Total Portfolio Growth Area Chart with Confidence Bands */}
         <div className="card">
           <h3 style={{ marginBottom: 4 }}>Total Portfolio Growth</h3>
@@ -238,8 +279,32 @@ export default function ProjectionsPage() {
         </div>
       </div>
 
+      {/* Net worth projection (assets minus amortising loans) */}
+      {hasLiabilities && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <h3 style={{ marginBottom: 4 }}>Net Worth Projection</h3>
+          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 12, marginTop: 0 }}>
+            Assets (expected) minus loans paid down at their current EMIs. Dashed lines show the 80% range for net worth. Credit card balances are not included.
+          </p>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={netWorthChartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="label" fontSize={11} angle={-45} textAnchor="end" height={60} interval={Math.floor(netWorthChartData.length / 8)} />
+              <YAxis tickFormatter={v => `₹${(v / 100000).toFixed(1)}L`} fontSize={11} />
+              <Tooltip formatter={(val) => formatCurrency(val as number)} />
+              <Legend />
+              <Line type="monotone" dataKey="assets" name="Assets (P50)" stroke="#0f9d58" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="liabilities" name="Loans" stroke="#ea4335" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="net" name="Net worth (P50)" stroke="#1a73e8" strokeWidth={2.5} dot={false} />
+              <Line type="monotone" dataKey="netP10" name="Net worth P10" stroke="#1a73e8" strokeDasharray="4 4" strokeOpacity={0.5} dot={false} />
+              <Line type="monotone" dataKey="netP90" name="Net worth P90" stroke="#1a73e8" strokeDasharray="4 4" strokeOpacity={0.5} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {/* Individual Investment Projections */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+      <div className="chart-grid">
         {/* Individual growth lines */}
         <div className="card">
           <h3 style={{ marginBottom: 16 }}>Individual Investment Growth</h3>
@@ -321,25 +386,30 @@ export default function ProjectionsPage() {
       <div className="card">
         <h3 style={{ marginBottom: 12 }}>Projection Assumptions</h3>
         <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
-          Projections use Monte Carlo simulation with {(2000).toLocaleString()} paths based on historical returns and volatility. The P10–P90 range represents 80% confidence.
+          Market-linked holdings (mutual funds, stocks, NPS) are simulated together over {(data.simulations || 2000).toLocaleString()} paths with a shared market factor, so the portfolio range reflects diversification.
+          Their assumed rate is the expected median return: your own XIRR blended with the category's long-term return (short track records count for little).
+          FDs, PF, bonds and vehicle rentals follow their contractual schedules; payouts are held as cash, not reinvested.
+          Scenarios only change market-linked returns (bull +3% / bear −4% for equity). P10–P90 is the 80% range.
         </p>
         <table style={{ fontSize: 13 }}>
           <thead>
-            <tr><th>Investment</th><th>Category</th><th>Current Value</th><th>Assumed Rate</th><th>Volatility</th><th>Projected ({years}Y, P50)</th><th>P10–P90 Range</th></tr>
+            <tr><th>Investment</th><th>Category</th><th>Current Value</th><th>Assumed Rate</th><th>Volatility</th><th>Monthly Contribution</th><th>Projected ({years}Y, P50)</th><th>P10–P90 Range</th></tr>
           </thead>
           <tbody>
             {data.investments.map((inv, i) => {
               const last = inv.projections[inv.projections.length - 1];
+              const scheduled = inv.basis === 'scheduled';
               return (
-                <tr key={i}>
+                <tr key={i} title={inv.note}>
                   <td>{inv.name}</td>
-                  <td><span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: CATEGORY_COLORS[inv.category] + '22', color: CATEGORY_COLORS[inv.category] }}>{CATEGORY_LABELS[inv.category] || inv.category}</span></td>
+                  <td><span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, background: (CATEGORY_COLORS[inv.category] || '#999') + '22', color: CATEGORY_COLORS[inv.category] || 'var(--text-secondary)' }}>{CATEGORY_LABELS[inv.category] || inv.category}</span></td>
                   <td>{formatCurrency(inv.current_value)}</td>
-                  <td>{inv.assumed_rate_pct}% p.a.</td>
-                  <td>{inv.volatility_pct > 0 ? `${inv.volatility_pct}%` : '—'}</td>
+                  <td>{inv.assumed_rate_pct}% p.a.{inv.note && <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{inv.note}</div>}</td>
+                  <td>{scheduled ? 'Scheduled' : `${inv.volatility_pct}%`}</td>
+                  <td>{inv.monthly_contribution > 0 ? formatCurrency(inv.monthly_contribution) : '—'}</td>
                   <td>{last ? formatCurrency(last.p50) : '-'}</td>
                   <td style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                    {last ? `${formatCurrency(last.p10)} — ${formatCurrency(last.p90)}` : '-'}
+                    {last ? (scheduled ? '—' : `${formatCurrency(last.p10)} — ${formatCurrency(last.p90)}`) : '-'}
                   </td>
                 </tr>
               );

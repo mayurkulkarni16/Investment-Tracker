@@ -288,6 +288,7 @@ export interface InvestmentSummary {
   current_value: number;
   xirr: number;
   count: number;
+  income_received?: number;
 }
 
 export interface UpcomingPayout {
@@ -298,6 +299,24 @@ export interface UpcomingPayout {
   payout_type: string;
 }
 
+export interface Tax80CSummary {
+  fy: string;
+  used: number;
+  limit: number;
+  elss: number;
+  epf: number;
+  home_loan_principal: number;
+}
+
+export interface DataFreshness {
+  navs_as_of?: string;
+  prices_as_of?: string;
+  navs_missing: number;
+  prices_missing: number;
+  has_mutual_funds: boolean;
+  has_stocks: boolean;
+}
+
 export interface DashboardSummary {
   total_invested: number;
   current_value: number;
@@ -305,6 +324,8 @@ export interface DashboardSummary {
   overall_return_percent: number;
   portfolio_xirr: number;
   elss_tax_saving: number;
+  tax_80c?: Tax80CSummary;
+  data_freshness?: DataFreshness;
   asset_allocation: Record<string, number>;
   upcoming_payouts: UpcomingPayout[];
   mutual_fund_summary: InvestmentSummary;
@@ -313,6 +334,7 @@ export interface DashboardSummary {
   provident_fund_summary: InvestmentSummary;
   stock_summary: InvestmentSummary;
   nps_summary: InvestmentSummary;
+  vehicle_rental_summary?: InvestmentSummary;
   home_loan_summary: LoanSummary;
   personal_loan_summary: LoanSummary;
   credit_card_summary: CreditCardSummary;
@@ -678,9 +700,21 @@ export interface ProjectionPoint {
 export interface InvestmentProjection {
   name: string;
   category: string;
+  basis: 'simulated' | 'scheduled';
   current_value: number;
   assumed_rate_pct: number;
   volatility_pct: number;
+  monthly_contribution: number;
+  note?: string;
+  projections: ProjectionPoint[];
+}
+
+export interface LiabilityProjection {
+  name: string;
+  category: string;
+  current_value: number;
+  interest_rate: number;
+  monthly_emi: number;
   projections: ProjectionPoint[];
 }
 
@@ -700,7 +734,16 @@ export interface ProjectionsResponse {
   projected_1y_range?: ProjectedRange;
   projected_3y_range?: ProjectedRange;
   projected_5y_range?: ProjectedRange;
+  total_projected_end: number;
+  projected_end_range?: ProjectedRange;
   scenario: string;
+  liabilities: LiabilityProjection[];
+  liabilities_monthly: ProjectionPoint[];
+  net_worth_monthly: ProjectionPoint[];
+  total_liabilities: number;
+  current_net_worth: number;
+  inflation_rate: number;
+  simulations: number;
 }
 
 // NPS types
@@ -935,10 +978,16 @@ export interface Goal {
   target_amount: number;
   target_date: string;
   assumed_return_rate: number;
+  inflation_rate: number;
   linked_investments: LinkedInvestment[];
   current_value: number;
+  inflated_target: number;
+  effective_return_rate: number;
+  monthly_contribution: number;
+  projected_value: number;
   progress_pct: number;
   monthly_needed: number;
+  additional_monthly_needed: number;
   months_remaining: number;
   on_track: boolean;
   projected_date?: string;
@@ -958,6 +1007,7 @@ export interface CreateGoalRequest {
   target_amount: number;
   target_date: string;
   assumed_return_rate: number;
+  inflation_rate?: number;
   notes?: string;
 }
 
@@ -969,6 +1019,7 @@ export interface UpdateGoalRequest {
   target_amount?: number;
   target_date?: string;
   assumed_return_rate?: number;
+  inflation_rate?: number;
   status?: string;
   notes?: string;
 }
@@ -991,6 +1042,7 @@ export interface NetWorthSnapshot {
   provident_fund: number;
   nps: number;
   corporate_bonds: number;
+  vehicle_rentals?: number;
   other_assets: number;
   total_assets: number;
   home_loans: number;
@@ -1188,6 +1240,10 @@ export interface BenchmarkData {
   change_1y: number;
   change_3y: number;
   change_5y: number;
+  cagr_3y: number;
+  cagr_5y: number;
+  as_of: string;
+  available: string[]; // which of '1y' | '3y' | '5y' have enough history
 }
 
 export interface BenchmarkResponse {

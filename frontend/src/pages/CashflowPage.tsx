@@ -7,40 +7,39 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 
 export default function CashflowPage() {
   const { viewAsUserId } = useAuth();
-  const [data, setData] = useState<MonthlyCashflow[]>([]);
   const [months, setMonths] = useState(12);
-  const [loading, setLoading] = useState(true);
+  const [result, setResult] = useState<{ key: string; data: MonthlyCashflow[] } | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [details, setDetails] = useState<CashflowDetail[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const { toast } = useToast();
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await getMonthlyCashflows(months);
-      setData(res || []);
-    } catch {
-      toast('Failed to load cashflow data', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const requestKey = `${months}|${viewAsUserId ?? ''}`;
+  useEffect(() => {
+    let cancelled = false;
+    getMonthlyCashflows(months)
+      .then(res => { if (!cancelled) setResult({ key: requestKey, data: res || [] }); })
+      .catch(() => {
+        if (cancelled) return;
+        toast('Failed to load cashflow data', 'error');
+        setResult({ key: requestKey, data: [] });
+      });
+    return () => { cancelled = true; };
+  }, [requestKey, months, toast]);
 
-  useEffect(() => { load(); }, [months, viewAsUserId]);
-
-  if (loading) return <div className="loading">Loading cashflow data...</div>;
+  if (result?.key !== requestKey) return <div className="loading">Loading cashflow data...</div>;
+  const data = result.data;
 
   const totalInflow = data.reduce((s, d) => s + d.inflow, 0);
   const totalOutflow = data.reduce((s, d) => s + d.outflow, 0);
   const totalNet = totalInflow - totalOutflow;
 
   // Cumulative net for area chart
-  let cumulative = 0;
-  const cumulativeData = data.map(d => {
-    cumulative += d.net;
-    return { ...d, cumulative };
-  });
+  const cumulativeData = data.reduce<(MonthlyCashflow & { cumulative: number })[]>((acc, d) => {
+    const prev = acc.length > 0 ? acc[acc.length - 1].cumulative : 0;
+    acc.push({ ...d, cumulative: prev + d.net });
+    return acc;
+  }, []);
 
   const categoryColor = (cat: string) => {
     switch (cat) {

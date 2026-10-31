@@ -3,12 +3,13 @@ import { getInsights, type InsightsResponse, type Insight } from '../api/insight
 import { getRebalanceSuggestions, type RebalanceSuggestion, type RebalanceResponse } from '../api/dashboard';
 import { formatCurrency } from '../utils/format';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../context/AuthContext';
 
 const severityConfig: Record<string, { color: string; bg: string; icon: string; label: string }> = {
-  critical: { color: '#c62828', bg: '#ffebee', icon: '🚨', label: 'Critical' },
-  warning: { color: '#e65100', bg: '#fff3e0', icon: '⚠️', label: 'Warning' },
-  info: { color: '#1565c0', bg: '#e3f2fd', icon: 'ℹ️', label: 'Info' },
-  positive: { color: '#2e7d32', bg: '#e8f5e9', icon: '✅', label: 'Positive' },
+  critical: { color: 'var(--danger-text)', bg: 'var(--danger-soft)', icon: '🚨', label: 'Critical' },
+  warning: { color: 'var(--warning-text)', bg: 'var(--warning-soft)', icon: '⚠️', label: 'Warning' },
+  info: { color: 'var(--primary-text)', bg: 'var(--primary-soft)', icon: 'ℹ️', label: 'Info' },
+  positive: { color: 'var(--success-text)', bg: 'var(--success-soft)', icon: '✅', label: 'Positive' },
 };
 
 const categoryLabels: Record<string, string> = {
@@ -22,13 +23,13 @@ const categoryLabels: Record<string, string> = {
 };
 
 export default function InsightsPage() {
-  const [data, setData] = useState<InsightsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { viewAsUserId } = useAuth();
+  const [result, setResult] = useState<{ key: string; data: InsightsResponse | null } | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const { toast } = useToast();
 
   // Rebalancing state
-  const CATEGORIES = ['Mutual Funds', 'Stocks', 'Corporate Bonds', 'Fixed Deposits', 'Provident Fund', 'NPS'];
+  const CATEGORIES = ['Mutual Funds', 'Stocks', 'Corporate Bonds', 'Fixed Deposits', 'Provident Fund', 'NPS', 'Vehicle Rentals'];
   const [targets, setTargets] = useState<Record<string, number>>(() => {
     const t: Record<string, number> = {};
     CATEGORIES.forEach(c => t[c] = 0);
@@ -37,15 +38,21 @@ export default function InsightsPage() {
   const [rebalanceResult, setRebalanceResult] = useState<RebalanceResponse | null>(null);
   const [rebalanceLoading, setRebalanceLoading] = useState(false);
 
+  const requestKey = viewAsUserId ?? '';
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
     getInsights()
-      .then(setData)
-      .catch(() => toast('Failed to load insights', 'error'))
-      .finally(() => setLoading(false));
-  }, []);
+      .then(d => { if (!cancelled) setResult({ key: requestKey, data: d }); })
+      .catch(() => {
+        if (cancelled) return;
+        toast('Failed to load insights', 'error');
+        setResult({ key: requestKey, data: null });
+      });
+    return () => { cancelled = true; };
+  }, [requestKey, toast]);
 
-  if (loading) return <div className="loading">Analyzing your portfolio...</div>;
+  if (result?.key !== requestKey) return <div className="loading">Analyzing your portfolio...</div>;
+  const data = result.data;
   if (!data) return <div className="card">Failed to load insights.</div>;
 
   const filtered = filter === 'all' ? data.insights : data.insights.filter(i => i.severity === filter);
@@ -60,19 +67,19 @@ export default function InsightsPage() {
       <div className="card-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 20 }}>
         <div className="stat-card" style={{ cursor: 'pointer', outline: filter === 'critical' ? '2px solid #c62828' : undefined }} onClick={() => setFilter(filter === 'critical' ? 'all' : 'critical')}>
           <div className="label">Critical</div>
-          <div className="value" style={{ color: '#c62828' }}>{data.critical_count}</div>
+          <div className="value" style={{ color: 'var(--danger-text)' }}>{data.critical_count}</div>
         </div>
         <div className="stat-card" style={{ cursor: 'pointer', outline: filter === 'warning' ? '2px solid #e65100' : undefined }} onClick={() => setFilter(filter === 'warning' ? 'all' : 'warning')}>
           <div className="label">Warnings</div>
-          <div className="value" style={{ color: '#e65100' }}>{data.warning_count}</div>
+          <div className="value" style={{ color: 'var(--warning-text)' }}>{data.warning_count}</div>
         </div>
         <div className="stat-card" style={{ cursor: 'pointer', outline: filter === 'info' ? '2px solid #1565c0' : undefined }} onClick={() => setFilter(filter === 'info' ? 'all' : 'info')}>
           <div className="label">Info</div>
-          <div className="value" style={{ color: '#1565c0' }}>{data.info_count}</div>
+          <div className="value" style={{ color: 'var(--primary-text)' }}>{data.info_count}</div>
         </div>
         <div className="stat-card" style={{ cursor: 'pointer', outline: filter === 'positive' ? '2px solid #2e7d32' : undefined }} onClick={() => setFilter(filter === 'positive' ? 'all' : 'positive')}>
           <div className="label">Positive</div>
-          <div className="value" style={{ color: '#2e7d32' }}>{data.positive_count}</div>
+          <div className="value" style={{ color: 'var(--success-text)' }}>{data.positive_count}</div>
         </div>
       </div>
 
@@ -112,7 +119,7 @@ export default function InsightsPage() {
             ))}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 13, color: Math.abs(Object.values(targets).reduce((s, v) => s + v, 0) - 100) > 0.01 ? '#c62828' : undefined }}>
+            <span style={{ fontSize: 13, color: Math.abs(Object.values(targets).reduce((s, v) => s + v, 0) - 100) > 0.01 ? 'var(--danger-text)' : undefined }}>
               Total: {Object.values(targets).reduce((s, v) => s + v, 0).toFixed(0)}%
               {Math.abs(Object.values(targets).reduce((s, v) => s + v, 0) - 100) > 0.01 && ' (must equal 100%)'}
             </span>
@@ -161,19 +168,19 @@ export default function InsightsPage() {
                       <td style={{ fontWeight: 600 }}>{s.category}</td>
                       <td>{s.current_pct.toFixed(1)}%</td>
                       <td>{s.target_pct.toFixed(1)}%</td>
-                      <td style={{ color: s.diff_pct > 1 ? '#2e7d32' : s.diff_pct < -1 ? '#c62828' : undefined }}>
+                      <td style={{ color: s.diff_pct > 1 ? 'var(--success-text)' : s.diff_pct < -1 ? 'var(--danger-text)' : undefined }}>
                         {s.diff_pct > 0 ? '+' : ''}{s.diff_pct.toFixed(1)}%
                       </td>
                       <td>{formatCurrency(s.current_value)}</td>
                       <td>{formatCurrency(s.target_value)}</td>
-                      <td style={{ fontWeight: 600, color: s.adjustment_amount > 0 ? '#2e7d32' : s.adjustment_amount < 0 ? '#c62828' : undefined }}>
+                      <td style={{ fontWeight: 600, color: s.adjustment_amount > 0 ? 'var(--success-text)' : s.adjustment_amount < 0 ? 'var(--danger-text)' : undefined }}>
                         {s.adjustment_amount > 0 ? '+' : ''}{formatCurrency(Math.abs(s.adjustment_amount))}
                       </td>
                       <td>
                         <span style={{
                           padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
-                          background: s.action === 'buy_more' ? '#e8f5e9' : s.action === 'reduce' ? '#ffebee' : '#f5f5f5',
-                          color: s.action === 'buy_more' ? '#2e7d32' : s.action === 'reduce' ? '#c62828' : '#666',
+                          background: s.action === 'buy_more' ? 'var(--success-soft)' : s.action === 'reduce' ? 'var(--danger-soft)' : 'var(--surface-muted)',
+                          color: s.action === 'buy_more' ? 'var(--success-text)' : s.action === 'reduce' ? 'var(--danger-text)' : 'var(--text-secondary)',
                         }}>
                           {s.action === 'buy_more' ? 'Buy More' : s.action === 'reduce' ? 'Reduce' : 'On Target'}
                         </span>
@@ -210,15 +217,15 @@ function InsightCard({ insight }: { insight: Insight }) {
           }}>{config.label}</span>
           <span style={{
             padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 500,
-            background: '#f5f5f5', color: '#666',
+            background: 'var(--surface-muted)', color: 'var(--text-secondary)',
           }}>{categoryLabels[insight.category] || insight.category}</span>
         </div>
       </div>
-      <p style={{ fontSize: 14, color: '#555', margin: '0 0 8px 26px', lineHeight: 1.5 }}>{insight.description}</p>
+      <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: '0 0 8px 26px', lineHeight: 1.5 }}>{insight.description}</p>
       {insight.action && (
         <div style={{
           margin: '0 0 0 26px', padding: '8px 12px', borderRadius: 6,
-          background: '#f8f9fa', fontSize: 13, color: '#333', lineHeight: 1.5,
+          background: 'var(--surface-muted)', fontSize: 13, color: 'var(--text)', lineHeight: 1.5,
         }}>
           <strong>Action:</strong> {insight.action}
         </div>

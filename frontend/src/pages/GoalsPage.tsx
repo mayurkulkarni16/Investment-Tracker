@@ -28,7 +28,7 @@ export default function GoalsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [form, setForm] = useState<CreateGoalRequest>({ name: '', category: 'retirement', target_amount: 0, target_date: '', assumed_return_rate: 12 });
+  const [form, setForm] = useState<CreateGoalRequest>({ name: '', category: 'retirement', target_amount: 0, target_date: '', assumed_return_rate: 0, inflation_rate: 6 });
   const [editForm, setEditForm] = useState<UpdateGoalRequest>({});
   const [linkForm, setLinkForm] = useState<LinkInvestmentRequest>({ investment_type: 'mutual_fund', investment_id: '', investment_name: '', allocated_pct: 100 });
   const [availableInvestments, setAvailableInvestments] = useState<{ id: string; name: string }[]>([]);
@@ -78,7 +78,10 @@ export default function GoalsPage() {
       setShowLink(null);
       setSelectedInvestments([]);
       load();
-    } catch { toast('Failed to link investment', 'error'); }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast(msg ? `Failed to link: ${msg}` : 'Failed to link investment', 'error');
+    }
   };
   const handleUnlink = async (goalId: string, invId: string) => { try { await unlinkInvestment(goalId, invId); toast('Investment unlinked'); load(); } catch { toast('Failed to unlink', 'error'); } };
 
@@ -155,31 +158,38 @@ export default function GoalsPage() {
               <div style={{ marginTop: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
                   <span>{formatCurrency(g.current_value)}</span>
-                  <span>{formatCurrency(g.target_amount)}</span>
+                  <span>
+                    {formatCurrency(g.target_amount)}
+                    {g.inflation_rate > 0 && g.inflated_target > g.target_amount && (
+                      <span className="text-muted" title={`${g.inflation_rate}% inflation`}> ({formatCurrency(g.inflated_target)} in {new Date(g.target_date).getFullYear()} money)</span>
+                    )}
+                  </span>
                 </div>
-                <div style={{ width: '100%', background: '#e0e0e0', borderRadius: 6, height: 10, overflow: 'hidden' }}>
+                <div style={{ width: '100%', background: 'var(--border)', borderRadius: 6, height: 10, overflow: 'hidden' }}>
                   <div style={{
                     width: `${Math.min(g.progress_pct, 100)}%`, height: '100%', borderRadius: 6,
                     background: g.progress_pct >= 100 ? '#0f9d58' : g.progress_pct >= 50 ? '#1a73e8' : '#f9ab00',
                   }}></div>
                 </div>
                 <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
-                  {g.progress_pct?.toFixed(1)}% complete | {g.months_remaining} months left | Need {formatCurrency(g.monthly_needed)}/mo
-                  {g.shortfall > 0 && <span style={{ color: 'var(--danger)' }}> | Shortfall: {formatCurrency(g.shortfall)}</span>}
+                  {g.progress_pct?.toFixed(1)}% complete | {g.months_remaining} months left | Investing {formatCurrency(g.monthly_contribution || 0)}/mo
+                  {' '}at {g.effective_return_rate}%{g.assumed_return_rate > 0 ? '' : ' (auto)'}
+                  {g.additional_monthly_needed > 0 && <span style={{ color: 'var(--danger)' }}> | Need {formatCurrency(g.additional_monthly_needed)}/mo more</span>}
+                  {g.shortfall > 0 && <span style={{ color: 'var(--danger)' }}> | Projected shortfall: {formatCurrency(g.shortfall)}</span>}
                   {g.projected_date && <span> | Est. completion: {formatDate(g.projected_date)}</span>}
                 </p>
               </div>
 
               {expanded === g.id && g.projection_points && g.projection_points.length > 1 && (
                 <div style={{ marginTop: 16 }}>
-                  <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Goal Projection</h4>
+                  <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Goal Projection (current value + current contributions)</h4>
                   <ResponsiveContainer width="100%" height={200}>
                     <LineChart data={g.projection_points}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" fontSize={11} label={{ value: 'Months', position: 'insideBottom', offset: -3, fontSize: 11 }} />
                       <YAxis tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}K`} fontSize={11} />
-                      <Tooltip formatter={(val: any) => formatCurrency(val)} labelFormatter={(l: any) => `Month ${l}`} />
-                      <ReferenceLine y={g.target_amount} stroke="#ea4335" strokeDasharray="5 5" label={{ value: 'Target', fill: '#ea4335', fontSize: 11 }} />
+                      <Tooltip formatter={(val) => formatCurrency(val as number)} labelFormatter={(l) => `Month ${l}`} />
+                      <ReferenceLine y={g.inflated_target || g.target_amount} stroke="#ea4335" strokeDasharray="5 5" label={{ value: 'Target', fill: '#ea4335', fontSize: 11 }} />
                       <Line type="monotone" dataKey="value" name="Projected" stroke="#1a73e8" dot={false} strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
@@ -188,7 +198,7 @@ export default function GoalsPage() {
 
               <div style={{ marginTop: 12, display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
                 {!isViewOnly && <button className="btn btn-sm btn-primary" onClick={() => { setShowLink(g.id); fetchInvestments(linkForm.investment_type); }}>Link Investment</button>}
-                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => { setShowEdit(g); setEditForm({ name: g.name, category: g.category, target_amount: g.target_amount, target_date: g.target_date?.slice(0, 10), assumed_return_rate: g.assumed_return_rate, priority: g.priority, status: g.status, notes: g.notes }); }}>Edit</button>}
+                {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={() => { setShowEdit(g); setEditForm({ name: g.name, category: g.category, target_amount: g.target_amount, target_date: g.target_date?.slice(0, 10), assumed_return_rate: g.assumed_return_rate, inflation_rate: g.inflation_rate || 0, priority: g.priority, status: g.status, notes: g.notes }); }}>Edit</button>}
                 {!isViewOnly && <button className="btn btn-sm btn-danger" onClick={() => handleDelete(g.id)}>Delete</button>}
               </div>
 
@@ -225,7 +235,12 @@ export default function GoalsPage() {
               </div>
               <div className="form-row">
                 <div className="form-group"><label>Target Date</label><input type="date" required value={form.target_date} onChange={e => setForm({ ...form, target_date: e.target.value })} /></div>
-                <div className="form-group"><label>Expected Return %</label><input type="number" step="0.1" value={form.assumed_return_rate} onChange={e => setForm({ ...form, assumed_return_rate: +e.target.value })} /></div>
+                <div className="form-group"><label>Inflation %</label><input type="number" min={0} max={20} step="0.5" value={form.inflation_rate ?? 0} onChange={e => setForm({ ...form, inflation_rate: e.target.value === '' ? 0 : +e.target.value })} /></div>
+              </div>
+              <div className="form-group">
+                <label>Expected Return %</label>
+                <input type="number" min={0} max={50} step="0.1" placeholder="Auto (from linked investments)" value={form.assumed_return_rate || ''} onChange={e => setForm({ ...form, assumed_return_rate: e.target.value === '' ? 0 : +e.target.value })} />
+                <div className="text-muted" style={{ fontSize: 11, marginTop: 4 }}>Leave blank to use the long-term return of the investments you link. Set inflation to 0 if the target is already in future rupees.</div>
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setShowAdd(false)}>Cancel</button>
@@ -315,7 +330,10 @@ export default function GoalsPage() {
                 <div className="form-group"><label>Target Date</label><input type="date" value={editForm.target_date || ''} onChange={e => setEditForm({ ...editForm, target_date: e.target.value })} /></div>
               </div>
               <div className="form-row">
-                <div className="form-group"><label>Return Rate (%)</label><input type="number" step="0.1" value={editForm.assumed_return_rate || ''} onChange={e => setEditForm({ ...editForm, assumed_return_rate: +e.target.value })} /></div>
+                <div className="form-group"><label>Return Rate (%)</label><input type="number" min={0} max={50} step="0.1" placeholder="Auto" value={editForm.assumed_return_rate || ''} onChange={e => setEditForm({ ...editForm, assumed_return_rate: e.target.value === '' ? 0 : +e.target.value })} /></div>
+                <div className="form-group"><label>Inflation (%)</label><input type="number" min={0} max={20} step="0.5" value={editForm.inflation_rate ?? 0} onChange={e => setEditForm({ ...editForm, inflation_rate: e.target.value === '' ? 0 : +e.target.value })} /></div>
+              </div>
+              <div className="form-row">
                 <div className="form-group">
                   <label>Status</label>
                   <select value={editForm.status || 'active'} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
