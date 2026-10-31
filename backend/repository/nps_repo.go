@@ -35,7 +35,7 @@ func (r *NPSRepo) GetAll(ctx context.Context, userID string) ([]models.NPSAccoun
 	if userID != "" {
 		filter["user_id"] = userID
 	}
-	cursor, err := r.collection.Find(ctx, filter)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter))
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (r *NPSRepo) GetAll(ctx context.Context, userID string) ([]models.NPSAccoun
 
 func (r *NPSRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.NPSAccount, error) {
 	var account models.NPSAccount
-	if err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&account); err != nil {
+	if err := r.collection.FindOne(ctx, scoped(ctx, bson.M{"_id": id})).Decode(&account); err != nil {
 		return nil, err
 	}
 	return &account, nil
@@ -56,11 +56,17 @@ func (r *NPSRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.N
 
 func (r *NPSRepo) Update(ctx context.Context, account *models.NPSAccount) error {
 	account.UpdatedAt = time.Now()
-	_, err := r.collection.ReplaceOne(ctx, bson.M{"_id": account.ID}, account)
-	return err
+	res, err := r.collection.ReplaceOne(ctx, scoped(ctx, bson.M{"_id": account.ID}), account)
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.MatchedCount)
 }
 
 func (r *NPSRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	return err
+	res, err := r.collection.DeleteOne(ctx, scoped(ctx, bson.M{"_id": id}))
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.DeletedCount)
 }

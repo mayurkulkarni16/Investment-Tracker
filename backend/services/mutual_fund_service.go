@@ -165,8 +165,9 @@ func (s *MutualFundService) RefreshNAV(ctx context.Context, id string) (*models.
 	return mf, nil
 }
 
-func (s *MutualFundService) RefreshAllNAVs(ctx context.Context) ([]models.MutualFund, error) {
-	funds, err := s.repo.GetAll(ctx, "")
+// RefreshAllNAVs refreshes NAVs for userID's funds, or for all users' funds when userID is empty.
+func (s *MutualFundService) RefreshAllNAVs(ctx context.Context, userID string) ([]models.MutualFund, error) {
+	funds, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +213,7 @@ func (s *MutualFundService) DeleteTransaction(ctx context.Context, fundID, txnID
 		newTxns = append(newTxns, t)
 	}
 	if !found {
-		return nil, fmt.Errorf("transaction not found")
+		return nil, notFoundf("transaction not found")
 	}
 	mf.Transactions = newTxns
 	s.recalculate(mf)
@@ -258,7 +259,7 @@ func (s *MutualFundService) UpdateTransaction(ctx context.Context, fundID, txnID
 		}
 	}
 	if !found {
-		return nil, fmt.Errorf("transaction not found")
+		return nil, notFoundf("transaction not found")
 	}
 	s.recalculate(mf)
 	if err := s.repo.Update(ctx, mf); err != nil {

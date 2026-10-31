@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"investment-tracker/models"
 	"investment-tracker/middleware"
+	"investment-tracker/models"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -27,7 +27,7 @@ func (h *StockHandler) Create(c *gin.Context) {
 
 	stock, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, stock)
@@ -36,7 +36,7 @@ func (h *StockHandler) Create(c *gin.Context) {
 func (h *StockHandler) GetAll(c *gin.Context) {
 	stocks, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	if stocks == nil {
@@ -48,7 +48,7 @@ func (h *StockHandler) GetAll(c *gin.Context) {
 func (h *StockHandler) GetByID(c *gin.Context) {
 	stock, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Stock not found"})
+		respondNotFound(c, err, "Stock not found")
 		return
 	}
 	c.JSON(http.StatusOK, stock)
@@ -63,7 +63,7 @@ func (h *StockHandler) AddTransaction(c *gin.Context) {
 
 	stock, err := h.service.AddTransaction(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, stock)
@@ -72,7 +72,7 @@ func (h *StockHandler) AddTransaction(c *gin.Context) {
 func (h *StockHandler) DeleteTransaction(c *gin.Context) {
 	stock, err := h.service.DeleteTransaction(c.Request.Context(), c.Param("id"), c.Param("txnId"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, stock)
@@ -86,7 +86,7 @@ func (h *StockHandler) UpdateTransaction(c *gin.Context) {
 	}
 	stock, err := h.service.UpdateTransaction(c.Request.Context(), c.Param("id"), c.Param("txnId"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, stock)
@@ -97,17 +97,20 @@ func (h *StockHandler) RefreshPrice(c *gin.Context) {
 	if id != "" {
 		stock, err := h.service.RefreshPrice(c.Request.Context(), id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			respondError(c, err)
 			return
 		}
 		c.JSON(http.StatusOK, stock)
 		return
 	}
 
-	stocks, err := h.service.RefreshAllPrices(c.Request.Context())
+	stocks, err := h.service.RefreshAllPrices(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
+	}
+	if stocks == nil {
+		stocks = []models.Stock{}
 	}
 	c.JSON(http.StatusOK, stocks)
 }
@@ -121,7 +124,7 @@ func (h *StockHandler) Update(c *gin.Context) {
 
 	stock, err := h.service.Update(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, stock)
@@ -129,7 +132,7 @@ func (h *StockHandler) Update(c *gin.Context) {
 
 func (h *StockHandler) Delete(c *gin.Context) {
 	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Deleted successfully"})
@@ -147,7 +150,7 @@ func (h *StockHandler) AddDividend(c *gin.Context) {
 	}
 	stock, err := h.service.AddDividend(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, stock)
@@ -156,12 +159,8 @@ func (h *StockHandler) AddDividend(c *gin.Context) {
 func (h *StockHandler) DeleteDividend(c *gin.Context) {
 	stock, err := h.service.DeleteDividend(c.Request.Context(), c.Param("id"), c.Param("divId"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, stock)
 }
-
-
-
-

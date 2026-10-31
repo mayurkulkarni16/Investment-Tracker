@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"investment-tracker/models"
 	"investment-tracker/middleware"
+	"investment-tracker/models"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -27,7 +27,7 @@ func (h *MutualFundHandler) Create(c *gin.Context) {
 
 	mf, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, mf)
@@ -36,7 +36,7 @@ func (h *MutualFundHandler) Create(c *gin.Context) {
 func (h *MutualFundHandler) GetAll(c *gin.Context) {
 	funds, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	if funds == nil {
@@ -48,7 +48,7 @@ func (h *MutualFundHandler) GetAll(c *gin.Context) {
 func (h *MutualFundHandler) GetByID(c *gin.Context) {
 	mf, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Mutual fund not found"})
+		respondNotFound(c, err, "Mutual fund not found")
 		return
 	}
 	c.JSON(http.StatusOK, mf)
@@ -63,7 +63,7 @@ func (h *MutualFundHandler) AddTransaction(c *gin.Context) {
 
 	mf, err := h.service.AddTransaction(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, mf)
@@ -72,7 +72,7 @@ func (h *MutualFundHandler) AddTransaction(c *gin.Context) {
 func (h *MutualFundHandler) DeleteTransaction(c *gin.Context) {
 	mf, err := h.service.DeleteTransaction(c.Request.Context(), c.Param("id"), c.Param("txnId"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, mf)
@@ -86,7 +86,7 @@ func (h *MutualFundHandler) UpdateTransaction(c *gin.Context) {
 	}
 	mf, err := h.service.UpdateTransaction(c.Request.Context(), c.Param("id"), c.Param("txnId"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, mf)
@@ -97,24 +97,27 @@ func (h *MutualFundHandler) RefreshNAV(c *gin.Context) {
 	if id != "" {
 		mf, err := h.service.RefreshNAV(c.Request.Context(), id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			respondError(c, err)
 			return
 		}
 		c.JSON(http.StatusOK, mf)
 		return
 	}
 
-	funds, err := h.service.RefreshAllNAVs(c.Request.Context())
+	funds, err := h.service.RefreshAllNAVs(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
+	}
+	if funds == nil {
+		funds = []models.MutualFund{}
 	}
 	c.JSON(http.StatusOK, funds)
 }
 
 func (h *MutualFundHandler) Delete(c *gin.Context) {
 	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Deleted successfully"})
@@ -129,7 +132,7 @@ func (h *MutualFundHandler) Update(c *gin.Context) {
 
 	mf, err := h.service.Update(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, mf)
@@ -144,7 +147,7 @@ func (h *MutualFundHandler) ImportFromCAS(c *gin.Context) {
 
 	result, err := h.service.ImportFromCAS(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -153,15 +156,8 @@ func (h *MutualFundHandler) ImportFromCAS(c *gin.Context) {
 func (h *MutualFundHandler) RecalculateAll(c *gin.Context) {
 	count, err := h.service.RecalculateAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Recalculated all funds", "funds_updated": count})
 }
-
-
-
-
-
-
-

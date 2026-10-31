@@ -23,7 +23,7 @@ func NewBackupHandler(service *services.BackupService) *BackupHandler {
 func (h *BackupHandler) Export(c *gin.Context) {
 	data, err := h.service.Export(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	filename := fmt.Sprintf("investment_tracker_backup_%s.json", time.Now().Format("20060102_150405"))
@@ -46,15 +46,8 @@ func (h *BackupHandler) Restore(c *gin.Context) {
 
 	result, err := h.service.Restore(c.Request.Context(), middleware.GetEffectiveUserID(c), body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, result)
 }
-
-
-
-
-
-
-

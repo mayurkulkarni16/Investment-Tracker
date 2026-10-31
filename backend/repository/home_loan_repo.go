@@ -37,7 +37,7 @@ func (r *HomeLoanRepo) GetAll(ctx context.Context, userID string) ([]models.Home
 	if userID != "" {
 		filter["user_id"] = userID
 	}
-	cursor, err := r.collection.Find(ctx, filter)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter))
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func (r *HomeLoanRepo) GetAll(ctx context.Context, userID string) ([]models.Home
 
 func (r *HomeLoanRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.HomeLoan, error) {
 	var loan models.HomeLoan
-	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&loan)
+	err := r.collection.FindOne(ctx, scoped(ctx, bson.M{"_id": id})).Decode(&loan)
 	if err != nil {
 		return nil, err
 	}
@@ -61,11 +61,17 @@ func (r *HomeLoanRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*mod
 
 func (r *HomeLoanRepo) Update(ctx context.Context, loan *models.HomeLoan) error {
 	loan.UpdatedAt = time.Now()
-	_, err := r.collection.ReplaceOne(ctx, bson.M{"_id": loan.ID}, loan)
-	return err
+	res, err := r.collection.ReplaceOne(ctx, scoped(ctx, bson.M{"_id": loan.ID}), loan)
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.MatchedCount)
 }
 
 func (r *HomeLoanRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	return err
+	res, err := r.collection.DeleteOne(ctx, scoped(ctx, bson.M{"_id": id}))
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.DeletedCount)
 }

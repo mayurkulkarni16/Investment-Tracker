@@ -35,7 +35,7 @@ func (r *CreditCardRepo) GetAll(ctx context.Context, userID string) ([]models.Cr
 	if userID != "" {
 		filter["user_id"] = userID
 	}
-	cursor, err := r.collection.Find(ctx, filter)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter))
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (r *CreditCardRepo) GetAll(ctx context.Context, userID string) ([]models.Cr
 
 func (r *CreditCardRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.CreditCard, error) {
 	var card models.CreditCard
-	if err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&card); err != nil {
+	if err := r.collection.FindOne(ctx, scoped(ctx, bson.M{"_id": id})).Decode(&card); err != nil {
 		return nil, err
 	}
 	return &card, nil
@@ -56,11 +56,17 @@ func (r *CreditCardRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*m
 
 func (r *CreditCardRepo) Update(ctx context.Context, card *models.CreditCard) error {
 	card.UpdatedAt = time.Now()
-	_, err := r.collection.ReplaceOne(ctx, bson.M{"_id": card.ID}, card)
-	return err
+	res, err := r.collection.ReplaceOne(ctx, scoped(ctx, bson.M{"_id": card.ID}), card)
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.MatchedCount)
 }
 
 func (r *CreditCardRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	return err
+	res, err := r.collection.DeleteOne(ctx, scoped(ctx, bson.M{"_id": id}))
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.DeletedCount)
 }

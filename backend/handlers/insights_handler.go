@@ -20,12 +20,8 @@ func NewInsightsHandler(service *services.InsightsService) *InsightsHandler {
 func (h *InsightsHandler) GetInsights(c *gin.Context) {
 	resp, err := h.service.GetInsights(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, resp)
 }
-
-
-
-

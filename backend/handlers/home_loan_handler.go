@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"investment-tracker/models"
 	"investment-tracker/middleware"
+	"investment-tracker/models"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -27,7 +27,7 @@ func (h *HomeLoanHandler) Create(c *gin.Context) {
 
 	loan, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, loan)
@@ -36,7 +36,7 @@ func (h *HomeLoanHandler) Create(c *gin.Context) {
 func (h *HomeLoanHandler) GetAll(c *gin.Context) {
 	loans, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	if loans == nil {
@@ -48,7 +48,7 @@ func (h *HomeLoanHandler) GetAll(c *gin.Context) {
 func (h *HomeLoanHandler) GetByID(c *gin.Context) {
 	loan, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Home loan not found"})
+		respondNotFound(c, err, "Home loan not found")
 		return
 	}
 	c.JSON(http.StatusOK, loan)
@@ -63,7 +63,7 @@ func (h *HomeLoanHandler) Update(c *gin.Context) {
 
 	loan, err := h.service.Update(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, loan)
@@ -71,7 +71,7 @@ func (h *HomeLoanHandler) Update(c *gin.Context) {
 
 func (h *HomeLoanHandler) Delete(c *gin.Context) {
 	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Deleted successfully"})
@@ -86,7 +86,7 @@ func (h *HomeLoanHandler) RecordEMI(c *gin.Context) {
 
 	loan, err := h.service.RecordEMIPayment(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, loan)
@@ -101,7 +101,7 @@ func (h *HomeLoanHandler) AddPrepayment(c *gin.Context) {
 
 	loan, err := h.service.AddPrepayment(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, loan)
@@ -116,7 +116,7 @@ func (h *HomeLoanHandler) ChangeRate(c *gin.Context) {
 
 	loan, err := h.service.ChangeRate(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, loan)
@@ -125,7 +125,7 @@ func (h *HomeLoanHandler) ChangeRate(c *gin.Context) {
 func (h *HomeLoanHandler) GetAmortization(c *gin.Context) {
 	schedule, err := h.service.GetAmortizationSchedule(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, schedule)
@@ -139,7 +139,7 @@ func (h *HomeLoanHandler) AddDisbursement(c *gin.Context) {
 	}
 	loan, err := h.service.AddDisbursement(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, loan)
@@ -150,7 +150,7 @@ func (h *HomeLoanHandler) MarkConstructionComplete(c *gin.Context) {
 	_ = c.ShouldBindJSON(&req) // optional body
 	loan, err := h.service.MarkConstructionComplete(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, loan)
@@ -159,12 +159,8 @@ func (h *HomeLoanHandler) MarkConstructionComplete(c *gin.Context) {
 func (h *HomeLoanHandler) Recalculate(c *gin.Context) {
 	loan, err := h.service.Recalculate(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, loan)
 }
-
-
-
-

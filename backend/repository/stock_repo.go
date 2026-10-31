@@ -37,7 +37,7 @@ func (r *StockRepo) GetAll(ctx context.Context, userID string) ([]models.Stock, 
 	if userID != "" {
 		filter["user_id"] = userID
 	}
-	cursor, err := r.collection.Find(ctx, filter)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter))
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func (r *StockRepo) GetAll(ctx context.Context, userID string) ([]models.Stock, 
 
 func (r *StockRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.Stock, error) {
 	var stock models.Stock
-	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&stock)
+	err := r.collection.FindOne(ctx, scoped(ctx, bson.M{"_id": id})).Decode(&stock)
 	if err != nil {
 		return nil, err
 	}
@@ -61,11 +61,17 @@ func (r *StockRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models
 
 func (r *StockRepo) Update(ctx context.Context, stock *models.Stock) error {
 	stock.UpdatedAt = time.Now()
-	_, err := r.collection.ReplaceOne(ctx, bson.M{"_id": stock.ID}, stock)
-	return err
+	res, err := r.collection.ReplaceOne(ctx, scoped(ctx, bson.M{"_id": stock.ID}), stock)
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.MatchedCount)
 }
 
 func (r *StockRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	return err
+	res, err := r.collection.DeleteOne(ctx, scoped(ctx, bson.M{"_id": id}))
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.DeletedCount)
 }

@@ -28,7 +28,7 @@ func (h *CashflowHandler) GetMonthlyCashflows(c *gin.Context) {
 
 	cashflows, err := h.service.GetMonthlyCashflows(c.Request.Context(), middleware.GetEffectiveUserID(c), months)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 
@@ -44,10 +44,3 @@ func (h *CashflowHandler) GetMonthDetail(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, details)
 }
-
-
-
-
-
-
-

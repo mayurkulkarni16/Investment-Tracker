@@ -119,8 +119,8 @@ type AddCardStatementRequest struct {
 	Month         string  `json:"month" binding:"required"` // 2026-04
 	StatementDate string  `json:"statement_date" binding:"required"`
 	DueDate       string  `json:"due_date" binding:"required"`
-	TotalAmount   float64 `json:"total_amount" binding:"required"`
-	MinimumDue    float64 `json:"minimum_due" binding:"required"`
+	TotalAmount   float64 `json:"total_amount" binding:"min=0"`
+	MinimumDue    float64 `json:"minimum_due" binding:"min=0"`
 }
 
 type PayStatementRequest struct {

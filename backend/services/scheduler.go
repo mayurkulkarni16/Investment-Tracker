@@ -66,14 +66,14 @@ func (s *Scheduler) runDailyTasks() {
 	log.Println("[Scheduler] Running daily tasks...")
 
 	// 1. Refresh MF NAVs
-	if funds, err := s.mfService.RefreshAllNAVs(ctx); err != nil {
+	if funds, err := s.mfService.RefreshAllNAVs(ctx, ""); err != nil {
 		log.Printf("[Scheduler] NAV refresh error: %v", err)
 	} else {
 		log.Printf("[Scheduler] Refreshed NAV for %d funds", len(funds))
 	}
 
 	// 2. Refresh stock prices
-	if stocks, err := s.stockService.RefreshAllPrices(ctx); err != nil {
+	if stocks, err := s.stockService.RefreshAllPrices(ctx, ""); err != nil {
 		log.Printf("[Scheduler] Stock price refresh error: %v", err)
 	} else {
 		log.Printf("[Scheduler] Refreshed prices for %d stocks", len(stocks))

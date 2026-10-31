@@ -35,7 +35,7 @@ func (r *ProfileRepo) GetAll(ctx context.Context, userID string) ([]models.Profi
 	if userID != "" {
 		filter["user_id"] = userID
 	}
-	cursor, err := r.collection.Find(ctx, filter)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter))
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (r *ProfileRepo) GetAll(ctx context.Context, userID string) ([]models.Profi
 
 func (r *ProfileRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.Profile, error) {
 	var profile models.Profile
-	if err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&profile); err != nil {
+	if err := r.collection.FindOne(ctx, scoped(ctx, bson.M{"_id": id})).Decode(&profile); err != nil {
 		return nil, err
 	}
 	return &profile, nil
@@ -56,11 +56,17 @@ func (r *ProfileRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*mode
 
 func (r *ProfileRepo) Update(ctx context.Context, profile *models.Profile) error {
 	profile.UpdatedAt = time.Now()
-	_, err := r.collection.ReplaceOne(ctx, bson.M{"_id": profile.ID}, profile)
-	return err
+	res, err := r.collection.ReplaceOne(ctx, scoped(ctx, bson.M{"_id": profile.ID}), profile)
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.MatchedCount)
 }
 
 func (r *ProfileRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	return err
+	res, err := r.collection.DeleteOne(ctx, scoped(ctx, bson.M{"_id": id}))
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.DeletedCount)
 }

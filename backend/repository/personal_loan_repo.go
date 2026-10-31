@@ -37,7 +37,7 @@ func (r *PersonalLoanRepo) GetAll(ctx context.Context, userID string) ([]models.
 	if userID != "" {
 		filter["user_id"] = userID
 	}
-	cursor, err := r.collection.Find(ctx, filter)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter))
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func (r *PersonalLoanRepo) GetAll(ctx context.Context, userID string) ([]models.
 
 func (r *PersonalLoanRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.PersonalLoan, error) {
 	var loan models.PersonalLoan
-	if err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&loan); err != nil {
+	if err := r.collection.FindOne(ctx, scoped(ctx, bson.M{"_id": id})).Decode(&loan); err != nil {
 		return nil, err
 	}
 	return &loan, nil
@@ -60,11 +60,17 @@ func (r *PersonalLoanRepo) GetByID(ctx context.Context, id primitive.ObjectID) (
 
 func (r *PersonalLoanRepo) Update(ctx context.Context, loan *models.PersonalLoan) error {
 	loan.UpdatedAt = time.Now()
-	_, err := r.collection.ReplaceOne(ctx, bson.M{"_id": loan.ID}, loan)
-	return err
+	res, err := r.collection.ReplaceOne(ctx, scoped(ctx, bson.M{"_id": loan.ID}), loan)
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.MatchedCount)
 }
 
 func (r *PersonalLoanRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	return err
+	res, err := r.collection.DeleteOne(ctx, scoped(ctx, bson.M{"_id": id}))
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.DeletedCount)
 }

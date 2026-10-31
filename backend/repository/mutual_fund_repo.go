@@ -37,7 +37,7 @@ func (r *MutualFundRepo) GetAll(ctx context.Context, userID string) ([]models.Mu
 	if userID != "" {
 		filter["user_id"] = userID
 	}
-	cursor, err := r.collection.Find(ctx, filter)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter))
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func (r *MutualFundRepo) GetAll(ctx context.Context, userID string) ([]models.Mu
 
 func (r *MutualFundRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.MutualFund, error) {
 	var mf models.MutualFund
-	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&mf)
+	err := r.collection.FindOne(ctx, scoped(ctx, bson.M{"_id": id})).Decode(&mf)
 	if err != nil {
 		return nil, err
 	}
@@ -61,13 +61,19 @@ func (r *MutualFundRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*m
 
 func (r *MutualFundRepo) Update(ctx context.Context, mf *models.MutualFund) error {
 	mf.UpdatedAt = time.Now()
-	_, err := r.collection.ReplaceOne(ctx, bson.M{"_id": mf.ID}, mf)
-	return err
+	res, err := r.collection.ReplaceOne(ctx, scoped(ctx, bson.M{"_id": mf.ID}), mf)
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.MatchedCount)
 }
 
 func (r *MutualFundRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	return err
+	res, err := r.collection.DeleteOne(ctx, scoped(ctx, bson.M{"_id": id}))
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.DeletedCount)
 }
 
 func (r *MutualFundRepo) GetByFolioNumber(ctx context.Context, userID string, folioNumber string) (*models.MutualFund, error) {

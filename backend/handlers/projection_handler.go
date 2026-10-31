@@ -33,7 +33,7 @@ func (h *ProjectionHandler) GetProjections(c *gin.Context) {
 
 	projections, err := h.service.GetProjectionsWithScenario(c.Request.Context(), middleware.GetEffectiveUserID(c), years, scenario)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, projections)

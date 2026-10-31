@@ -37,7 +37,7 @@ func (r *ProvidentFundRepo) GetAll(ctx context.Context, userID string) ([]models
 	if userID != "" {
 		filter["user_id"] = userID
 	}
-	cursor, err := r.collection.Find(ctx, filter)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter))
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func (r *ProvidentFundRepo) GetAll(ctx context.Context, userID string) ([]models
 
 func (r *ProvidentFundRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.ProvidentFund, error) {
 	var pf models.ProvidentFund
-	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&pf)
+	err := r.collection.FindOne(ctx, scoped(ctx, bson.M{"_id": id})).Decode(&pf)
 	if err != nil {
 		return nil, err
 	}
@@ -61,11 +61,17 @@ func (r *ProvidentFundRepo) GetByID(ctx context.Context, id primitive.ObjectID) 
 
 func (r *ProvidentFundRepo) Update(ctx context.Context, pf *models.ProvidentFund) error {
 	pf.UpdatedAt = time.Now()
-	_, err := r.collection.ReplaceOne(ctx, bson.M{"_id": pf.ID}, pf)
-	return err
+	res, err := r.collection.ReplaceOne(ctx, scoped(ctx, bson.M{"_id": pf.ID}), pf)
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.MatchedCount)
 }
 
 func (r *ProvidentFundRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	return err
+	res, err := r.collection.DeleteOne(ctx, scoped(ctx, bson.M{"_id": id}))
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.DeletedCount)
 }

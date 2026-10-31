@@ -36,7 +36,7 @@ func (r *NetWorthRepo) GetAll(ctx context.Context, userID string) ([]models.NetW
 		filter["user_id"] = userID
 	}
 	opts := options.Find().SetSort(bson.D{{Key: "date", Value: 1}})
-	cursor, err := r.collection.Find(ctx, filter, opts)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter), opts)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +63,22 @@ func (r *NetWorthRepo) Upsert(ctx context.Context, snapshot *models.NetWorthSnap
 }
 
 func (r *NetWorthRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	return err
+	res, err := r.collection.DeleteOne(ctx, scoped(ctx, bson.M{"_id": id}))
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.DeletedCount)
+}
+
+// DeleteOrphans removes snapshots that don't belong to any user (written by an
+// older scheduler that aggregated all users together).
+func (r *NetWorthRepo) DeleteOrphans(ctx context.Context) (int64, error) {
+	res, err := r.collection.DeleteMany(ctx, bson.M{"$or": bson.A{
+		bson.M{"user_id": ""},
+		bson.M{"user_id": bson.M{"$exists": false}},
+	}})
+	if err != nil {
+		return 0, err
+	}
+	return res.DeletedCount, nil
 }

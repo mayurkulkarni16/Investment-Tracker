@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"investment-tracker/models"
 	"investment-tracker/middleware"
+	"investment-tracker/models"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -26,7 +26,7 @@ func (h *NPSHandler) Create(c *gin.Context) {
 	}
 	account, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, account)
@@ -35,7 +35,7 @@ func (h *NPSHandler) Create(c *gin.Context) {
 func (h *NPSHandler) GetAll(c *gin.Context) {
 	accounts, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	if accounts == nil {
@@ -47,7 +47,7 @@ func (h *NPSHandler) GetAll(c *gin.Context) {
 func (h *NPSHandler) GetByID(c *gin.Context) {
 	account, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "NPS account not found"})
+		respondNotFound(c, err, "NPS account not found")
 		return
 	}
 	c.JSON(http.StatusOK, account)
@@ -61,7 +61,7 @@ func (h *NPSHandler) Update(c *gin.Context) {
 	}
 	account, err := h.service.Update(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, account)
@@ -69,7 +69,7 @@ func (h *NPSHandler) Update(c *gin.Context) {
 
 func (h *NPSHandler) Delete(c *gin.Context) {
 	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "NPS account deleted"})
@@ -83,12 +83,8 @@ func (h *NPSHandler) AddContribution(c *gin.Context) {
 	}
 	account, err := h.service.AddContribution(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, account)
 }
-
-
-
-

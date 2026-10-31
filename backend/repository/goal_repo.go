@@ -35,7 +35,7 @@ func (r *GoalRepo) GetAll(ctx context.Context, userID string) ([]models.Goal, er
 	if userID != "" {
 		filter["user_id"] = userID
 	}
-	cursor, err := r.collection.Find(ctx, filter)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter))
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (r *GoalRepo) GetAll(ctx context.Context, userID string) ([]models.Goal, er
 
 func (r *GoalRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.Goal, error) {
 	var goal models.Goal
-	if err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&goal); err != nil {
+	if err := r.collection.FindOne(ctx, scoped(ctx, bson.M{"_id": id})).Decode(&goal); err != nil {
 		return nil, err
 	}
 	return &goal, nil
@@ -56,11 +56,17 @@ func (r *GoalRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.
 
 func (r *GoalRepo) Update(ctx context.Context, goal *models.Goal) error {
 	goal.UpdatedAt = time.Now()
-	_, err := r.collection.ReplaceOne(ctx, bson.M{"_id": goal.ID}, goal)
-	return err
+	res, err := r.collection.ReplaceOne(ctx, scoped(ctx, bson.M{"_id": goal.ID}), goal)
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.MatchedCount)
 }
 
 func (r *GoalRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	return err
+	res, err := r.collection.DeleteOne(ctx, scoped(ctx, bson.M{"_id": id}))
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.DeletedCount)
 }

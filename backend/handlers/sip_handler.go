@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"investment-tracker/models"
 	"investment-tracker/middleware"
+	"investment-tracker/models"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -26,7 +26,7 @@ func (h *SIPHandler) Create(c *gin.Context) {
 	}
 	sip, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, sip)
@@ -35,7 +35,7 @@ func (h *SIPHandler) Create(c *gin.Context) {
 func (h *SIPHandler) GetAll(c *gin.Context) {
 	sips, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	if sips == nil {
@@ -47,7 +47,7 @@ func (h *SIPHandler) GetAll(c *gin.Context) {
 func (h *SIPHandler) GetByID(c *gin.Context) {
 	sip, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "SIP not found"})
+		respondNotFound(c, err, "SIP not found")
 		return
 	}
 	c.JSON(http.StatusOK, sip)
@@ -61,7 +61,7 @@ func (h *SIPHandler) Update(c *gin.Context) {
 	}
 	sip, err := h.service.Update(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, sip)
@@ -69,7 +69,7 @@ func (h *SIPHandler) Update(c *gin.Context) {
 
 func (h *SIPHandler) Delete(c *gin.Context) {
 	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "SIP deleted"})
@@ -83,12 +83,8 @@ func (h *SIPHandler) RecordInstallment(c *gin.Context) {
 	}
 	sip, err := h.service.RecordInstallment(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, sip)
 }
-
-
-
-

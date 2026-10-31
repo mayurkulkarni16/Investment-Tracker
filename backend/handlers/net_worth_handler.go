@@ -20,7 +20,7 @@ func NewNetWorthHandler(service *services.NetWorthService) *NetWorthHandler {
 func (h *NetWorthHandler) GetCurrent(c *gin.Context) {
 	nw, err := h.service.GetCurrent(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, nw)
@@ -29,7 +29,7 @@ func (h *NetWorthHandler) GetCurrent(c *gin.Context) {
 func (h *NetWorthHandler) TakeSnapshot(c *gin.Context) {
 	snapshot, err := h.service.TakeSnapshot(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, snapshot)
@@ -38,12 +38,8 @@ func (h *NetWorthHandler) TakeSnapshot(c *gin.Context) {
 func (h *NetWorthHandler) GetHistory(c *gin.Context) {
 	history, err := h.service.GetHistory(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, history)
 }
-
-
-
-

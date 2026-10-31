@@ -22,6 +22,7 @@ func Register(r *gin.Engine, c *container.Container, cfg *config.Config) {
 	api := r.Group("/api/v1")
 	api.Use(middleware.AuthRequired(cfg))
 	api.Use(middleware.ViewOnlyCheck())
+	api.Use(middleware.ScopeToEffectiveUser())
 	{
 		// Authenticated auth routes
 		api.GET("/auth/me", c.AuthHandler.GetProfile)

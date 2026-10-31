@@ -21,7 +21,7 @@ func (h *DashboardHandler) GetDashboard(c *gin.Context) {
 	userID := middleware.GetEffectiveUserID(c)
 	dashboard, err := h.service.GetDashboard(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, dashboard)
@@ -38,7 +38,7 @@ func (h *DashboardHandler) GetRebalanceSuggestions(c *gin.Context) {
 	}
 	suggestions, err := h.service.GetRebalanceSuggestions(c.Request.Context(), userID, req.Targets)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, suggestions)

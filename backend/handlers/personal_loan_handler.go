@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"investment-tracker/models"
 	"investment-tracker/middleware"
+	"investment-tracker/models"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -26,7 +26,7 @@ func (h *PersonalLoanHandler) Create(c *gin.Context) {
 	}
 	loan, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, loan)
@@ -35,7 +35,7 @@ func (h *PersonalLoanHandler) Create(c *gin.Context) {
 func (h *PersonalLoanHandler) GetAll(c *gin.Context) {
 	loans, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	if loans == nil {
@@ -47,7 +47,7 @@ func (h *PersonalLoanHandler) GetAll(c *gin.Context) {
 func (h *PersonalLoanHandler) GetByID(c *gin.Context) {
 	loan, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Personal loan not found"})
+		respondNotFound(c, err, "Personal loan not found")
 		return
 	}
 	c.JSON(http.StatusOK, loan)
@@ -61,7 +61,7 @@ func (h *PersonalLoanHandler) Update(c *gin.Context) {
 	}
 	loan, err := h.service.Update(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, loan)
@@ -69,7 +69,7 @@ func (h *PersonalLoanHandler) Update(c *gin.Context) {
 
 func (h *PersonalLoanHandler) Delete(c *gin.Context) {
 	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Deleted successfully"})
@@ -83,7 +83,7 @@ func (h *PersonalLoanHandler) RecordEMI(c *gin.Context) {
 	}
 	loan, err := h.service.RecordEMIPayment(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, loan)
@@ -97,7 +97,7 @@ func (h *PersonalLoanHandler) AddPrepayment(c *gin.Context) {
 	}
 	loan, err := h.service.AddPrepayment(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, loan)
@@ -111,7 +111,7 @@ func (h *PersonalLoanHandler) ChangeRate(c *gin.Context) {
 	}
 	loan, err := h.service.ChangeRate(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, loan)
@@ -120,12 +120,8 @@ func (h *PersonalLoanHandler) ChangeRate(c *gin.Context) {
 func (h *PersonalLoanHandler) GetAmortization(c *gin.Context) {
 	schedule, err := h.service.GetAmortizationSchedule(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, schedule)
 }
-
-
-
-

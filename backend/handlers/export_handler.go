@@ -21,16 +21,9 @@ func (h *ExportHandler) ExportCSV(c *gin.Context) {
 	module := c.DefaultQuery("module", "all")
 	data, filename, err := h.service.ExportCSV(c.Request.Context(), middleware.GetEffectiveUserID(c), module)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.Header("Content-Disposition", "attachment; filename="+filename)
 	c.Data(http.StatusOK, "text/csv", data)
 }
-
-
-
-
-
-
-

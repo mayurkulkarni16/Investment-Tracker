@@ -88,7 +88,7 @@ type CreateCorporateBondRequest struct {
 	Issuer              string                    `json:"issuer" binding:"required"`
 	PurchaseDate        string                    `json:"purchase_date" binding:"required"`
 	InvestmentAmount    float64                   `json:"investment_amount" binding:"required"`
-	CouponRate          float64                   `json:"coupon_rate" binding:"required"`
+	CouponRate          float64                   `json:"coupon_rate" binding:"min=0,max=100"` // 0 = zero-coupon
 	InterestPayoutFreq  PayoutFrequency           `json:"interest_payout_frequency" binding:"required"`
 	MaturityDate        string                    `json:"maturity_date" binding:"required"`
 	MaturityType        MaturityType              `json:"maturity_type" binding:"required"`

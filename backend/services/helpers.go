@@ -1,7 +1,6 @@
 package services
 
 import (
-	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -10,7 +9,8 @@ import (
 func parseObjectID(id string) (primitive.ObjectID, error) {
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		return primitive.NilObjectID, fmt.Errorf("invalid ID format: %w", err)
+		// Malformed IDs can't match any record; report them as not found.
+		return primitive.NilObjectID, notFoundf("invalid ID %q", id)
 	}
 	return objID, nil
 }
@@ -30,5 +30,5 @@ func parseDate(dateStr string) (time.Time, error) {
 			return t, nil
 		}
 	}
-	return time.Time{}, fmt.Errorf("invalid date format: %s", dateStr)
+	return time.Time{}, invalidf("invalid date format: %s", dateStr)
 }

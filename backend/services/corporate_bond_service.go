@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sort"
 	"time"
@@ -24,11 +23,11 @@ func NewCorporateBondService(repo *repository.CorporateBondRepo) *CorporateBondS
 func (s *CorporateBondService) Create(ctx context.Context, userID string, req models.CreateCorporateBondRequest) (*models.CorporateBond, error) {
 	purchaseDate, err := parseDate(req.PurchaseDate)
 	if err != nil {
-		return nil, fmt.Errorf("invalid purchase_date: %w", err)
+		return nil, invalidf("invalid purchase_date: %v", err)
 	}
 	maturityDate, err := parseDate(req.MaturityDate)
 	if err != nil {
-		return nil, fmt.Errorf("invalid maturity_date: %w", err)
+		return nil, invalidf("invalid maturity_date: %v", err)
 	}
 
 	bond := &models.CorporateBond{
@@ -93,7 +92,7 @@ func (s *CorporateBondService) generateInterestSchedule(bond *models.CorporateBo
 	var payouts []models.InterestPayout
 
 	months := frequencyToMonths(bond.InterestPayoutFreq)
-	if months == 0 {
+	if months == 0 || bond.CouponRate <= 0 {
 		return payouts
 	}
 
@@ -297,7 +296,7 @@ func (s *CorporateBondService) MarkPayoutReceived(ctx context.Context, bondID, p
 		}
 	}
 
-	return nil, fmt.Errorf("payout with ID %s not found", payoutID)
+	return nil, notFoundf("payout with ID %s not found", payoutID)
 }
 
 // recalculateFutureInterest updates all pending interest payouts after a principal repayment
@@ -341,11 +340,11 @@ func (s *CorporateBondService) Update(ctx context.Context, id string, req models
 
 	purchaseDate, err := parseDate(req.PurchaseDate)
 	if err != nil {
-		return nil, fmt.Errorf("invalid purchase_date: %w", err)
+		return nil, invalidf("invalid purchase_date: %v", err)
 	}
 	maturityDate, err := parseDate(req.MaturityDate)
 	if err != nil {
-		return nil, fmt.Errorf("invalid maturity_date: %w", err)
+		return nil, invalidf("invalid maturity_date: %v", err)
 	}
 
 	bond.BondName = req.BondName

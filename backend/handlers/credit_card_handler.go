@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"investment-tracker/models"
 	"investment-tracker/middleware"
+	"investment-tracker/models"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -26,7 +26,7 @@ func (h *CreditCardHandler) Create(c *gin.Context) {
 	}
 	card, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, card)
@@ -35,7 +35,7 @@ func (h *CreditCardHandler) Create(c *gin.Context) {
 func (h *CreditCardHandler) GetAll(c *gin.Context) {
 	cards, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	if cards == nil {
@@ -47,7 +47,7 @@ func (h *CreditCardHandler) GetAll(c *gin.Context) {
 func (h *CreditCardHandler) GetByID(c *gin.Context) {
 	card, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Credit card not found"})
+		respondNotFound(c, err, "Credit card not found")
 		return
 	}
 	c.JSON(http.StatusOK, card)
@@ -61,7 +61,7 @@ func (h *CreditCardHandler) Update(c *gin.Context) {
 	}
 	card, err := h.service.Update(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, card)
@@ -69,7 +69,7 @@ func (h *CreditCardHandler) Update(c *gin.Context) {
 
 func (h *CreditCardHandler) Delete(c *gin.Context) {
 	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Credit card deleted"})
@@ -83,7 +83,7 @@ func (h *CreditCardHandler) AddStatement(c *gin.Context) {
 	}
 	card, err := h.service.AddStatement(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, card)
@@ -97,7 +97,7 @@ func (h *CreditCardHandler) PayStatement(c *gin.Context) {
 	}
 	card, err := h.service.PayStatement(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, card)
@@ -111,7 +111,7 @@ func (h *CreditCardHandler) AddTransaction(c *gin.Context) {
 	}
 	card, err := h.service.AddTransaction(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, card)
@@ -125,7 +125,7 @@ func (h *CreditCardHandler) AddEMI(c *gin.Context) {
 	}
 	card, err := h.service.AddEMI(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, card)
@@ -139,12 +139,8 @@ func (h *CreditCardHandler) AddCreditScore(c *gin.Context) {
 	}
 	card, err := h.service.AddCreditScore(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, card)
 }
-
-
-
-

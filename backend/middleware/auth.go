@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"investment-tracker/config"
+	"investment-tracker/repository"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -94,6 +95,22 @@ func ViewOnlyCheck() gin.HandlerFunc {
 	}
 }
 
+// ScopeToEffectiveUser binds the effective user to the request context so that
+// repositories only read or modify documents owned by that user. Must run after
+// AuthRequired and ViewOnlyCheck.
+func ScopeToEffectiveUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		uid := GetEffectiveUserID(c)
+		if uid == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			c.Abort()
+			return
+		}
+		c.Request = c.Request.WithContext(repository.WithOwner(c.Request.Context(), uid))
+		c.Next()
+	}
+}
+
 // GetEffectiveUserID returns the user ID to use for data queries.
 // If admin is impersonating, returns the impersonated user's ID.
 func GetEffectiveUserID(c *gin.Context) string {
@@ -101,5 +118,6 @@ func GetEffectiveUserID(c *gin.Context) string {
 		return viewUserID.(string)
 	}
 	userID, _ := c.Get("user_id")
-	return userID.(string)
+	uid, _ := userID.(string)
+	return uid
 }

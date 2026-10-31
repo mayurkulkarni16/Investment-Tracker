@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"investment-tracker/models"
 	"investment-tracker/middleware"
+	"investment-tracker/models"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -27,7 +27,7 @@ func (h *FixedDepositHandler) Create(c *gin.Context) {
 
 	fd, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, fd)
@@ -36,7 +36,7 @@ func (h *FixedDepositHandler) Create(c *gin.Context) {
 func (h *FixedDepositHandler) GetAll(c *gin.Context) {
 	fds, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	if fds == nil {
@@ -48,7 +48,7 @@ func (h *FixedDepositHandler) GetAll(c *gin.Context) {
 func (h *FixedDepositHandler) GetByID(c *gin.Context) {
 	fd, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Fixed deposit not found"})
+		respondNotFound(c, err, "Fixed deposit not found")
 		return
 	}
 	c.JSON(http.StatusOK, fd)
@@ -63,7 +63,7 @@ func (h *FixedDepositHandler) Update(c *gin.Context) {
 
 	fd, err := h.service.Update(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, fd)
@@ -71,12 +71,8 @@ func (h *FixedDepositHandler) Update(c *gin.Context) {
 
 func (h *FixedDepositHandler) Delete(c *gin.Context) {
 	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Deleted successfully"})
 }
-
-
-
-

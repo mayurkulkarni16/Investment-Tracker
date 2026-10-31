@@ -37,7 +37,7 @@ func (r *CorporateBondRepo) GetAll(ctx context.Context, userID string) ([]models
 	if userID != "" {
 		filter["user_id"] = userID
 	}
-	cursor, err := r.collection.Find(ctx, filter)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter))
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func (r *CorporateBondRepo) GetAll(ctx context.Context, userID string) ([]models
 
 func (r *CorporateBondRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.CorporateBond, error) {
 	var bond models.CorporateBond
-	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&bond)
+	err := r.collection.FindOne(ctx, scoped(ctx, bson.M{"_id": id})).Decode(&bond)
 	if err != nil {
 		return nil, err
 	}
@@ -61,11 +61,17 @@ func (r *CorporateBondRepo) GetByID(ctx context.Context, id primitive.ObjectID) 
 
 func (r *CorporateBondRepo) Update(ctx context.Context, bond *models.CorporateBond) error {
 	bond.UpdatedAt = time.Now()
-	_, err := r.collection.ReplaceOne(ctx, bson.M{"_id": bond.ID}, bond)
-	return err
+	res, err := r.collection.ReplaceOne(ctx, scoped(ctx, bson.M{"_id": bond.ID}), bond)
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.MatchedCount)
 }
 
 func (r *CorporateBondRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	return err
+	res, err := r.collection.DeleteOne(ctx, scoped(ctx, bson.M{"_id": id}))
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.DeletedCount)
 }

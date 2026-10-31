@@ -35,7 +35,7 @@ func (r *SIPRepo) GetAll(ctx context.Context, userID string) ([]models.SIP, erro
 	if userID != "" {
 		filter["user_id"] = userID
 	}
-	cursor, err := r.collection.Find(ctx, filter)
+	cursor, err := r.collection.Find(ctx, scoped(ctx, filter))
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (r *SIPRepo) GetAll(ctx context.Context, userID string) ([]models.SIP, erro
 
 func (r *SIPRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.SIP, error) {
 	var sip models.SIP
-	if err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&sip); err != nil {
+	if err := r.collection.FindOne(ctx, scoped(ctx, bson.M{"_id": id})).Decode(&sip); err != nil {
 		return nil, err
 	}
 	return &sip, nil
@@ -56,11 +56,17 @@ func (r *SIPRepo) GetByID(ctx context.Context, id primitive.ObjectID) (*models.S
 
 func (r *SIPRepo) Update(ctx context.Context, sip *models.SIP) error {
 	sip.UpdatedAt = time.Now()
-	_, err := r.collection.ReplaceOne(ctx, bson.M{"_id": sip.ID}, sip)
-	return err
+	res, err := r.collection.ReplaceOne(ctx, scoped(ctx, bson.M{"_id": sip.ID}), sip)
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.MatchedCount)
 }
 
 func (r *SIPRepo) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
-	return err
+	res, err := r.collection.DeleteOne(ctx, scoped(ctx, bson.M{"_id": id}))
+	if err != nil {
+		return err
+	}
+	return requireMatch(res.DeletedCount)
 }

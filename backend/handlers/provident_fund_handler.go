@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"investment-tracker/models"
 	"investment-tracker/middleware"
+	"investment-tracker/models"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -27,7 +27,7 @@ func (h *ProvidentFundHandler) Create(c *gin.Context) {
 
 	pf, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, pf)
@@ -36,7 +36,7 @@ func (h *ProvidentFundHandler) Create(c *gin.Context) {
 func (h *ProvidentFundHandler) GetAll(c *gin.Context) {
 	pfs, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	if pfs == nil {
@@ -48,7 +48,7 @@ func (h *ProvidentFundHandler) GetAll(c *gin.Context) {
 func (h *ProvidentFundHandler) GetByID(c *gin.Context) {
 	pf, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Provident fund not found"})
+		respondNotFound(c, err, "Provident fund not found")
 		return
 	}
 	c.JSON(http.StatusOK, pf)
@@ -63,7 +63,7 @@ func (h *ProvidentFundHandler) AddContribution(c *gin.Context) {
 
 	pf, err := h.service.AddContribution(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, pf)
@@ -78,7 +78,7 @@ func (h *ProvidentFundHandler) Update(c *gin.Context) {
 
 	pf, err := h.service.Update(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, pf)
@@ -86,7 +86,7 @@ func (h *ProvidentFundHandler) Update(c *gin.Context) {
 
 func (h *ProvidentFundHandler) Delete(c *gin.Context) {
 	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Deleted successfully"})
@@ -101,12 +101,8 @@ func (h *ProvidentFundHandler) ImportFromPDF(c *gin.Context) {
 
 	result, err := h.service.ImportFromPDF(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, result)
 }
-
-
-
-

@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"investment-tracker/models"
@@ -130,8 +129,9 @@ func (s *StockService) RefreshPrice(ctx context.Context, id string) (*models.Sto
 	return stock, nil
 }
 
-func (s *StockService) RefreshAllPrices(ctx context.Context) ([]models.Stock, error) {
-	stocks, err := s.repo.GetAll(ctx, "")
+// RefreshAllPrices refreshes prices for userID's stocks, or for all users' stocks when userID is empty.
+func (s *StockService) RefreshAllPrices(ctx context.Context, userID string) ([]models.Stock, error) {
+	stocks, err := s.repo.GetAll(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +214,7 @@ func (s *StockService) DeleteTransaction(ctx context.Context, stockID, txnID str
 		newTxns = append(newTxns, t)
 	}
 	if !found {
-		return nil, fmt.Errorf("transaction not found")
+		return nil, notFoundf("transaction not found")
 	}
 	stock.Transactions = newTxns
 	s.recalculate(stock)
@@ -250,7 +250,7 @@ func (s *StockService) UpdateTransaction(ctx context.Context, stockID, txnID str
 		}
 	}
 	if !found {
-		return nil, fmt.Errorf("transaction not found")
+		return nil, notFoundf("transaction not found")
 	}
 	s.recalculate(stock)
 	if err := s.repo.Update(ctx, stock); err != nil {
@@ -316,7 +316,7 @@ func (s *StockService) DeleteDividend(ctx context.Context, stockID, divID string
 		newDivs = append(newDivs, d)
 	}
 	if !found {
-		return nil, fmt.Errorf("dividend not found")
+		return nil, notFoundf("dividend not found")
 	}
 	stock.Dividends = newDivs
 	s.recalculate(stock)

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"investment-tracker/models"
 	"investment-tracker/middleware"
+	"investment-tracker/models"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -28,7 +28,7 @@ func (h *CorporateBondHandler) Create(c *gin.Context) {
 
 	bond, err := h.service.Create(c.Request.Context(), middleware.GetEffectiveUserID(c), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, bond)
@@ -37,7 +37,7 @@ func (h *CorporateBondHandler) Create(c *gin.Context) {
 func (h *CorporateBondHandler) GetAll(c *gin.Context) {
 	bonds, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	if bonds == nil {
@@ -49,7 +49,7 @@ func (h *CorporateBondHandler) GetAll(c *gin.Context) {
 func (h *CorporateBondHandler) GetByID(c *gin.Context) {
 	bond, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Bond not found"})
+		respondNotFound(c, err, "Bond not found")
 		return
 	}
 	c.JSON(http.StatusOK, bond)
@@ -73,7 +73,7 @@ func (h *CorporateBondHandler) MarkPayoutReceived(c *gin.Context) {
 		req.ReceivedDate,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, bond)
@@ -81,7 +81,7 @@ func (h *CorporateBondHandler) MarkPayoutReceived(c *gin.Context) {
 
 func (h *CorporateBondHandler) Delete(c *gin.Context) {
 	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Deleted successfully"})
@@ -96,12 +96,8 @@ func (h *CorporateBondHandler) Update(c *gin.Context) {
 
 	bond, err := h.service.Update(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, bond)
 }
-
-
-
-
