@@ -6,7 +6,7 @@ import { authApi, type User as AuthUser } from '../api/auth';
 import type { Notification } from '../types';
 
 export default function Sidebar() {
-  const { user, isAdmin, viewAsUserId, logout, setViewAsUser } = useAuth();
+  const { user, isAdmin, isViewOnly, viewAsUserId, logout, setViewAsUser } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showPanel, setShowPanel] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -14,15 +14,22 @@ export default function Sidebar() {
   const [allUsers, setAllUsers] = useState<AuthUser[]>([]);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const loadNotifications = () => {
+  const loadNotifications = useCallback(() => {
     getUnreadNotifications().then(r => setNotifications(r.data || [])).catch(() => {});
-  };
-
-  useEffect(() => {
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 60000); // refresh every minute
-    return () => clearInterval(interval);
   }, []);
+
+  // Scan for new alerts on load (the server de-duplicates, so repeat scans are
+  // harmless) and refresh the list every minute. Scanning is a write, so it's
+  // skipped while an admin is viewing another user's data.
+  useEffect(() => {
+    if (isViewOnly) {
+      loadNotifications();
+    } else {
+      generateNotifications().catch(() => {}).finally(loadNotifications);
+    }
+    const interval = setInterval(loadNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [isViewOnly, viewAsUserId, loadNotifications]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -70,6 +77,12 @@ export default function Sidebar() {
       case 'bond_coupon': return '💰';
       case 'credit_card_due': return '💳';
       case 'goal_milestone': return '🎯';
+      case 'rental_overdue': return '⚠️';
+      case 'rental_buyback': return '🛵';
+      case 'insurance_premium': return '🛡️';
+      case 'policy_expiry': return '⏳';
+      case 'budget_over': return '💸';
+      case 'document_expiry': return '📄';
       default: return '🔔';
     }
   };
@@ -83,21 +96,18 @@ export default function Sidebar() {
         <h2 style={{ padding: 0, border: 'none', marginBottom: 0 }}>My Investments</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <button
+            className="icon-btn"
             onClick={() => setDark(d => !d)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, padding: '4px 6px', borderRadius: 6 }}
+            style={{ fontSize: 18 }}
             title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {dark ? '☀️' : '🌙'}
           </button>
           <div ref={panelRef} style={{ position: 'relative' }}>
           <button
+            className="icon-btn"
             onClick={() => setShowPanel(!showPanel)}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, position: 'relative',
-              padding: '4px 6px', borderRadius: 6, transition: 'background 0.15s',
-            }}
-            onMouseOver={e => (e.currentTarget.style.background = '#f0f4ff')}
-            onMouseOut={e => (e.currentTarget.style.background = 'none')}
+            style={{ fontSize: 20, position: 'relative' }}
             title="Notifications"
           >
             🔔
@@ -121,7 +131,7 @@ export default function Sidebar() {
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <strong style={{ fontSize: 14 }}>Notifications</strong>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-sm btn-outline" onClick={handleGenerate} title="Scan for upcoming due dates">Scan</button>
+                  {!isViewOnly && <button className="btn btn-sm btn-outline" onClick={handleGenerate} title="Scan for upcoming due dates">Scan</button>}
                   {notifications.length > 0 && <button className="btn btn-sm btn-outline" onClick={handleMarkAllRead}>Clear All</button>}
                 </div>
               </div>
@@ -129,20 +139,18 @@ export default function Sidebar() {
                 {notifications.length === 0 ? (
                   <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
                     No new notifications.<br />
-                    <span style={{ fontSize: 12 }}>Click "Scan" to check for upcoming dues.</span>
+                    <span style={{ fontSize: 12 }}>Due dates are checked automatically every day.</span>
                   </div>
                 ) : (
                   notifications.map(n => (
                     <div
                       key={n.id}
+                      className="hover-row"
                       style={{
                         padding: '10px 16px', borderBottom: '1px solid var(--border)',
                         display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer',
-                        transition: 'background 0.1s',
                       }}
                       onClick={() => handleMarkRead(n.id)}
-                      onMouseOver={e => (e.currentTarget.style.background = '#f8f9fa')}
-                      onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <span style={{ fontSize: 20, flexShrink: 0, marginTop: 2 }}>{getIcon(n.type)}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -169,6 +177,7 @@ export default function Sidebar() {
       <nav onClick={closeMobile}>
         <NavLink to="/" end>Dashboard</NavLink>
         <NavLink to="/net-worth">Net Worth</NavLink>
+        <NavLink to="/accounts">Bank &amp; Cash</NavLink>
         <NavLink to="/mutual-funds">Mutual Funds</NavLink>
         <NavLink to="/stocks">Stocks</NavLink>
         <NavLink to="/fixed-deposits">Fixed Deposits</NavLink>
@@ -176,14 +185,21 @@ export default function Sidebar() {
         <NavLink to="/provident-fund">Provident Fund</NavLink>
         <NavLink to="/nps">NPS</NavLink>
         <NavLink to="/vehicle-rentals">Vehicle Rentals</NavLink>
+        <NavLink to="/gold">Gold</NavLink>
+        <NavLink to="/real-estate">Real Estate</NavLink>
+        <NavLink to="/insurance">Insurance</NavLink>
         <NavLink to="/home-loans">Home Loans</NavLink>
         <NavLink to="/personal-loans">Personal Loans</NavLink>
         <NavLink to="/credit-cards">Credit Cards</NavLink>
         <NavLink to="/goals">Goals</NavLink>
+        <NavLink to="/fire">FIRE Planner</NavLink>
         <NavLink to="/tax-center">Tax Center</NavLink>
         <NavLink to="/projections">Projections</NavLink>
         <NavLink to="/cashflow">Cashflow</NavLink>
         <NavLink to="/ledger">Income &amp; Expenses</NavLink>
+        <NavLink to="/budgets">Budgets</NavLink>
+        <NavLink to="/family">Family</NavLink>
+        <NavLink to="/documents">Documents</NavLink>
         <NavLink to="/insights">Insights</NavLink>
         <NavLink to="/settings">Settings</NavLink>
       </nav>

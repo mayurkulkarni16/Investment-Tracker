@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import type { Profile, CreateProfileRequest, UpdateProfileRequest } from '../types';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
+import { apiErrorMessage } from '../utils/errors';
+import NotificationSettingsCard from '../components/NotificationSettingsCard';
 
 export default function SettingsPage() {
   const { user, updateUser, viewAsUserId } = useAuth();
@@ -62,7 +64,7 @@ export default function SettingsPage() {
   const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!await confirm({ message: 'This will replace ALL existing data with the backup. Are you sure?', danger: true, confirmLabel: 'Restore' })) {
+    if (!await confirm({ message: 'This will replace all of your existing data with the backup. Are you sure?', danger: true, confirmLabel: 'Restore' })) {
       e.target.value = '';
       return;
     }
@@ -74,7 +76,7 @@ export default function SettingsPage() {
       toast(`Restored ${res.data.collections_restored} collections`);
       setMsg(`Restore complete — ${res.data.collections_restored} collections restored.${res.data.errors?.length ? ' Errors: ' + res.data.errors.join(', ') : ''}`);
     } catch (err) {
-      toast('Failed to restore backup', 'error');
+      toast(apiErrorMessage(err, 'Failed to restore backup'), 'error');
     } finally {
       setRestoring(false);
       e.target.value = '';
@@ -90,7 +92,7 @@ export default function SettingsPage() {
       </div>
 
       {msg && (
-        <div style={{ padding: '10px 16px', marginBottom: 16, borderRadius: 8, background: '#e6f4ea', color: '#0f9d58', fontWeight: 500 }}>
+        <div style={{ padding: '10px 16px', marginBottom: 16, borderRadius: 8, background: 'var(--success-soft)', color: 'var(--success-text)', fontWeight: 500 }}>
           {msg}
         </div>
       )}
@@ -166,6 +168,8 @@ export default function SettingsPage() {
         <p className="text-muted" style={{ fontSize: 11, marginTop: 8 }}>⚠️ Restore will replace all existing data with the backup contents.</p>
       </div>
 
+      <NotificationSettingsCard />
+
       {/* Account section */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -214,8 +218,8 @@ export default function SettingsPage() {
             await authApi.changePassword({ current_password: pwForm.current_password, new_password: pwForm.new_password });
             toast('Password changed');
             setPwForm({ current_password: '', new_password: '', confirm_password: '' });
-          } catch (err: any) {
-            toast(err.response?.data?.error || 'Failed to change password', 'error');
+          } catch (err) {
+            toast(apiErrorMessage(err, 'Failed to change password'), 'error');
           } finally {
             setChangingPw(false);
           }

@@ -5,6 +5,7 @@ import { formatCurrency, formatPercent, formatDate } from '../utils/format';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
+import BrokerImportModal from '../components/BrokerImportModal';
 
 const EXCHANGES: StockExchange[] = ['NSE', 'BSE'];
 const REFRESH_INTERVAL_MS = 60_000; // Auto-refresh every 60s during market hours
@@ -14,6 +15,7 @@ export default function StocksPage() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [showTx, setShowTx] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState<Stock | null>(null);
   const [expandedStock, setExpandedStock] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export default function StocksPage() {
 
   const load = useCallback(() => {
     getStocks().then(r => setStocks(r.data || [])).catch(() => {}).finally(() => setLoading(false));
-  }, [viewAsUserId]);
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -46,10 +48,10 @@ export default function StocksPage() {
     finally { setRefreshing(false); }
   };
 
-  // Auto-refresh during market hours
+  // Reload when the viewed user changes
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, viewAsUserId]);
 
   useEffect(() => {
     if (autoRefresh && isMarketOpen) {
@@ -128,8 +130,8 @@ export default function StocksPage() {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span style={{
             padding: '4px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600,
-            background: isMarketOpen ? '#e8f5e9' : '#fde8e8',
-            color: isMarketOpen ? '#2e7d32' : '#c62828',
+            background: isMarketOpen ? 'var(--success-soft)' : 'var(--danger-soft)',
+            color: isMarketOpen ? 'var(--success-text)' : 'var(--danger-text)',
           }}>
             {isMarketOpen ? '● Market Open' : '○ Market Closed'}
           </span>
@@ -142,6 +144,7 @@ export default function StocksPage() {
           {!isViewOnly && <button className="btn btn-outline" onClick={handleRefresh} disabled={refreshing}>
             {refreshing ? 'Refreshing...' : 'Refresh Prices'}
           </button>}
+          {!isViewOnly && <button className="btn btn-outline" onClick={() => setShowImport(true)}>Import from Broker</button>}
           {!isViewOnly && <button className="btn btn-primary" onClick={() => setShowAdd(true)}>+ Add Stock</button>}
         </div>
       </div>
@@ -214,8 +217,8 @@ export default function StocksPage() {
                   <td>
                     <span style={{
                       padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-                      background: s.exchange === 'NSE' ? '#e3f2fd' : '#fce4ec',
-                      color: s.exchange === 'NSE' ? '#1565c0' : '#c62828',
+                      background: s.exchange === 'NSE' ? 'var(--primary-soft)' : 'var(--pink-soft)',
+                      color: s.exchange === 'NSE' ? 'var(--primary-text)' : 'var(--danger-text)',
                     }}>{s.exchange}</span>
                   </td>
                   <td>{s.total_quantity}</td>
@@ -253,12 +256,12 @@ export default function StocksPage() {
               {stocks.map(s => expandedStock === s.id && s.transactions?.length > 0 && (
                 <tr key={`${s.id}-txns`}>
                   <td colSpan={11} style={{ padding: 0 }}>
-                    <div style={{ background: '#f8f9fa', padding: '12px 16px', borderTop: '1px solid #e0e0e0' }}>
+                    <div style={{ background: 'var(--surface-muted)', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                         <strong style={{ fontSize: 14 }}>Transactions — {s.symbol}</strong>
                         <span className="text-muted" style={{ fontSize: 12 }}>{s.transactions.length} transactions</span>
                       </div>
-                      <table style={{ fontSize: 13, background: '#fff', borderRadius: 6 }}>
+                      <table style={{ fontSize: 13, background: 'var(--card-bg)', borderRadius: 6 }}>
                         <thead>
                           <tr>
                             <th>Date</th>
@@ -276,8 +279,8 @@ export default function StocksPage() {
                               <td>
                                 <span style={{
                                   padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-                                  background: tx.type === 'sell' ? '#fde8e8' : '#e8f5e9',
-                                  color: tx.type === 'sell' ? '#c62828' : '#2e7d32',
+                                  background: tx.type === 'sell' ? 'var(--danger-soft)' : 'var(--success-soft)',
+                                  color: tx.type === 'sell' ? 'var(--danger-text)' : 'var(--success-text)',
                                 }}>
                                   {tx.type.toUpperCase()}
                                 </span>
@@ -296,7 +299,7 @@ export default function StocksPage() {
                             <strong style={{ fontSize: 14 }}>Dividends — {s.symbol}</strong>
                             <span className="text-muted" style={{ fontSize: 12 }}>Total: {formatCurrency(s.total_dividends)}</span>
                           </div>
-                          <table style={{ fontSize: 13, background: '#fff', borderRadius: 6 }}>
+                          <table style={{ fontSize: 13, background: 'var(--card-bg)', borderRadius: 6 }}>
                             <thead><tr><th>Date</th><th>₹/Share</th><th>Total</th><th>Actions</th></tr></thead>
                             <tbody>
                               {[...s.dividends].sort((a, b) => b.date.localeCompare(a.date)).map(d => (
@@ -422,7 +425,7 @@ export default function StocksPage() {
                 </div>
               </div>
               {txForm.quantity > 0 && txForm.price_per_share > 0 && (
-                <div style={{ padding: '8px 12px', background: '#f5f5f5', borderRadius: 6, fontSize: 13, marginBottom: 12 }}>
+                <div style={{ padding: '8px 12px', background: 'var(--surface-muted)', borderRadius: 6, fontSize: 13, marginBottom: 12 }}>
                   Total: <strong>{formatCurrency(txForm.quantity * txForm.price_per_share)}</strong>
                 </div>
               )}
@@ -456,6 +459,7 @@ export default function StocksPage() {
           </div>
         </div>
       )}
+      <BrokerImportModal open={showImport} onClose={() => setShowImport(false)} onImported={load} />
     </div>
   );
 }

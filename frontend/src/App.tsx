@@ -20,6 +20,14 @@ import SettingsPage from './pages/SettingsPage';
 import CashflowPage from './pages/CashflowPage';
 import InsightsPage from './pages/InsightsPage';
 import LedgerPage from './pages/LedgerPage';
+import AccountsPage from './pages/AccountsPage';
+import BudgetsPage from './pages/BudgetsPage';
+import InsurancePage from './pages/InsurancePage';
+import GoldPage from './pages/GoldPage';
+import RealEstatePage from './pages/RealEstatePage';
+import FamilyPage from './pages/FamilyPage';
+import FirePlannerPage from './pages/FirePlannerPage';
+import DocumentsPage from './pages/DocumentsPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -64,6 +72,14 @@ function AppShell() {
             <Route path="/projections" element={<ProjectionsPage />} />
             <Route path="/cashflow" element={<CashflowPage />} />
             <Route path="/ledger" element={<LedgerPage key={viewAsUserId || user?.id} />} />
+            <Route path="/accounts" element={<AccountsPage />} />
+            <Route path="/budgets" element={<BudgetsPage />} />
+            <Route path="/insurance" element={<InsurancePage />} />
+            <Route path="/gold" element={<GoldPage />} />
+            <Route path="/real-estate" element={<RealEstatePage />} />
+            <Route path="/family" element={<FamilyPage />} />
+            <Route path="/fire" element={<FirePlannerPage />} />
+            <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/insights" element={<InsightsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
