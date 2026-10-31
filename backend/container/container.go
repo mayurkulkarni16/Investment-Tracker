@@ -23,6 +23,7 @@ type Container struct {
 	ProjectionHandler    *handlers.ProjectionHandler
 	DashboardHandler     *handlers.DashboardHandler
 	NPSHandler           *handlers.NPSHandler
+	VehicleRentalHandler *handlers.VehicleRentalHandler
 	CreditCardHandler    *handlers.CreditCardHandler
 	GoalHandler          *handlers.GoalHandler
 	NetWorthHandler      *handlers.NetWorthHandler
@@ -63,6 +64,7 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 	sipRepo := repository.NewSIPRepo(db)
 	notificationRepo := repository.NewNotificationRepo(db)
 	profileRepo := repository.NewProfileRepo(db)
+	vehicleRentalRepo := repository.NewVehicleRentalRepo(db)
 
 	// Services
 	authService := services.NewAuthService(userRepo, cfg)
@@ -78,6 +80,7 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 	projectionService := services.NewProjectionService(mfRepo, fdRepo, pfRepo, stockRepo, bondRepo, npsRepo, sipRepo)
 	dashboardService := services.NewDashboardService(mfRepo, bondRepo, fdRepo, pfRepo, stockRepo, homeLoanRepo, personalLoanRepo, npsRepo, creditCardRepo)
 	npsService := services.NewNPSService(npsRepo)
+	vehicleRentalService := services.NewVehicleRentalService(vehicleRentalRepo)
 	creditCardService := services.NewCreditCardService(creditCardRepo)
 	goalService := services.NewGoalService(goalRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo)
 	netWorthService := services.NewNetWorthService(netWorthRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo, homeLoanRepo, personalLoanRepo, creditCardRepo)
@@ -105,6 +108,7 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 		ProjectionHandler:    handlers.NewProjectionHandler(projectionService),
 		DashboardHandler:     handlers.NewDashboardHandler(dashboardService),
 		NPSHandler:           handlers.NewNPSHandler(npsService),
+		VehicleRentalHandler: handlers.NewVehicleRentalHandler(vehicleRentalService),
 		CreditCardHandler:    handlers.NewCreditCardHandler(creditCardService),
 		GoalHandler:          handlers.NewGoalHandler(goalService),
 		NetWorthHandler:      handlers.NewNetWorthHandler(netWorthService),

@@ -62,6 +62,9 @@ func Register(r *gin.Engine, c *container.Container, cfg *config.Config) {
 		// NPS
 		registerNPSRoutes(api, c)
 
+		// Vehicle Rentals (EV fleet leasing)
+		registerVehicleRentalRoutes(api, c)
+
 		// Credit Cards
 		registerCreditCardRoutes(api, c)
 
@@ -210,6 +213,20 @@ func registerNPSRoutes(api *gin.RouterGroup, c *container.Container) {
 		nps.PUT("/:id", c.NPSHandler.Update)
 		nps.DELETE("/:id", c.NPSHandler.Delete)
 		nps.POST("/:id/contributions", c.NPSHandler.AddContribution)
+	}
+}
+
+func registerVehicleRentalRoutes(api *gin.RouterGroup, c *container.Container) {
+	vr := api.Group("/vehicle-rentals")
+	{
+		vr.GET("", c.VehicleRentalHandler.GetAll)
+		vr.POST("", c.VehicleRentalHandler.Create)
+		vr.GET("/:id", c.VehicleRentalHandler.GetByID)
+		vr.PUT("/:id", c.VehicleRentalHandler.Update)
+		vr.DELETE("/:id", c.VehicleRentalHandler.Delete)
+		vr.PUT("/:id/payouts/:payoutId", c.VehicleRentalHandler.UpdatePayout)
+		vr.POST("/:id/mark-due-received", c.VehicleRentalHandler.MarkDueReceived)
+		vr.PUT("/:id/buyback", c.VehicleRentalHandler.UpdateBuyback)
 	}
 }
 
