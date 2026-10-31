@@ -11,6 +11,7 @@ import (
 
 // Container holds all application dependencies wired together.
 type Container struct {
+	LedgerHandler *handlers.LedgerHandler
 	// Handlers
 	AuthHandler          *handlers.AuthHandler
 	MutualFundHandler    *handlers.MutualFundHandler
@@ -65,6 +66,7 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 	notificationRepo := repository.NewNotificationRepo(db)
 	profileRepo := repository.NewProfileRepo(db)
 	vehicleRentalRepo := repository.NewVehicleRentalRepo(db)
+	ledgerRepo := repository.NewLedgerRepo(db)
 
 	// Services
 	authService := services.NewAuthService(userRepo, cfg)
@@ -97,6 +99,7 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 
 	// Handlers
 	return &Container{
+		LedgerHandler:        handlers.NewLedgerHandler(services.NewLedgerService(ledgerRepo)),
 		AuthHandler:          handlers.NewAuthHandler(authService),
 		MutualFundHandler:    handlers.NewMutualFundHandler(mfService),
 		CorporateBondHandler: handlers.NewCorporateBondHandler(bondService),

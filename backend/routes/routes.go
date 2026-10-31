@@ -31,6 +31,10 @@ func Register(r *gin.Engine, c *container.Container, cfg *config.Config) {
 		api.GET("/auth/users", middleware.AdminOnly(), c.AuthHandler.GetAllUsers)
 
 		// Dashboard & Projections
+		api.GET("/ledger", c.LedgerHandler.GetAll)
+		api.POST("/ledger", c.LedgerHandler.Save)
+		api.PUT("/ledger/:id", c.LedgerHandler.Save)
+		api.GET("/ledger/export", c.LedgerHandler.Export)
 		api.GET("/dashboard", c.DashboardHandler.GetDashboard)
 		api.POST("/dashboard/rebalance", c.DashboardHandler.GetRebalanceSuggestions)
 		api.GET("/projections", c.ProjectionHandler.GetProjections)
