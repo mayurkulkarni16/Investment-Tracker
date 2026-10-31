@@ -287,7 +287,7 @@ export default function CorporateBondsPage() {
               <div className="form-row-3">
                 <div className="form-group">
                   <label>Coupon Rate (%)</label>
-                  <input type="number" step="0.01" required value={form.coupon_rate || ''} onChange={e => setForm({ ...form, coupon_rate: parseFloat(e.target.value) })} />
+                  <input type="number" step="0.01" min={0} placeholder="0 for zero-coupon" value={form.coupon_rate || ''} onChange={e => setForm({ ...form, coupon_rate: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div className="form-group">
                   <label>Interest Payout</label>
@@ -312,7 +312,7 @@ export default function CorporateBondsPage() {
               </div>
 
               {form.maturity_type === 'staggered' && (
-                <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+                <div style={{ background: 'var(--surface-muted)', padding: 16, borderRadius: 8, marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <label style={{ fontWeight: 600, fontSize: 14 }}>Principal Repayment Schedule</label>
                     <button type="button" className="btn btn-sm btn-outline" onClick={addRepayment}>+ Add Repayment</button>
@@ -380,7 +380,7 @@ export default function CorporateBondsPage() {
               <div className="form-row-3">
                 <div className="form-group">
                   <label>Coupon Rate (%)</label>
-                  <input type="number" step="0.01" required value={editForm.coupon_rate || ''} onChange={e => setEditForm({ ...editForm, coupon_rate: parseFloat(e.target.value) })} />
+                  <input type="number" step="0.01" min={0} placeholder="0 for zero-coupon" value={editForm.coupon_rate || ''} onChange={e => setEditForm({ ...editForm, coupon_rate: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div className="form-group">
                   <label>Interest Payout</label>
@@ -404,7 +404,7 @@ export default function CorporateBondsPage() {
                 </select>
               </div>
               {editForm.maturity_type === 'staggered' && (
-                <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+                <div style={{ background: 'var(--surface-muted)', padding: 16, borderRadius: 8, marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <label style={{ fontWeight: 600, fontSize: 14 }}>Principal Repayment Schedule</label>
                     <button type="button" className="btn btn-sm btn-outline" onClick={() => setEditRepayments([...editRepayments, { scheduled_date: '', amount: 0 }])}>+ Add</button>

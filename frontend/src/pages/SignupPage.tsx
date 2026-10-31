@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { apiErrorMessage } from '../utils/errors';
 
 export default function SignupPage() {
   const { signup } = useAuth();
@@ -21,8 +22,8 @@ export default function SignupPage() {
     setLoading(true);
     try {
       await signup(name, email, password);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Signup failed');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Signup failed'));
     } finally {
       setLoading(false);
     }

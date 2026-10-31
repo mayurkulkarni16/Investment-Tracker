@@ -1,34 +1,26 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { useState, useCallback, useMemo, useRef, type ReactNode } from 'react';
+import { ToastContext, type ToastType } from './Toast';
 
-type ToastType = 'success' | 'error' | 'info';
-
-interface Toast {
+interface ToastItem {
   id: number;
   message: string;
   type: ToastType;
 }
 
-interface ToastContextValue {
-  toast: (message: string, type?: ToastType) => void;
-}
-
-const ToastContext = createContext<ToastContextValue>({ toast: () => {} });
-
-export const useToast = () => useContext(ToastContext);
-
-let nextId = 0;
-
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const nextId = useRef(0);
 
   const toast = useCallback((message: string, type: ToastType = 'success') => {
-    const id = ++nextId;
+    const id = ++nextId.current;
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
   }, []);
 
+  const value = useMemo(() => ({ toast }), [toast]);
+
   return (
-    <ToastContext.Provider value={{ toast }}>
+    <ToastContext.Provider value={value}>
       {children}
       <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {toasts.map(t => (

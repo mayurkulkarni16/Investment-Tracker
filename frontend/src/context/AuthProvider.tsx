@@ -1,44 +1,30 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { authApi, type User } from '../api/auth';
-
-interface AuthContextType {
-  user: User | null;
-  token: string | null;
-  isAdmin: boolean;
-  isViewOnly: boolean;
-  viewAsUserId: string | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
-  setViewAsUser: (userId: string | null) => void;
-  updateUser: (user: User) => void;
-}
-
-const AuthContext = createContext<AuthContextType | null>(null);
+import { AuthContext } from './AuthContext';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('auth_token'));
-  const [viewAsUserId, setViewAsUserId] = useState<string | null>(localStorage.getItem('view_as_user'));
-  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('auth_token'));
+  const [viewAsUserId, setViewAsUserId] = useState<string | null>(() => localStorage.getItem('view_as_user'));
+  // Only the initial token needs verifying; logins/signups set the user directly.
+  const [loading, setLoading] = useState(() => !!localStorage.getItem('auth_token'));
 
   const isAdmin = user?.role === 'admin';
   const isViewOnly = !!viewAsUserId;
 
   useEffect(() => {
-    if (token) {
-      authApi.getMe()
-        .then(res => setUser(res.data))
-        .catch(() => {
-          localStorage.removeItem('auth_token');
-          setToken(null);
-          setUser(null);
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    if (!token) return;
+    let cancelled = false;
+    authApi.getMe()
+      .then(res => { if (!cancelled) setUser(res.data); })
+      .catch(() => {
+        if (cancelled) return;
+        localStorage.removeItem('auth_token');
+        setToken(null);
+        setUser(null);
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [token]);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -82,10 +68,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
 }

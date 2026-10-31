@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
+import ErrorBoundary from './components/ErrorBoundary';
 import DashboardPage from './pages/DashboardPage';
 import MutualFundsPage from './pages/MutualFundsPage';
 import CorporateBondsPage from './pages/CorporateBondsPage';
@@ -21,14 +22,16 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
-import { ConfirmProvider } from './components/ConfirmDialog';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { ConfirmProvider } from './components/ConfirmProvider';
+import { AuthProvider } from './context/AuthProvider';
+import { useAuth } from './context/AuthContext';
 import { useKeyboardShortcuts } from './utils/shortcuts';
 import './index.css';
 
 function AppShell() {
   useKeyboardShortcuts();
   const { isViewOnly, setViewAsUser } = useAuth();
+  const { pathname } = useLocation();
   return (
     <>
       {isViewOnly && (
@@ -40,6 +43,7 @@ function AppShell() {
       <div className={`app${isViewOnly ? ' view-only' : ''}`}>
       <Sidebar />
       <main className="main-content">
+        <ErrorBoundary key={pathname}>
         <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/mutual-funds" element={<MutualFundsPage />} />
@@ -60,6 +64,7 @@ function AppShell() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </ErrorBoundary>
       </main>
     </div>
     </>

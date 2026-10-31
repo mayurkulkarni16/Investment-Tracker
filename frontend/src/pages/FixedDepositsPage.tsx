@@ -135,9 +135,9 @@ export default function FixedDepositsPage() {
         const sorted = [...filtered].sort((a, b) => {
           if (!sortCol) return 0;
           const dir = sortDir === 'asc' ? 1 : -1;
-          const av = (a as any)[sortCol], bv = (b as any)[sortCol];
-          if (typeof av === 'string') return av.localeCompare(bv) * dir;
-          return ((av ?? 0) - (bv ?? 0)) * dir;
+          const av = (a as unknown as Record<string, unknown>)[sortCol], bv = (b as unknown as Record<string, unknown>)[sortCol];
+          if (typeof av === 'string' || typeof bv === 'string') return String(av ?? '').localeCompare(String(bv ?? '')) * dir;
+          return (Number(av ?? 0) - Number(bv ?? 0)) * dir;
         });
         return (
           <>

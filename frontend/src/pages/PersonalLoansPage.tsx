@@ -156,13 +156,13 @@ export default function PersonalLoansPage() {
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <span style={{
                     padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
-                    background: l.status === 'active' ? '#e8f5e9' : l.status === 'closed' ? '#e3f2fd' : '#fff3e0',
-                    color: l.status === 'active' ? '#2e7d32' : l.status === 'closed' ? '#1565c0' : '#e65100',
+                    background: l.status === 'active' ? 'var(--success-soft)' : l.status === 'closed' ? 'var(--primary-soft)' : 'var(--warning-soft)',
+                    color: l.status === 'active' ? 'var(--success-text)' : l.status === 'closed' ? 'var(--primary-text)' : 'var(--warning-text)',
                   }}>{l.status.toUpperCase()}</span>
                   <span style={{
                     padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
-                    background: l.rate_type === 'floating' ? '#fce4ec' : '#e8eaf6',
-                    color: l.rate_type === 'floating' ? '#c62828' : '#283593',
+                    background: l.rate_type === 'floating' ? 'var(--pink-soft)' : 'var(--indigo-soft)',
+                    color: l.rate_type === 'floating' ? 'var(--danger-text)' : '#283593',
                   }}>{l.rate_type.toUpperCase()}</span>
                 </div>
               </div>
@@ -179,7 +179,7 @@ export default function PersonalLoansPage() {
               </div>
 
               {(l.processing_fee > 0 || l.foreclosure_charges > 0) && (
-                <div style={{ background: '#fff8e1', padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
+                <div style={{ background: 'var(--warning-soft)', padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
                   {l.processing_fee > 0 && <span>Processing Fee: {formatCurrency(l.processing_fee)}</span>}
                   {l.processing_fee > 0 && l.foreclosure_charges > 0 && <span> | </span>}
                   {l.foreclosure_charges > 0 && <span>Foreclosure Charges: {l.foreclosure_charges}%</span>}

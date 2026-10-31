@@ -115,11 +115,11 @@ export default function CreditCardsPage() {
                   Utilization: {card.utilization_pct?.toFixed(1)}%
                 </span>
                 {card.reward_points > 0 && <span className="badge badge-pending">Rewards: {card.reward_points.toLocaleString()} pts</span>}
-                <span className="badge" style={{ background: '#f0f4ff', color: '#1a73e8' }}>Billing: {card.billing_date}th</span>
+                <span className="badge" style={{ background: 'var(--primary-soft)', color: 'var(--primary-text)' }}>Billing: {card.billing_date}th</span>
               </div>
 
               {card.credit_score_tips?.length > 0 && (
-                <div style={{ marginTop: 8, padding: '8px 12px', background: '#e8f0fe', borderRadius: 6, fontSize: 13 }}>
+                <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--primary-soft)', borderRadius: 6, fontSize: 13 }}>
                   <strong>Tips:</strong>
                   <ul style={{ listStyle: 'disc', marginLeft: 16, marginTop: 4 }}>{card.credit_score_tips.map((t, i) => <li key={i}>{t}</li>)}</ul>
                 </div>
@@ -245,8 +245,8 @@ export default function CreditCardsPage() {
                 <div className="form-group"><label>Due Date</label><input type="date" required value={stmtForm.due_date} onChange={e => setStmtForm({ ...stmtForm, due_date: e.target.value })} /></div>
               </div>
               <div className="form-row">
-                <div className="form-group"><label>Total Amount (₹)</label><input type="number" required value={stmtForm.total_amount || ''} onChange={e => setStmtForm({ ...stmtForm, total_amount: +e.target.value })} /></div>
-                <div className="form-group"><label>Minimum Due (₹)</label><input type="number" required value={stmtForm.minimum_due || ''} onChange={e => setStmtForm({ ...stmtForm, minimum_due: +e.target.value })} /></div>
+                <div className="form-group"><label>Total Amount (₹)</label><input type="number" min={0} placeholder="0" value={stmtForm.total_amount || ''} onChange={e => setStmtForm({ ...stmtForm, total_amount: +e.target.value || 0 })} /></div>
+                <div className="form-group"><label>Minimum Due (₹)</label><input type="number" min={0} placeholder="0" value={stmtForm.minimum_due || ''} onChange={e => setStmtForm({ ...stmtForm, minimum_due: +e.target.value || 0 })} /></div>
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setShowStatement(null)}>Cancel</button>

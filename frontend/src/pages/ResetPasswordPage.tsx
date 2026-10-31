@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { authApi } from '../api/auth';
+import { apiErrorMessage } from '../utils/errors';
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
@@ -26,8 +27,8 @@ export default function ResetPasswordPage() {
     try {
       await authApi.resetPassword({ token: resetToken, password });
       setDone(true);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to reset password');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to reset password'));
     } finally {
       setLoading(false);
     }

@@ -33,7 +33,7 @@ export default function TaxCenterPage() {
 
       {tab === 'deductions' && summary && (
         <div>
-          <div className="stat-card" style={{ marginBottom: 16, background: '#e8f0fe' }}>
+          <div className="stat-card" style={{ marginBottom: 16, background: 'var(--primary-soft)' }}>
             <div className="label">Total Deductions (FY {summary.fy || 'Current'})</div>
             <div className="value" style={{ color: '#1a73e8' }}>{formatCurrency(summary.total_deductions)}</div>
           </div>
@@ -106,8 +106,8 @@ export default function TaxCenterPage() {
           </div>
 
           {cg.harvesting_tips && cg.harvesting_tips.length > 0 && (
-            <div className="card" style={{ marginBottom: 16, background: '#e8f5e9', border: '1px solid #4caf50' }}>
-              <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, color: '#2e7d32' }}>Tax Harvesting Tips</h3>
+            <div className="card" style={{ marginBottom: 16, background: 'var(--success-soft)', border: '1px solid var(--success)' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, color: 'var(--success-text)' }}>Tax Harvesting Tips</h3>
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
                 {cg.harvesting_tips.map((tip, i) => (
                   <li key={i} style={{ marginBottom: 4 }}>{tip}</li>
@@ -136,7 +136,7 @@ export default function TaxCenterPage() {
                     <tr key={i}>
                       <td>
                         {e.investment_name} <span className="text-muted" style={{ fontSize: 11 }}>({e.investment_type})</span>
-                        {e.grandfathered && <span style={{ fontSize: 10, background: '#fff3e0', color: '#e65100', borderRadius: 4, padding: '1px 5px', marginLeft: 4 }}>GF</span>}
+                        {e.grandfathered && <span style={{ fontSize: 10, background: 'var(--warning-soft)', color: 'var(--warning-text)', borderRadius: 4, padding: '1px 5px', marginLeft: 4 }}>GF</span>}
                       </td>
                       <td className="text-muted" style={{ fontSize: 12 }}>{e.buy_date}</td>
                       <td className="text-right">{formatCurrency(e.buy_amount)}</td>

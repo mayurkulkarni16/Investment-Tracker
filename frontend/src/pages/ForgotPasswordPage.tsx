@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { authApi } from '../api/auth';
+import { apiErrorMessage } from '../utils/errors';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -15,8 +16,8 @@ export default function ForgotPasswordPage() {
     try {
       await authApi.forgotPassword({ email });
       setSent(true);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to send reset email');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to send reset email'));
     } finally {
       setLoading(false);
     }

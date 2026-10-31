@@ -318,9 +318,9 @@ export default function MutualFundsPage() {
   const sorted = [...filtered].sort((a, b) => {
     if (!sortCol) return 0;
     const dir = sortDir === 'asc' ? 1 : -1;
-    const av = (a as any)[sortCol], bv = (b as any)[sortCol];
-    if (typeof av === 'string') return av.localeCompare(bv) * dir;
-    return ((av ?? 0) - (bv ?? 0)) * dir;
+    const av = (a as unknown as Record<string, unknown>)[sortCol], bv = (b as unknown as Record<string, unknown>)[sortCol];
+    if (typeof av === 'string' || typeof bv === 'string') return String(av ?? '').localeCompare(String(bv ?? '')) * dir;
+    return (Number(av ?? 0) - Number(bv ?? 0)) * dir;
   });
 
   if (loading) return <div className="loading">Loading...</div>;
@@ -459,12 +459,12 @@ export default function MutualFundsPage() {
               {sorted.map(f => expandedFund === f.id && f.transactions?.length > 0 && (
                 <tr key={`${f.id}-txns`}>
                   <td colSpan={9} style={{ padding: 0 }}>
-                    <div style={{ background: '#f8f9fa', padding: '12px 16px', borderTop: '1px solid #e0e0e0' }}>
+                    <div style={{ background: 'var(--surface-muted)', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                         <strong style={{ fontSize: 14 }}>Transactions — {f.fund_name}</strong>
                         <span className="text-muted" style={{ fontSize: 12 }}>{f.transactions.length} transactions</span>
                       </div>
-                      <table style={{ fontSize: 13, background: '#fff', borderRadius: 6 }}>
+                      <table style={{ fontSize: 13, background: 'var(--card-bg)', borderRadius: 6 }}>
                         <thead>
                           <tr>
                             <th>Date</th>
@@ -483,8 +483,8 @@ export default function MutualFundsPage() {
                               <td>
                                 <span style={{
                                   padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-                                  background: tx.type === 'redemption' || tx.type === 'switch_out' ? '#fde8e8' : '#e8f5e9',
-                                  color: tx.type === 'redemption' || tx.type === 'switch_out' ? '#c62828' : '#2e7d32',
+                                  background: tx.type === 'redemption' || tx.type === 'switch_out' ? 'var(--danger-soft)' : 'var(--success-soft)',
+                                  color: tx.type === 'redemption' || tx.type === 'switch_out' ? 'var(--danger-text)' : 'var(--success-text)',
                                 }}>
                                   {tx.type.toUpperCase()}
                                 </span>
@@ -576,9 +576,9 @@ export default function MutualFundsPage() {
                     {sips.map(sip => expandedSIP === sip.id && sip.installments?.length > 0 && (
                       <tr key={`${sip.id}-inst`}>
                         <td colSpan={9} style={{ padding: 0 }}>
-                          <div style={{ background: '#f8f9fa', padding: '12px 16px', borderTop: '1px solid #e0e0e0' }}>
+                          <div style={{ background: 'var(--surface-muted)', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
                             <strong style={{ fontSize: 14 }}>Installment History — {sip.fund_name}</strong>
-                            <table style={{ fontSize: 13, background: '#fff', borderRadius: 6, marginTop: 8 }}>
+                            <table style={{ fontSize: 13, background: 'var(--card-bg)', borderRadius: 6, marginTop: 8 }}>
                               <thead><tr><th>Date</th><th>Amount</th><th>NAV</th><th>Units</th><th>Status</th></tr></thead>
                               <tbody>
                                 {[...sip.installments].reverse().map(inst => (

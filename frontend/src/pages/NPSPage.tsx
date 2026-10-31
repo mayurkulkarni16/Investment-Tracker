@@ -143,7 +143,7 @@ export default function NPSPage() {
               </div>
 
               {a.section_80ccd1 > 0 && (
-                <div style={{ marginTop: 8, padding: '8px 12px', background: '#e6f4ea', borderRadius: 6, fontSize: 13, color: '#1e8e3e' }}>
+                <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--success-soft)', borderRadius: 6, fontSize: 13, color: 'var(--success-text)' }}>
                   Tax: 80CCD(1): {formatCurrency(a.section_80ccd1)} | 80CCD(1B): {formatCurrency(a.section_80ccd1b)} | 80CCD(2): {formatCurrency(a.section_80ccd2)}
                 </div>
               )}

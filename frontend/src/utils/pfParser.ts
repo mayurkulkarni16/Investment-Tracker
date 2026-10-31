@@ -95,7 +95,7 @@ export async function extractPFFromPDF(
     const ctx = canvas.getContext('2d')!;
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    await page.render({ canvas, canvasContext: ctx, viewport } as any).promise;
+    await page.render({ canvas, canvasContext: ctx, viewport } as Parameters<typeof page.render>[0]).promise;
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     let nonWhitePixels = 0;
@@ -129,7 +129,7 @@ export async function extractPFFromPDF(
   return parsePFText(fullText);
 }
 
-function parseNumber(s: string): number {
+function parseNumber(s: string | undefined): number {
   if (!s) return 0;
   // Remove commas, spaces, and handle common OCR errors
   const cleaned = s.replace(/,/g, '').replace(/\s/g, '').replace(/[oO]/g, '0').replace(/[lI]/g, '1');
@@ -174,7 +174,7 @@ export function parsePFText(text: string): ParsedPFData {
   }
 
   // Month patterns: plain "Apr" OR with year suffix "Apr-25" / "Apr/25" / "Apr 25"
-  const monthWithYearPattern = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[-\/\s](\d{2,4})\b/i;
+  const monthWithYearPattern = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[-/\s](\d{2,4})\b/i;
   const plainMonthPattern    = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i;
 
   // Financial year: "2024-25", "2025-2026", "2025 - 2026", "FY 2024-25"

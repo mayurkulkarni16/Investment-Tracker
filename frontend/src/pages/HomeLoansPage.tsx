@@ -195,18 +195,18 @@ export default function HomeLoansPage() {
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <span style={{
                     padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
-                    background: l.status === 'active' ? '#e8f5e9' : l.status === 'closed' ? '#e3f2fd' : '#fff3e0',
-                    color: l.status === 'active' ? '#2e7d32' : l.status === 'closed' ? '#1565c0' : '#e65100',
+                    background: l.status === 'active' ? 'var(--success-soft)' : l.status === 'closed' ? 'var(--primary-soft)' : 'var(--warning-soft)',
+                    color: l.status === 'active' ? 'var(--success-text)' : l.status === 'closed' ? 'var(--primary-text)' : 'var(--warning-text)',
                   }}>{l.status.toUpperCase()}</span>
                   <span style={{
                     padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
-                    background: l.rate_type === 'floating' ? '#fce4ec' : '#e8eaf6',
-                    color: l.rate_type === 'floating' ? '#c62828' : '#283593',
+                    background: l.rate_type === 'floating' ? 'var(--pink-soft)' : 'var(--indigo-soft)',
+                    color: l.rate_type === 'floating' ? 'var(--danger-text)' : '#283593',
                   }}>{l.rate_type.toUpperCase()}</span>
                   {l.is_under_construction && (
                     <span style={{
                       padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
-                      background: '#fff3e0', color: '#e65100',
+                      background: 'var(--warning-soft)', color: 'var(--warning-text)',
                     }}>CONSTRUCTION</span>
                   )}
                 </div>
@@ -227,13 +227,13 @@ export default function HomeLoansPage() {
 
               {/* Disbursement progress for under-construction */}
               {l.is_under_construction && l.disbursements?.length > 0 && (
-                <div style={{ background: '#fff8e1', padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
+                <div style={{ background: 'var(--warning-soft)', padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
                   <strong>Disbursements ({l.disbursements.length} tranche{l.disbursements.length > 1 ? 's' : ''}):</strong>
                   <div style={{ display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
                     {l.disbursements.map(d => (
                       <span key={d.disbursement_id} style={{ fontSize: 12 }}>
                         T{d.tranche}: {formatCurrency(d.amount)} ({formatDate(d.date)})
-                        {d.pre_emi_amount > 0 && <span style={{ color: '#e65100' }}> — Pre-EMI: {formatCurrency(d.pre_emi_amount)} ({d.pre_emi_days}/{d.days_in_month} days)</span>}
+                        {d.pre_emi_amount > 0 && <span style={{ color: 'var(--warning-text)' }}> — Pre-EMI: {formatCurrency(d.pre_emi_amount)} ({d.pre_emi_days}/{d.days_in_month} days)</span>}
                       </span>
                     ))}
                   </div>
@@ -242,7 +242,7 @@ export default function HomeLoansPage() {
 
               {/* Tax benefits */}
               {(l.interest_paid_this_fy > 0 || l.principal_paid_this_fy > 0 || l.pre_emi_paid_this_fy > 0) && (
-                <div style={{ background: '#f0f7ff', padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
+                <div style={{ background: 'var(--primary-soft)', padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
                   <strong>Tax Benefits (Current FY):</strong>{' '}
                   Sec 24(b) Interest: {formatCurrency(Math.min(l.interest_paid_this_fy, 200000))} (max ₹2L)
                   {l.pre_emi_paid_this_fy > 0 && <span> (incl. Pre-EMI: {formatCurrency(l.pre_emi_paid_this_fy)})</span>}
@@ -312,7 +312,7 @@ export default function HomeLoansPage() {
                             <tr key={p.prepayment_id}>
                               <td>{formatDate(p.date)}</td>
                               <td>{formatCurrency(p.amount)}</td>
-                              <td><span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: p.type === 'foreclosure' ? '#fde8e8' : '#e8f5e9', color: p.type === 'foreclosure' ? '#c62828' : '#2e7d32' }}>{p.type.replace('_', ' ').toUpperCase()}</span></td>
+                              <td><span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: p.type === 'foreclosure' ? 'var(--danger-soft)' : 'var(--success-soft)', color: p.type === 'foreclosure' ? 'var(--danger-text)' : 'var(--success-text)' }}>{p.type.replace('_', ' ').toUpperCase()}</span></td>
                               <td>{p.notes || '-'}</td>
                             </tr>
                           ))}
@@ -371,7 +371,7 @@ export default function HomeLoansPage() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="month" fontSize={11} />
                         <YAxis tickFormatter={(v: number) => `₹${(v / 1000).toFixed(0)}K`} fontSize={11} />
-                        <Tooltip formatter={(v: any) => formatCurrency(v)} />
+                        <Tooltip formatter={(v) => formatCurrency(Number(v))} />
                         <Legend />
                         <Area type="monotone" dataKey="principal_portion" name="Principal" stackId="emi" stroke="#1a73e8" fill="#bbdefb" />
                         <Area type="monotone" dataKey="interest_portion" name="Interest" stackId="emi" stroke="#ea4335" fill="#ffcdd2" />

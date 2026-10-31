@@ -1,23 +1,7 @@
-import { useState, useCallback, createContext, useContext } from 'react';
+import { useState, useCallback, useMemo, type ReactNode } from 'react';
+import { ConfirmContext, type ConfirmOptions } from './ConfirmDialog';
 
-interface ConfirmOptions {
-  title?: string;
-  message: string;
-  confirmLabel?: string;
-  danger?: boolean;
-}
-
-interface ConfirmContextType {
-  confirm: (options: ConfirmOptions) => Promise<boolean>;
-}
-
-const ConfirmContext = createContext<ConfirmContextType>({ confirm: () => Promise.resolve(false) });
-
-export function useConfirm() {
-  return useContext(ConfirmContext);
-}
-
-export function ConfirmProvider({ children }: { children: React.ReactNode }) {
+export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<(ConfirmOptions & { resolve: (v: boolean) => void }) | null>(null);
 
   const confirm = useCallback((options: ConfirmOptions) => {
@@ -26,13 +10,15 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const value = useMemo(() => ({ confirm }), [confirm]);
+
   const handleClose = (result: boolean) => {
     state?.resolve(result);
     setState(null);
   };
 
   return (
-    <ConfirmContext.Provider value={{ confirm }}>
+    <ConfirmContext.Provider value={value}>
       {children}
       {state && (
         <div className="modal-overlay" onClick={() => handleClose(false)}>
