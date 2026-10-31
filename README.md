@@ -1,6 +1,6 @@
-# Investment Tracker
+# FinBoard
 
-A comprehensive personal finance platform to track investments, loans, and net worth in one place. Supports 10 investment/liability types with live market data, Monte Carlo projections, tax planning, portfolio insights, and financial goal tracking.
+FinBoard (this repository: Investment Tracker) is a comprehensive personal finance platform to track investments, loans, and net worth in one place. Supports 10 investment/liability types with live market data, Monte Carlo projections, tax planning, portfolio insights, and financial goal tracking.
 
 ---
 
@@ -180,7 +180,7 @@ investment-tracker/
 ├── frontend/                  # React SPA
 │   └── src/
 │       ├── api/               # Axios API clients per resource
-│       ├── components/        # Shared UI components (Sidebar)
+│       ├── components/        # Shared UI components (Sidebar, TopBar, CommandPalette, …)
 │       ├── context/           # Auth context
 │       ├── pages/             # 21 pages (4 auth + 17 app pages)
 │       ├── types/             # TypeScript interfaces mirroring Go models

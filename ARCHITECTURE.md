@@ -691,7 +691,19 @@ investment-tracker/
 │       │   ├── backup.ts
 │       │   └── auth.ts
 │       ├── components/
-│       │   └── Sidebar.tsx
+│       │   ├── Sidebar.tsx               # Grouped, collapsible navigation (items in navigation.ts)
+│       │   ├── TopBar.tsx                # Page search (Ctrl/⌘+K), theme toggle, notifications, account menu
+│       │   ├── CommandPalette.tsx        # Ctrl/⌘+K quick jump to any page
+│       │   ├── NotificationBell.tsx
+│       │   ├── UserMenu.tsx              # Settings, sign out, admin "view as user"
+│       │   ├── Logo.tsx                  # FinBoard logo
+│       │   ├── charts.tsx                # Shared chart tooltip, segmented range control, empty state
+│       │   ├── chartUtils.ts             # Chart palette (CHART_COLORS, SERIES) for SVG fill/stroke props
+│       │   ├── RowActions.tsx            # Row/card actions: visible primary action + "⋯" menu (delete last, in red)
+│       │   ├── ui.tsx                    # SortableTh, Tabs, FilterChips, PageSkeleton
+│       │   ├── AuthLayout.tsx            # Sign-in/sign-up layout with brand panel
+│       │   ├── dashboard/                # Dashboard sections (hero, health meters, charts, holdings, lists)
+│       │   └── ErrorBoundary.tsx
 │       ├── context/
 │       │   ├── AuthContext.ts            # Auth context + useAuth hook
 │       │   └── AuthProvider.tsx          # JWT token + user state
@@ -729,6 +741,16 @@ investment-tracker/
 ├── ARCHITECTURE.md                      # This file
 └── README.md
 ```
+
+---
+
+## Frontend UI Conventions
+
+- **Theme tokens** live in `frontend/src/index.css` (`:root` and `html.dark`): colours (`--primary`, `--surface-muted`, `--success-soft`/`--success-text`, …), a type scale (`--fs-xs` … `--fs-3xl`) and a 4px spacing scale (`--space-1` … `--space-8`). Use these instead of hex values so light and dark mode both work.
+- **Utility classes** (same file, "Utilities" section) cover common one-off styling: `text-sm`, `fw-semibold`, `text-muted`, `flex items-center gap-2`, `mb-4`, `capitalize`, etc. Keep `style={{…}}` for values that are genuinely dynamic (widths from data, per-category colours).
+- **Charts** take colours from `components/chartUtils.ts` (`CHART_COLORS`, `SERIES`) because CSS variables don't resolve reliably inside SVG attributes; axes, grids and tooltips are themed globally, and `ChartTooltip` in `components/charts.tsx` gives a themed tooltip.
+- **Tables**: add `num` to `th`/`td` holding amounts or percentages (right-aligned, tabular digits); `table-stack` on `.table-container` turns rows into cards on phones (cells need `data-label`); row actions go through `RowActions` (one visible action + "⋯" menu, delete last).
+- **Pages**: show `<PageSkeleton />` while loading, `.empty-state` when there's no data, and `.card-grid` rows of `.stat-card`s (two-up on phones automatically). New pages also need an entry in `components/navigation.ts`.
 
 ---
 
@@ -816,7 +838,7 @@ When a principal repayment is marked as received:
 ### 10. Notification Generator
 - Scans all modules for upcoming events: EMIs and SIPs (7 days), FD maturities, bond coupons and rental buybacks (30 days), credit card dues (15 days), overdue rental payouts, goals at risk and goal milestones
 - Each notification carries a `dedupe_key` (event type + record + date, e.g. `emi_due:home_loan:<id>:2026-11-05`), backed by a unique partial index on `(user_id, dedupe_key)`; repeat scans never create duplicates and dismissed alerts stay dismissed
-- Runs automatically per user from the daily scheduler, and on app load from the sidebar (skipped in admin view-as mode); the "Scan" button still triggers it manually
+- Runs automatically per user from the daily scheduler, and on app load from the notification bell in the top bar (skipped in admin view-as mode); the "Scan" button still triggers it manually
 
 ### 11. Daily Scheduler
 - Runs at 20:00 IST daily (after Indian market close), plus a catch-up run 30 seconds after server start (so hosts that sleep or restart still get current snapshots and alerts)
