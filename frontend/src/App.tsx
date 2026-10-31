@@ -11,6 +11,7 @@ import HomeLoansPage from './pages/HomeLoansPage';
 import PersonalLoansPage from './pages/PersonalLoansPage';
 import ProjectionsPage from './pages/ProjectionsPage';
 import NPSPage from './pages/NPSPage';
+import VehicleRentalsPage from './pages/VehicleRentalsPage';
 import CreditCardsPage from './pages/CreditCardsPage';
 import GoalsPage from './pages/GoalsPage';
 import NetWorthPage from './pages/NetWorthPage';
@@ -54,6 +55,7 @@ function AppShell() {
             <Route path="/personal-loans" element={<PersonalLoansPage />} />
             <Route path="/provident-fund" element={<ProvidentFundPage />} />
             <Route path="/nps" element={<NPSPage />} />
+            <Route path="/vehicle-rentals" element={<VehicleRentalsPage />} />
             <Route path="/credit-cards" element={<CreditCardsPage />} />
             <Route path="/goals" element={<GoalsPage />} />
             <Route path="/net-worth" element={<NetWorthPage />} />

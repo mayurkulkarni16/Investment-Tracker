@@ -175,6 +175,7 @@ export default function Sidebar() {
         <NavLink to="/corporate-bonds">Corporate Bonds</NavLink>
         <NavLink to="/provident-fund">Provident Fund</NavLink>
         <NavLink to="/nps">NPS</NavLink>
+        <NavLink to="/vehicle-rentals">Vehicle Rentals</NavLink>
         <NavLink to="/home-loans">Home Loans</NavLink>
         <NavLink to="/personal-loans">Personal Loans</NavLink>
         <NavLink to="/credit-cards">Credit Cards</NavLink>

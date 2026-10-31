@@ -103,6 +103,81 @@ export interface PrincipalRepaymentInput {
   amount: number;
 }
 
+// Vehicle Rental (EV fleet leasing) types
+export type VehicleRentalStatus = 'active' | 'completed';
+
+export interface RentalPayout {
+  payout_id: string;
+  scheduled_date: string;
+  amount: number;
+  status: PayoutStatus;
+  received_date?: string;
+  received_amount: number;
+  is_overdue: boolean;
+}
+
+export interface VehicleRental {
+  id: string;
+  provider: string;
+  vehicle_model: string;
+  units: number;
+  unit_price: number;
+  gst_percent: number;
+  other_charges: number;
+  investment_amount: number;
+  purchase_date: string;
+  payout_start_date: string;
+  tenure_months: number;
+  monthly_payout_per_unit: number;
+  buyback_percent: number;
+  buyback_amount: number;
+  buyback_status: PayoutStatus;
+  buyback_received_date?: string;
+  buyback_received: number;
+  registration_numbers: string[];
+  agreement_number: string;
+  payouts: RentalPayout[];
+  notes: string;
+  created_at: string;
+  updated_at: string;
+  status: VehicleRentalStatus;
+  agreement_end_date: string;
+  monthly_payout: number;
+  expected_total_payout: number;
+  total_payouts_received: number;
+  payouts_received_count: number;
+  overdue_count: number;
+  overdue_amount: number;
+  next_payout_date?: string;
+  current_value: number;
+  total_return: number;
+  capital_recovered_pct: number;
+  xirr: number;
+}
+
+export interface CreateVehicleRentalRequest {
+  provider: string;
+  vehicle_model: string;
+  units: number;
+  unit_price: number;
+  gst_percent: number;
+  other_charges: number;
+  purchase_date: string;
+  payout_start_date: string;
+  tenure_months: number;
+  monthly_payout_per_unit: number;
+  buyback_percent: number;
+  registration_numbers: string[];
+  agreement_number: string;
+  notes: string;
+}
+
+export interface UpdateRentalPayoutRequest {
+  status: PayoutStatus;
+  received_date?: string;
+  amount?: number;
+}
+
 export interface CreateCorporateBondRequest {
   bond_name: string;
   issuer: string;
