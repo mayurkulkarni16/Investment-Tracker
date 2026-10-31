@@ -1,0 +1,16 @@
+.ledger-page h2 { font-size: 18px; margin-bottom: 12px; }
+.ledger-page fieldset { border: 0; min-width: 0; }
+.ledger-page p { margin-bottom: 12px; }
+.ledger-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.ledger-consent { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px; }
+.ledger-consent input { margin-top: 6px; flex-shrink: 0; }
+.ledger-import { border-block: 1px solid var(--border); padding-block: 16px; margin-bottom: 16px; }
+.ledger-page summary { cursor: pointer; margin-bottom: 12px; }
+.ledger-page .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+@media (max-width: 768px) {
+  .ledger-page .form-row { grid-template-columns: 1fr; gap: 0; }
+  .ledger-page .page-header { align-items: flex-start; gap: 12px; }
+  .ledger-page .page-header h1 { font-size: 21px; }
+  .ledger-page .btn { min-height: 44px; }
+  .ledger-page input, .ledger-page select, .ledger-page textarea { font-size: 16px; }
+}

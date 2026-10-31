@@ -183,6 +183,7 @@ export default function Sidebar() {
         <NavLink to="/tax-center">Tax Center</NavLink>
         <NavLink to="/projections">Projections</NavLink>
         <NavLink to="/cashflow">Cashflow</NavLink>
+        <NavLink to="/ledger">Income &amp; Expenses</NavLink>
         <NavLink to="/insights">Insights</NavLink>
         <NavLink to="/settings">Settings</NavLink>
       </nav>

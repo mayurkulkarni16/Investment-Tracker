@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test:sms": "node --test tests/sms.test.mjs",
     "android:sync": "npm run build:android && cap sync android",
     "android:open": "cap open android",
     "build:android": "node scripts/build-android.mjs",

@@ -19,6 +19,7 @@ import TaxCenterPage from './pages/TaxCenterPage';
 import SettingsPage from './pages/SettingsPage';
 import CashflowPage from './pages/CashflowPage';
 import InsightsPage from './pages/InsightsPage';
+import LedgerPage from './pages/LedgerPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -31,7 +32,7 @@ import './index.css';
 
 function AppShell() {
   useKeyboardShortcuts();
-  const { isViewOnly, setViewAsUser } = useAuth();
+  const { isViewOnly, setViewAsUser, viewAsUserId, user } = useAuth();
   const { pathname } = useLocation();
   return (
     <>
@@ -62,6 +63,7 @@ function AppShell() {
             <Route path="/tax-center" element={<TaxCenterPage />} />
             <Route path="/projections" element={<ProjectionsPage />} />
             <Route path="/cashflow" element={<CashflowPage />} />
+            <Route path="/ledger" element={<LedgerPage key={viewAsUserId || user?.id} />} />
             <Route path="/insights" element={<InsightsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
