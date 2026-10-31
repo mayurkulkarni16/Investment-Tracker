@@ -4,12 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "android:sync": "npm run build:android && cap sync android",
+    "android:open": "cap open android",
+    "build:android": "node scripts/build-android.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
     "axios": "^1.15.0",
     "pdfjs-dist": "^5.6.205",
     "react": "^19.2.4",
@@ -19,6 +24,7 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
     "@eslint/js": "^9.39.4",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
