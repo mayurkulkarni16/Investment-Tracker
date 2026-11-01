@@ -29,6 +29,7 @@ import InsurancePage from './pages/InsurancePage';
 import GoldPage from './pages/GoldPage';
 import RealEstatePage from './pages/RealEstatePage';
 import FamilyPage from './pages/FamilyPage';
+import MemberIncomePage from './pages/MemberIncomePage';
 import FirePlannerPage from './pages/FirePlannerPage';
 import DocumentsPage from './pages/DocumentsPage';
 import LoginPage from './pages/LoginPage';
@@ -92,6 +93,7 @@ function AppShell() {
             <Route path="/gold" element={<GoldPage />} />
             <Route path="/real-estate" element={<RealEstatePage />} />
             <Route path="/family" element={<FamilyPage />} />
+            <Route path="/family/:profileId/income" element={<MemberIncomePage />} />
             <Route path="/fire" element={<FirePlannerPage />} />
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/insights" element={<InsightsPage />} />

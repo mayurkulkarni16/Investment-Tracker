@@ -2,6 +2,11 @@ import api from './client';
 
 // ---------- Family ----------
 
+export interface OwnershipShare {
+  profile_id: string;
+  pct: number;
+}
+
 export interface AssetItem {
   asset_type: string;
   asset_id: string;
@@ -9,7 +14,9 @@ export interface AssetItem {
   category: string;
   value: number;
   is_liability: boolean;
-  profile_id: string; // "" = unassigned
+  profile_id: string; // "" = unassigned; primary owner when shared
+  shares: OwnershipShare[] | null; // ownership split (empty when unassigned)
+  funded_by: string; // member whose money paid for it ("" = owners themselves)
 }
 
 export interface MemberSummary {
@@ -33,7 +40,9 @@ export interface FamilySummary {
 export interface AssignProfileRequest {
   asset_type: string;
   asset_id: string;
-  profile_id: string;
+  profile_id?: string;
+  shares?: OwnershipShare[];
+  funded_by?: string;
 }
 
 export const familyApi = {

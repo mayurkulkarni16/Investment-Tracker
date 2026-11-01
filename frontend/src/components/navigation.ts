@@ -63,14 +63,14 @@ export const NAV_SECTIONS: NavSection[] = [
       { to: '/goals', label: 'Goals', icon: Target },
       { to: '/fire', label: 'FIRE Planner', icon: Flame, keywords: 'retirement' },
       { to: '/projections', label: 'Projections', icon: Telescope, keywords: 'forecast future' },
-      { to: '/tax-center', label: 'Tax Center', icon: Calculator, keywords: '80c capital gains' },
+      { to: '/tax-center', label: 'Tax Center', icon: Calculator, keywords: '80c capital gains regime old new family income salary where to invest' },
       { to: '/insurance', label: 'Insurance', icon: ShieldCheck, keywords: 'term health life policy premium' },
     ],
   },
   {
     title: 'Account',
     items: [
-      { to: '/family', label: 'Family', icon: Users, keywords: 'members profiles' },
+      { to: '/family', label: 'Family', icon: Users, keywords: 'members profiles occupation salary income joint ownership' },
       { to: '/documents', label: 'Documents', icon: FileText, keywords: 'files vault' },
       { to: '/settings', label: 'Settings', icon: Settings, keywords: 'profile backup export password' },
     ],

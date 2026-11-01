@@ -12,6 +12,8 @@ export interface InsurancePolicy {
   policy_name: string;
   policy_number: string;
   insured_persons: string;
+  health_cover_for?: 'self_family' | 'parents' | '';
+  insured_senior?: boolean;
   sum_assured: number;
   premium_amount: number;
   premium_frequency: PremiumFrequency;
@@ -36,6 +38,8 @@ export interface InsurancePolicyRequest {
   policy_name?: string;
   policy_number?: string;
   insured_persons?: string;
+  health_cover_for?: 'self_family' | 'parents' | '';
+  insured_senior?: boolean;
   sum_assured: number;
   premium_amount: number;
   premium_frequency: PremiumFrequency;

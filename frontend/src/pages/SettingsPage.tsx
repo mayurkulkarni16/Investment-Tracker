@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getProfiles, createProfile, updateProfile } from '../api/profiles';
 import { exportCSV, exportBackup, restoreBackup } from '../api/exports';
 import { authApi } from '../api/auth';
@@ -103,6 +104,9 @@ export default function SettingsPage() {
           <h3 className="text-lg fw-semibold">Profile</h3>
           {!editing && !creating && profile && <button className="btn btn-sm btn-primary" onClick={() => setEditing(true)}>Edit</button>}
         </div>
+        <p className="text-muted text-sm mb-3">
+          Add other family members, occupations, dates of birth and income on the <Link to="/family">Family</Link> page.
+        </p>
         {creating ? (
           <form onSubmit={handleCreate}>
             <p className="text-muted mb-4">No profile found. Create one to get started.</p>

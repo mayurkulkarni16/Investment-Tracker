@@ -1139,24 +1139,59 @@ export interface Notification {
 }
 
 // Profile types
+export type Occupation =
+  | 'salaried_private' | 'salaried_govt' | 'professional' | 'business' | 'pensioner'
+  | 'homemaker' | 'student' | 'minor' | 'unemployed' | 'other';
+
+export const OCCUPATION_LABELS: Record<Occupation, string> = {
+  salaried_private: 'Salaried (private)',
+  salaried_govt: 'Salaried (government)',
+  professional: 'Self-employed professional',
+  business: 'Business owner',
+  pensioner: 'Pensioner / retired',
+  homemaker: 'Homemaker',
+  student: 'Student',
+  minor: 'Minor child',
+  unemployed: 'Not working',
+  other: 'Other',
+};
+
 export interface Profile {
   id: string;
   name: string;
   relationship: string;
   color: string;
   is_default: boolean;
+  occupation?: Occupation | '';
+  date_of_birth?: string;
+  residential_status?: 'resident' | 'nri' | '';
+  disability?: 'disabled' | 'severe' | '';
+  spouse_profile_id?: string;
+  preferred_regime?: 'old' | 'new' | '';
+  metro_city?: boolean;
+  age?: number;
   created_at: string;
   updated_at: string;
 }
 
-export interface CreateProfileRequest {
+export interface ProfileTaxFields {
+  occupation?: string;
+  date_of_birth?: string;
+  residential_status?: string;
+  disability?: string;
+  spouse_profile_id?: string;
+  preferred_regime?: string;
+  metro_city?: boolean;
+}
+
+export interface CreateProfileRequest extends ProfileTaxFields {
   name: string;
   relationship: string;
   color: string;
   is_default?: boolean;
 }
 
-export interface UpdateProfileRequest {
+export interface UpdateProfileRequest extends ProfileTaxFields {
   name?: string;
   relationship?: string;
   color?: string;
@@ -1180,6 +1215,14 @@ export interface Section80CCDBreakdown {
   nps_80ccd2: number;
 }
 
+export interface Section80DBreakdown {
+  health_insurance: number;
+  parents: number;
+  limit: number;
+  parents_limit: number;
+  deduction: number;
+}
+
 export interface Section24bBreakdown {
   home_loan_interest: number;
   pre_emi_interest: number;
@@ -1190,6 +1233,7 @@ export interface Section24bBreakdown {
 
 export interface CapitalGainEntry {
   investment_type: string;
+  investment_id?: string;
   investment_name: string;
   buy_date: string;
   sell_date: string;
@@ -1198,6 +1242,7 @@ export interface CapitalGainEntry {
   gain: number;
   holding_days: number;
   is_long_term: boolean;
+  is_equity?: boolean;
   tax_rate: number;
   tax_liability: number;
   grandfathered?: boolean;
@@ -1206,6 +1251,7 @@ export interface CapitalGainEntry {
 export interface CapitalGainsSummary {
   stcg: number;
   ltcg: number;
+  slab_gains?: number;
   stcg_tax: number;
   ltcg_tax: number;
   total_tax: number;
@@ -1216,12 +1262,16 @@ export interface CapitalGainsSummary {
 
 export interface TaxSummary {
   fy: string;
+  profile_id?: string;
   section_80c: Section80CBreakdown;
   section_80ccd: Section80CCDBreakdown;
+  section_80d?: Section80DBreakdown;
   section_24b: Section24bBreakdown;
   capital_gains: CapitalGainsSummary;
   interest_income: number;
   dividend_income: number;
+  rental_income?: number;
+  other_rental_income?: number;
   total_deductions: number;
   total_taxable_gains: number;
 }

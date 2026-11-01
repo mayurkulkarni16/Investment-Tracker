@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Bell, Bike, CalendarClock, ChartPie, Coins, CreditCard, FileText, Hourglass, Landmark, ShieldCheck, Target,
+  Bell, Bike, Calculator, CalendarClock, ChartPie, Coins, CreditCard, FileText, Hourglass, Landmark, ShieldCheck, Target,
   TriangleAlert, Wallet, X, type LucideIcon,
 } from 'lucide-react';
 import { generateNotifications, getUnreadNotifications, markAllNotificationsRead, markNotificationRead } from '../api/notifications';
@@ -20,6 +20,9 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   policy_expiry: Hourglass,
   budget_over: Wallet,
   document_expiry: FileText,
+  tax_regime: Calculator,
+  tax_deadline: CalendarClock,
+  advance_tax: Landmark,
 };
 
 export default function NotificationBell() {

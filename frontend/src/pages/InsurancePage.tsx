@@ -114,6 +114,8 @@ export default function InsurancePage() {
       policy_name: p.policy_name || '',
       policy_number: p.policy_number || '',
       insured_persons: p.insured_persons || '',
+      health_cover_for: p.health_cover_for || 'self_family',
+      insured_senior: !!p.insured_senior,
       sum_assured: p.sum_assured,
       premium_amount: p.premium_amount,
       premium_frequency: p.premium_frequency,
@@ -136,6 +138,8 @@ export default function InsurancePage() {
       ...form,
       current_value: hasCashValue(form.policy_type) ? form.current_value || 0 : 0,
       premium_end_date: form.premium_frequency === 'single' ? '' : form.premium_end_date,
+      health_cover_for: form.policy_type === 'health' ? form.health_cover_for || 'self_family' : '',
+      insured_senior: form.policy_type === 'health' ? !!form.insured_senior : false,
     };
     setSaving(true);
     try {
@@ -416,6 +420,23 @@ export default function InsurancePage() {
                   <input placeholder="e.g. Self, Spouse" value={form.insured_persons || ''} onChange={e => setForm({ ...form, insured_persons: e.target.value })} />
                 </div>
               </div>
+              {form.policy_type === 'health' && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Covers (for 80D)</label>
+                    <select value={form.health_cover_for || 'self_family'} onChange={e => setForm({ ...form, health_cover_for: e.target.value as 'self_family' | 'parents' })}>
+                      <option value="self_family">Self, spouse &amp; children</option>
+                      <option value="parents">Parents</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="flex items-center gap-2" style={{ marginTop: 28 }}>
+                      <input type="checkbox" checked={!!form.insured_senior} onChange={e => setForm({ ...form, insured_senior: e.target.checked })} />
+                      A covered person is 60 or older (₹50K limit)
+                    </label>
+                  </div>
+                </div>
+              )}
               <div className="form-row">
                 <div className="form-group">
                   <label>Premium Amount (₹)</label>
