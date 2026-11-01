@@ -20,6 +20,7 @@ type NotificationService struct {
 	creditCardRepo    *repository.CreditCardRepo
 	vehicleRentalRepo *repository.VehicleRentalRepo
 	finance           *financeReminderSources
+	familyTax         *FamilyTaxService
 	goalService       *GoalService
 }
 
@@ -281,6 +282,7 @@ func (s *NotificationService) GenerateNotifications(ctx context.Context, userID 
 	}
 
 	generated = append(generated, s.financeNotifications(ctx, userID, now)...)
+	generated = append(generated, s.taxNotifications(ctx, userID, now)...)
 
 	for i := range generated {
 		generated[i].UserID = userID

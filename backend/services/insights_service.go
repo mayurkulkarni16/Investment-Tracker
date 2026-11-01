@@ -72,7 +72,11 @@ type InsightsService struct {
 	goalService       *GoalService
 	taxService        *TaxService
 	vehicleRentalRepo *repository.VehicleRentalRepo
+	familyTax         *FamilyTaxService
 }
+
+// SetFamilyTax enables member-specific tax insights.
+func (s *InsightsService) SetFamilyTax(f *FamilyTaxService) { s.familyTax = f }
 
 func NewInsightsService(
 	mfService *MutualFundService,
@@ -350,8 +354,34 @@ func (s *InsightsService) GetInsights(ctx context.Context, userID string) (*Insi
 		})
 	}
 
-	// ── Tax: 80C room and NPS 80CCD(1B), based on this FY's actual figures ──
-	if s.taxService != nil && totalAssets > 0 {
+	// ── Tax: member-specific regime / deduction / placement suggestions when
+	// income data exists, else generic 80C room and NPS 80CCD(1B) tips ──
+	familyTaxUsed := false
+	if s.familyTax != nil {
+		if rep, err := s.familyTax.Report(ctx, userID, ""); err == nil {
+			hasIncome := false
+			for _, m := range rep.Members {
+				hasIncome = hasIncome || m.HasIncomeRecord
+			}
+			if hasIncome {
+				familyTaxUsed = true
+				shown := 0
+				for _, sg := range rep.Suggestions {
+					if sg.EstSaving < 1000 || shown >= 4 {
+						continue
+					}
+					shown++
+					add("family-tax:"+sg.ID, Insight{
+						Title:       sg.Title,
+						Description: fmt.Sprintf("FY %s · %s", rep.FY, sg.Detail),
+						Severity:    SeverityInfo, Category: CatTax,
+						Action: fmt.Sprintf("Estimated saving %s. See Tax Center → Family for details.", formatINR(sg.EstSaving)),
+					})
+				}
+			}
+		}
+	}
+	if s.taxService != nil && totalAssets > 0 && !familyTaxUsed {
 		if tax, err := s.taxService.GetTaxSummary(ctx, userID, ""); err == nil {
 			c := tax.Section80C
 			if room := c.Limit - c.Total; room > 0 {

@@ -321,5 +321,14 @@ func registerTaxRoutes(api *gin.RouterGroup, c *container.Container) {
 	{
 		tax.GET("/summary", c.TaxHandler.GetTaxSummary)
 		tax.GET("/capital-gains", c.TaxHandler.GetCapitalGains)
+		tax.GET("/meta", c.TaxHandler.Meta)
+		tax.GET("/family", c.TaxHandler.FamilyReport)
+		tax.GET("/settings", c.TaxHandler.GetSettings)
+		tax.PUT("/settings", c.TaxHandler.SaveSettings)
+		tax.GET("/placement", c.TaxHandler.Placement)
+		tax.GET("/incomes", c.TaxHandler.ListIncomes)
+		tax.GET("/incomes/:profileId", c.TaxHandler.GetIncome)
+		tax.PUT("/incomes/:profileId", c.TaxHandler.SaveIncome)
+		tax.DELETE("/incomes/:profileId", c.TaxHandler.DeleteIncome)
 	}
 }

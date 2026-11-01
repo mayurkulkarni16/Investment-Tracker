@@ -79,6 +79,8 @@ type BackupData struct {
 	Properties           []models.Property             `json:"properties"`
 	ProfileAssignments   []models.ProfileAssignment    `json:"profile_assignments"`
 	NotificationSettings []models.NotificationSettings `json:"notification_settings"`
+	MemberIncomes        []models.MemberIncome         `json:"member_incomes"`
+	TaxSettings          []models.TaxSettings          `json:"tax_settings"`
 }
 
 func (s *BackupService) Export(ctx context.Context, userID string) ([]byte, error) {
@@ -107,6 +109,8 @@ func (s *BackupService) Export(ctx context.Context, userID string) ([]byte, erro
 	properties, _ := repository.NewPropertyRepo(s.db).GetAll(ctx, userID)
 	assignments, _ := repository.NewProfileAssignmentRepo(s.db).GetAll(ctx, userID)
 	notifSettings, _ := repository.NewNotificationSettingsRepo(s.db).GetAll(ctx, userID)
+	memberIncomes, _ := repository.NewMemberIncomeRepo(s.db).GetAll(ctx, userID)
+	taxSettings, _ := repository.NewTaxSettingsRepo(s.db).GetAll(ctx, userID)
 
 	backup := BackupData{
 		Version:        "1.0",
@@ -132,6 +136,8 @@ func (s *BackupService) Export(ctx context.Context, userID string) ([]byte, erro
 		Properties:           properties,
 		ProfileAssignments:   assignments,
 		NotificationSettings: notifSettings,
+		MemberIncomes:        memberIncomes,
+		TaxSettings:          taxSettings,
 	}
 
 	return json.MarshalIndent(backup, "", "  ")
@@ -184,6 +190,8 @@ var restoreTargets = []restoreTarget{
 	{"properties", "properties", decodeAs[models.Property]},
 	{"profile_assignments", "profile_assignments", decodeAs[models.ProfileAssignment]},
 	{"notification_settings", "notification_settings", decodeAs[models.NotificationSettings]},
+	{"member_incomes", "member_incomes", decodeAs[models.MemberIncome]},
+	{"tax_settings", "tax_settings", decodeAs[models.TaxSettings]},
 }
 
 // Restore replaces the given user's data with the contents of a backup JSON payload.

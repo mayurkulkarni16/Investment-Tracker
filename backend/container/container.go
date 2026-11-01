@@ -85,6 +85,7 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 	assignmentRepo := repository.NewProfileAssignmentRepo(db)
 	notifSettingsRepo := repository.NewNotificationSettingsRepo(db)
 	documentRepo := repository.NewDocumentRepo(db)
+	memberIncomeRepo := repository.NewMemberIncomeRepo(db)
 
 	// Services
 	authService := services.NewAuthService(userRepo, cfg)
@@ -125,6 +126,11 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 	netWorthService.SetPersonalFinanceRepos(bankRepo, goldRepo, propertyRepo, insuranceRepo)
 	exportService.SetPersonalFinanceRepos(bankRepo, goldRepo, propertyRepo, insuranceRepo)
 	taxService.SetInsuranceRepo(insuranceRepo)
+	taxService.SetIncomeRepos(propertyRepo, vehicleRentalRepo)
+	profileService.SetCleanupRepos(assignmentRepo, memberIncomeRepo)
+	familyTaxService := services.NewFamilyTaxService(taxService, profileRepo, assignmentRepo, memberIncomeRepo, repository.NewTaxSettingsRepo(db))
+	insightsService.SetFamilyTax(familyTaxService)
+	notificationService.SetTaxSource(familyTaxService)
 	notificationService.SetFinanceSources(insuranceRepo, budgetService, documentRepo)
 	familyService := services.NewFamilyService(netWorthService, profileRepo, assignmentRepo)
 	fireService := services.NewFIREService(netWorthService, ledgerRepo, sipRepo)
@@ -159,7 +165,7 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 		SIPHandler:           handlers.NewSIPHandler(sipService),
 		NotificationHandler:  handlers.NewNotificationHandler(notificationService),
 		ProfileHandler:       handlers.NewProfileHandler(profileService),
-		TaxHandler:           handlers.NewTaxHandler(taxService),
+		TaxHandler:           handlers.NewTaxHandler(taxService, familyTaxService),
 		BenchmarkHandler:     handlers.NewBenchmarkHandler(benchmarkService),
 		ExportHandler:        handlers.NewExportHandler(exportService),
 		BackupHandler:        handlers.NewBackupHandler(backupService),

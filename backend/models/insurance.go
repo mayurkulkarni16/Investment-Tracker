@@ -8,25 +8,29 @@ import (
 
 // InsurancePolicy covers term, health, life (endowment/ULIP), vehicle and other policies.
 type InsurancePolicy struct {
-	ID               primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	UserID           string             `json:"user_id" bson:"user_id"`
-	PolicyType       string             `json:"policy_type" bson:"policy_type"` // term, health, life, ulip, vehicle, home, personal_accident, other
-	Insurer          string             `json:"insurer" bson:"insurer"`
-	PolicyName       string             `json:"policy_name" bson:"policy_name"`
-	PolicyNumber     string             `json:"policy_number" bson:"policy_number"`
-	InsuredPersons   string             `json:"insured_persons" bson:"insured_persons"` // free text, e.g. "Self, Spouse"
-	SumAssured       float64            `json:"sum_assured" bson:"sum_assured"`
-	PremiumAmount    float64            `json:"premium_amount" bson:"premium_amount"`
-	PremiumFrequency string             `json:"premium_frequency" bson:"premium_frequency"` // monthly, quarterly, half_yearly, yearly, single
-	StartDate        time.Time          `json:"start_date" bson:"start_date"`
-	EndDate          *time.Time         `json:"end_date,omitempty" bson:"end_date,omitempty"`                 // cover end / maturity
-	PremiumEndDate   *time.Time         `json:"premium_end_date,omitempty" bson:"premium_end_date,omitempty"` // limited-pay policies
-	CurrentValue     float64            `json:"current_value" bson:"current_value"`                           // surrender/fund value (endowment, ULIP)
-	Nominee          string             `json:"nominee" bson:"nominee"`
-	Status           string             `json:"status" bson:"status"` // active, lapsed, matured, surrendered, expired
-	Notes            string             `json:"notes" bson:"notes"`
-	CreatedAt        time.Time          `json:"created_at" bson:"created_at"`
-	UpdatedAt        time.Time          `json:"updated_at" bson:"updated_at"`
+	ID             primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	UserID         string             `json:"user_id" bson:"user_id"`
+	PolicyType     string             `json:"policy_type" bson:"policy_type"` // term, health, life, ulip, vehicle, home, personal_accident, other
+	Insurer        string             `json:"insurer" bson:"insurer"`
+	PolicyName     string             `json:"policy_name" bson:"policy_name"`
+	PolicyNumber   string             `json:"policy_number" bson:"policy_number"`
+	InsuredPersons string             `json:"insured_persons" bson:"insured_persons"` // free text, e.g. "Self, Spouse"
+	// HealthCoverFor decides the 80D bucket of a health policy: "self_family"
+	// (self, spouse, children; default) or "parents".
+	HealthCoverFor   string     `json:"health_cover_for" bson:"health_cover_for,omitempty"`
+	InsuredSenior    bool       `json:"insured_senior" bson:"insured_senior,omitempty"` // a covered person is 60+ (higher 80D limit)
+	SumAssured       float64    `json:"sum_assured" bson:"sum_assured"`
+	PremiumAmount    float64    `json:"premium_amount" bson:"premium_amount"`
+	PremiumFrequency string     `json:"premium_frequency" bson:"premium_frequency"` // monthly, quarterly, half_yearly, yearly, single
+	StartDate        time.Time  `json:"start_date" bson:"start_date"`
+	EndDate          *time.Time `json:"end_date,omitempty" bson:"end_date,omitempty"`                 // cover end / maturity
+	PremiumEndDate   *time.Time `json:"premium_end_date,omitempty" bson:"premium_end_date,omitempty"` // limited-pay policies
+	CurrentValue     float64    `json:"current_value" bson:"current_value"`                           // surrender/fund value (endowment, ULIP)
+	Nominee          string     `json:"nominee" bson:"nominee"`
+	Status           string     `json:"status" bson:"status"` // active, lapsed, matured, surrendered, expired
+	Notes            string     `json:"notes" bson:"notes"`
+	CreatedAt        time.Time  `json:"created_at" bson:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at" bson:"updated_at"`
 
 	// Computed
 	NextPremiumDate *time.Time `json:"next_premium_date,omitempty" bson:"-"`
@@ -41,6 +45,8 @@ type InsurancePolicyRequest struct {
 	PolicyName       string  `json:"policy_name"`
 	PolicyNumber     string  `json:"policy_number"`
 	InsuredPersons   string  `json:"insured_persons"`
+	HealthCoverFor   string  `json:"health_cover_for"`
+	InsuredSenior    bool    `json:"insured_senior"`
 	SumAssured       float64 `json:"sum_assured" binding:"min=0"`
 	PremiumAmount    float64 `json:"premium_amount" binding:"min=0"`
 	PremiumFrequency string  `json:"premium_frequency" binding:"required"`

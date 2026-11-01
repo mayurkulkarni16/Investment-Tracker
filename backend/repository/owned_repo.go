@@ -125,7 +125,24 @@ type (
 	ProfileAssignmentRepo    = OwnedRepo[models.ProfileAssignment]
 	NotificationSettingsRepo = OwnedRepo[models.NotificationSettings]
 	DocumentRepo             = OwnedRepo[models.Document]
+	MemberIncomeRepo         = OwnedRepo[models.MemberIncome]
+	TaxSettingsRepo          = OwnedRepo[models.TaxSettings]
 )
+
+func NewTaxSettingsRepo(db *mongo.Database) *TaxSettingsRepo {
+	return NewOwnedRepo[models.TaxSettings](db, "tax_settings", nil)
+}
+
+func NewMemberIncomeRepo(db *mongo.Database) *MemberIncomeRepo {
+	r := NewOwnedRepo[models.MemberIncome](db, "member_incomes", bson.D{{Key: "fy", Value: 1}})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, _ = r.collection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "user_id", Value: 1}, {Key: "profile_id", Value: 1}, {Key: "fy", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	})
+	return r
+}
 
 func NewBankAccountRepo(db *mongo.Database) *BankAccountRepo {
 	return NewOwnedRepo[models.BankAccount](db, "bank_accounts", bson.D{{Key: "account_type", Value: 1}, {Key: "name", Value: 1}})

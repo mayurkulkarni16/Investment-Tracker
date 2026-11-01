@@ -44,6 +44,11 @@ func (s *InsuranceService) build(userID string, req models.InsurancePolicyReques
 	if !policyStatuses[req.Status] {
 		return invalidf("invalid status")
 	}
+	switch req.HealthCoverFor {
+	case "", "self_family", "parents":
+	default:
+		return invalidf("health_cover_for must be self_family or parents")
+	}
 	start, err := parseDate(req.StartDate)
 	if err != nil {
 		return err
@@ -69,6 +74,7 @@ func (s *InsuranceService) build(userID string, req models.InsurancePolicyReques
 	p.UserID = userID
 	p.PolicyType, p.Insurer, p.PolicyName, p.PolicyNumber = req.PolicyType, strings.TrimSpace(req.Insurer), req.PolicyName, req.PolicyNumber
 	p.InsuredPersons, p.SumAssured, p.PremiumAmount, p.PremiumFrequency = req.InsuredPersons, req.SumAssured, req.PremiumAmount, req.PremiumFrequency
+	p.HealthCoverFor, p.InsuredSenior = req.HealthCoverFor, req.InsuredSenior
 	p.StartDate, p.EndDate, p.PremiumEndDate = start, end, premEnd
 	p.CurrentValue, p.Nominee, p.Status, p.Notes = req.CurrentValue, req.Nominee, req.Status, req.Notes
 	return nil
