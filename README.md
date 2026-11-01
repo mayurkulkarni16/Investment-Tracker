@@ -34,7 +34,8 @@ FinBoard (this repository: Investment Tracker) is a comprehensive personal finan
 - **Dashboard Money Overview** - Bank/cash totals, this month's income and expenses, budget alerts, life/health cover and premiums due within 30 days. Available independently of investment holdings.
 - **Insurance** - Policy tracking, premium schedules, cover gaps and estimated 80C/80D premium figures. Scheduled premiums are estimates, not proof of payment or tax eligibility.
 - **Gold & Real Estate** - Physical/digital gold, jewellery and property valuations, included in net worth.
-- **Family** - Assign holdings and liabilities to profiles and view member-level net worth.
+- **Family** - Add family members with occupation (salaried, professional, business, pensioner, homemaker, student, minor…), date of birth, residency and declared tax regime. Assign holdings and liabilities to one member or split them between co-owners (e.g. a 60/40 joint home loan), record whose money funded them, and view member-level net worth.
+- **Member income** - Monthly payslips per member and financial year (fixed pay, variable pay such as bonus/incentives/ESOPs, EPF, employer NPS, professional tax, TDS, rent paid), with remaining months projected from the latest payslip; plus pension, business/professional income (44AD/44ADA or actual), other income and deductions not tracked elsewhere.
 - **FIRE Planner** - Retirement corpus, required savings, earliest feasible retirement age and simulated success probability. Assumptions and simulations are planning estimates, not guaranteed returns.
 - **Document Vault** - Upload, download and delete supporting documents (10 MB per file), with expiry reminders. Document files are not included in JSON backups.
 - **Broker CSV Import** - Preview Zerodha/Groww holdings and tradebook imports; duplicate trades are skipped on re-import.
@@ -50,7 +51,7 @@ FinBoard (this repository: Investment Tracker) is a comprehensive personal finan
 - **Cashflow Analysis** — Monthly inflow/outflow aggregation across all investment types with month-level drilldown.
 - **Insights Engine** — Automated portfolio analysis generating actionable insights across risk, performance, tax, diversification, loan, goal, and opportunity categories with severity levels (critical/warning/info/positive).
 - **Benchmark Comparison** — Nifty 50 and Sensex levels with 1Y/3Y/5Y returns (absolute and annualised) via Yahoo Finance, cached hourly; chart periods 1m–5y.
-- **Tax Center** — Section 80C (EPF, ELSS, home loan principal, PPF, NPS), Section 24b (home loan interest), Section 80CCD (NPS additional deduction), and capital gains tracking.
+- **Tax Center** — Per-member old vs new regime comparison for FY 2025-26 and FY 2026-27 (Income-tax Act, 2025 section numbers shown alongside the old ones), using each member's income plus the interest, dividends, rent, capital gains and deductions (80C incl. PPF, 80CCD, 80D self/parents, 24(b), 80TTA/TTB) from the assets attributed to them. Applies clubbing (spouse, minor child) by default, with switches to turn either off and see tax as if each person were taxed on what is in their name (flagged as not how the law works), 87A rebate with marginal relief, surcharge, cess and senior-citizen slabs. Shows the recommended regime, savings, break-even deductions and household suggestions (regime switch, unused deductions, employer NPS, HRA, parents' 80D, joint home loan, LTCG harvesting, holding deposits with low-income members). A "Where to invest" advisor ranks family members by post-tax return for a new FD, debt/equity fund, ELSS, PPF, SSY, SCSS, NPS or bond. Estimates only — not tax advice.
 - **Net Worth Tracking** — Real-time net worth (assets minus liabilities), daily snapshots via scheduler, and historical trend charts.
 - **Financial Goals** — Set targets with amount/date (optionally inflation-adjusted), link investments with allocation % (max 100% per investment across goals), and see on-track status, projected completion date, shortfall and extra monthly investment needed based on your actual SIP/PF/NPS contributions.
 
@@ -58,8 +59,8 @@ FinBoard (this repository: Investment Tracker) is a comprehensive personal finan
 - **Authentication** — Email/password signup, JWT login, forgot/reset password, change password, admin role with user management and view-as capability.
 - **Notifications** — Auto-generated alerts for upcoming events (EMIs, FD maturity, bond payouts, SIP dates, credit card due dates, goal deadlines) within 7 days. Mark read individually or all at once.
 - **Data Export** — CSV export per module or all investments.
-- **Backup & Restore** — JSON backup of investments, ledger, accounts, budgets, insurance, gold, property, profile assignments and reminder settings. Document files are excluded. Restore replaces only the current user's data; records are always re-assigned to the restoring user.
-- **Profiles** — Multi-profile support with name, relationship, and color coding.
+- **Backup & Restore** — JSON backup of investments, ledger, accounts, budgets, insurance, gold, property, profile assignments, member income records and reminder settings. Document files are excluded. Restore replaces only the current user's data; records are always re-assigned to the restoring user.
+- **Profiles** — Multi-profile support with name, relationship, color and tax details (occupation, date of birth, residency, disability, spouse link, declared regime). PAN/Aadhaar are not stored.
 - **Background Scheduler** — Runs daily at 20:00 IST (plus a catch-up shortly after startup) to refresh MF NAVs and stock prices, take each user's monthly net worth snapshot, and generate their notifications.
 
 ---
@@ -374,8 +375,17 @@ All endpoints are prefixed with `/api/v1`. Authenticated routes require `Authori
 | GET    | `/cashflow/:month`        | Cashflow drilldown for a month                  |
 | GET    | `/insights`               | Portfolio insights and recommendations          |
 | GET    | `/benchmarks`             | Benchmark comparison (Nifty 50, Sensex)         |
-| GET    | `/tax/summary`            | Tax deduction summary (80C, 24b, 80CCD)         |
-| GET    | `/tax/capital-gains`      | Capital gains breakdown                         |
+| GET    | `/tax/summary`            | Tax deduction summary (80C, 80D, 24b, 80CCD); `fy`, optional `profile_id` |
+| GET    | `/tax/capital-gains`      | Capital gains breakdown; `fy`, optional `profile_id` |
+| GET    | `/tax/meta`               | Supported FYs, current FY, occupations, placement instruments |
+| GET    | `/tax/family`             | Per-member old vs new regime comparison and suggestions; `fy` |
+| GET    | `/tax/settings`           | Household tax settings (clubbing switches)      |
+| PUT    | `/tax/settings`           | Save `ignore_spouse_clubbing` / `ignore_minor_clubbing` |
+| GET    | `/tax/placement`          | Rank members for a new investment; `amount`, `instrument`, `expected_return_pct`, `funded_by`, `fy` |
+| GET    | `/tax/incomes`            | Member income records for a FY                  |
+| GET    | `/tax/incomes/:profileId` | One member's income record (empty template if none) |
+| PUT    | `/tax/incomes/:profileId` | Save monthly payslips, other income and deductions; `fy` |
+| DELETE | `/tax/incomes/:profileId` | Delete a member's income record; `fy`           |
 
 ### Net Worth
 | Method | Endpoint                  | Description                    |
@@ -425,7 +435,10 @@ All endpoints are prefixed with `/api/v1`. Authenticated routes require `Authori
 | `goals`                 | Financial goals with linked investments           |
 | `net_worth_snapshots`   | Monthly net worth snapshots per user (updated daily) |
 | `notifications`         | User notifications                                |
-| `profiles`              | User profiles for multi-profile support           |
+| `profiles`              | Family members with tax details (occupation, DOB, residency, regime) |
+| `profile_assignments`   | Asset/liability ownership: member shares (%) and who funded it |
+| `member_incomes`        | Per member, per FY: monthly payslips, other income, manual deductions, tax paid |
+| `tax_settings`          | Household tax settings: clubbing switches for spouse / minor income |
 
 ---
 

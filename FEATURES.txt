@@ -24,7 +24,9 @@ HOUSEHOLD FINANCE & PLANNING
 - Dashboard money cards: liquid balance, monthly income/expense, budgets and cover
 - Insurance policies, premium schedules, cover gaps and estimated 80C/80D premiums
 - Gold and property holdings included in net worth
-- Family profile assignments and per-member assets, liabilities and net worth
+- Family members with occupation, date of birth, residency, disability, spouse link and declared tax regime
+- Joint ownership splits (%) and "funded by" for every asset/liability; per-member assets, liabilities and net worth
+- Monthly payslips per member and FY (fixed + variable pay, EPF, employer NPS, PT, TDS, rent) with projection of remaining months; pension, business (44AD/44ADA/actual) and other income
 - FIRE planner: target corpus, required savings, retirement age and simulation
 - Document vault: 10 MB per file; files excluded from JSON backups
 - Zerodha/Groww CSV preview and import, with duplicate-trade detection
@@ -147,13 +149,16 @@ HOUSEHOLD FINANCE & PLANNING
 - Cashflow Analysis (monthly inflow/outflow aggregation across all investments, month drilldown)
 - Insights Engine (portfolio analysis — risk, performance, tax, diversification, loan, goal, and opportunity insights with severity levels: critical/warning/info/positive)
 - Benchmark Comparison (Nifty 50 and Sensex via Yahoo Finance: 1Y/3Y/5Y returns with CAGR, hourly cache, 1m-5y chart periods)
-- Tax Center (Section 80C: EPF + ELSS + home loan principal + PPF + NPS; Section 24b: home loan interest; Section 80CCD: NPS; capital gains tracking)
+- Tax Center (household or per-member Section 80C: EPF + PPF + ELSS + home loan principal + life insurance; 80D self/parents; 24b: home loan interest; 80CCD: NPS Tier-1; capital gains with debt-fund gains at slab)
+- Family tax: per-member old vs new regime for FY 2025-26 / 2026-27 (Income-tax Act, 2025 section numbers), clubbing rules (switchable for spouse / minor income), 87A rebate + marginal relief, surcharge, cess, senior slabs, break-even deductions, household saving suggestions
+- "Where to invest" advisor: ranks members by post-tax return for FD, bonds, debt/equity funds, ELSS, PPF, SSY, SCSS, NPS
 - Net Worth Tracking (real-time assets minus liabilities, daily snapshots, historical trends)
 - Financial Goals (target amount/date with optional inflation, link investments to goals (≤100% per investment across goals), on-track based on actual SIP/PF/NPS contributions, auto return from linked investments, shortfall and extra monthly investment needed, batch linking)
 
 5. NOTIFICATIONS
 -----------------
 - Auto-generated notifications (EMIs, SIP dates, FD maturity, bond payouts, credit card dues, overdue rental payouts, goals at risk; generated daily per user and on app load, de-duplicated so dismissed alerts stay dismissed)
+- Tax reminders: declare regime to employer (April), use remaining deductions (Jan–Mar), advance-tax instalments (15 Jun/Sep/Dec/Mar) for members with tax due beyond TDS
 - List all / unread notifications
 - Mark individual or all notifications as read
 
@@ -162,7 +167,7 @@ HOUSEHOLD FINANCE & PLANNING
 - CSV export (per-module or all investments)
 - Full backup as JSON (all 12 collections)
 - Restore from backup JSON
-- Profile management (multi-profile support with name, relationship, color)
+- Profile management (family members with name, relationship, color, occupation, DOB, residency, regime)
 
 7. BACKGROUND SERVICES & AUTOMATION
 ------------------------------------
@@ -188,7 +193,8 @@ HOUSEHOLD FINANCE & PLANNING
 - ProjectionsPage
 - CashflowPage
 - InsightsPage
-- TaxCenterPage
+- TaxCenterPage (Family & regimes, Where to invest, Deductions, Capital gains)
+- FamilyPage, MemberIncomePage
 - SettingsPage (Profile, Backup, Export, Account)
 
 TOTAL: ~80 features across 8 categories

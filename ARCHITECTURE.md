@@ -554,10 +554,38 @@ Computed fields (not stored): `current_value`, `inflated_target`, `effective_ret
   "relationship": "self",
   "color": "#1a73e8",
   "is_default": true,
+  "occupation": "salaried_private",
+  "date_of_birth": "1988-05-10T00:00:00Z",
+  "residential_status": "resident",
+  "spouse_profile_id": "",
+  "preferred_regime": "new",
+  "metro_city": true,
   "created_at": "2026-01-01T00:00:00Z",
   "updated_at": "2026-01-01T00:00:00Z"
 }
 ```
+
+### 16. Collection: `member_incomes`
+
+One document per member per financial year (unique on `user_id`, `profile_id`, `fy`).
+
+```json
+{
+  "_id": "ObjectId",
+  "user_id": "user-id-string",
+  "profile_id": "profile-object-id",
+  "fy": "2026-27",
+  "payslips": [
+    { "month": "2026-04", "projected": false, "basic": 100000, "hra": 40000, "special_allowance": 110000,
+      "bonus": 0, "employee_pf": 12000, "employer_nps": 0, "professional_tax": 200, "tds": 45000, "rent_paid": 0 }
+  ],
+  "project_remaining": true,
+  "other": { "pension": 0, "business_scheme": "", "savings_interest": 8000 },
+  "deductions": { "sec_80c_other": 0, "sec_80d_parents": 0, "nps_other": 0, "advance_tax": 0 }
+}
+```
+
+`profile_assignments` documents carry `shares` (`[{ "profile_id", "pct" }]`, summing to 100) and an optional `funded_by` member; legacy rows with only `profile_id` mean 100% ownership.
 
 ---
 
@@ -589,10 +617,14 @@ investment-tracker/
 │   │   ├── goal.go
 │   │   ├── net_worth.go
 │   │   ├── notification.go
-│   │   ├── profile.go
+│   │   ├── profile.go                   # Family member incl. tax details
+│   │   ├── family.go                    # Ownership shares, "funded by"
+│   │   ├── member_income.go             # Monthly payslips, other income, deductions
+│   │   ├── family_tax.go                # Regime reports, suggestions, placement
 │   │   ├── dashboard.go
 │   │   ├── projection.go
 │   │   └── tax.go
+│   ├── taxengine/                       # Pure old/new regime engine, FY rule tables, tests
 │   ├── handlers/                        # 22 handler files
 │   │   ├── auth_handler.go
 │   │   ├── dashboard_handler.go
@@ -633,6 +665,9 @@ investment-tracker/
 │   │   ├── net_worth_service.go
 │   │   ├── notification_service.go
 │   │   ├── profile_service.go
+│   │   ├── tax_service.go               # Tax lines from assets, household summary
+│   │   ├── family_tax_service.go        # Member attribution, clubbing, regimes, advisor
+│   │   ├── notification_tax.go          # Regime / deadline / advance-tax reminders
 │   │   ├── projection_service.go        # Monte Carlo simulation engine
 │   │   ├── cashflow_service.go
 │   │   ├── insights_service.go
@@ -727,7 +762,9 @@ investment-tracker/
 │       │   ├── ProjectionsPage.tsx
 │       │   ├── CashflowPage.tsx
 │       │   ├── InsightsPage.tsx
-│       │   ├── TaxCenterPage.tsx
+│       │   ├── TaxCenterPage.tsx        # Family regimes, where-to-invest, deductions, gains
+│       │   ├── FamilyPage.tsx           # Members, ownership splits
+│       │   ├── MemberIncomePage.tsx     # Monthly payslips & income per member/FY
 │       │   └── SettingsPage.tsx
 │       ├── types/
 │       │   └── index.ts                 # TypeScript interfaces (mirrors Go models)
@@ -830,9 +867,11 @@ When a principal repayment is marked as received:
 - An investment can't be allocated more than 100% across active goals
 
 ### 9. Tax Computation
-- **Section 80C** (₹1.5L limit): EPF contributions + ELSS investments + home loan principal + PPF + NPS (80CCD1)
-- **Section 24b** (₹2L limit): Home loan interest deduction
-- **Section 80CCD(1B)** (₹50K additional): NPS self-contribution
+- **Tax lines** (`services/tax_service.go` `CollectLines`): every tax-relevant amount from tracked assets for a FY — EPF/VPF and PPF deposits, ELSS purchases, home loan principal and interest (let-out when linked to a rented property), life/health premiums (80D self-family vs parents, senior flag), NPS Tier-1 own/employer contributions, FD/bond interest, dividends, rent, vehicle-leasing payouts and FIFO capital gains (equity STCG/LTCG; debt fund gains at slab). `SummaryFromLines` builds the 80C/80CCD/80D/24(b) summary for the household or one member.
+- **Attribution** (`services/family_tax_service.go`): lines are split by `profile_assignments` shares; unassigned items go to the default ("self") member. Income is clubbed to the funder when the owner is their spouse, and a minor's income to the higher-income parent (₹1,500 exemption per child); gifts to adult children/parents are not clubbed. PPF/life premiums for a spouse or child and 80D premiums are claimed by the payer. The `tax_settings` collection (one per user) can turn spouse and/or minor clubbing off; income that would have been clubbed is then kept with the holder, marked `clubbing_ignored`, totalled in the report and warned about.
+- **Tax engine** (`taxengine/`): pure, FY-versioned rule tables (FY 2025-26 under the 1961 Act, FY 2026-27 under the Income-tax Act, 2025 with section mapping such as 80C → s.123). Computes salary (standard deduction, HRA from monthly payslips, LTA, professional tax), house property (₹2L self-occupied cap and loss set-off in the old regime only), business, other sources and special-rate gains (111A 20%, 112A 12.5% above ₹1.25L, unused basic exemption), Chapter VI-A deductions with caps, 87A rebate with new-regime marginal relief, surcharge with marginal relief (25% cap in the new regime, 15% on capital gains) and 4% cess. `Compare` returns both regimes, the recommendation, savings, break-even deductions and remaining headroom.
+- **Member income** (`member_incomes`): monthly payslips (actual or expected); months after the latest payslip are projected from its fixed pay when enabled. EPF and employer NPS use the larger of payslip and PF/NPS module figures.
+- **Placement advisor**: for each member, adds the investment's yearly return (interest/slab gains/LTCG) to the person taxed after clubbing and the deduction (ELSS/PPF/SSY/SCSS/NPS) to the eligible claimant, then ranks by household tax change using each person's best regime.
 - **Capital gains**: Tracks LTCG/STCG from MF redemptions and stock sells
 
 ### 10. Notification Generator
