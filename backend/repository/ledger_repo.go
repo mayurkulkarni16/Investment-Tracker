@@ -29,6 +29,12 @@ func (r *LedgerRepo) GetAll(ctx context.Context, userID string) ([]models.Ledger
 	return entries, err
 }
 
+func (r *LedgerRepo) GetByID(ctx context.Context, userID string, id primitive.ObjectID) (*models.LedgerEntry, error) {
+	var entry models.LedgerEntry
+	err := r.collection.FindOne(ctx, scoped(ctx, bson.M{"_id": id, "user_id": userID})).Decode(&entry)
+	return &entry, err
+}
+
 func (r *LedgerRepo) Create(ctx context.Context, entry *models.LedgerEntry) (*models.LedgerEntry, error) {
 	// The deterministic, user-bound _id makes scan/retry insertion atomic.
 	filter := scoped(ctx, bson.M{"_id": entry.ID, "user_id": entry.UserID})
@@ -41,12 +47,14 @@ func (r *LedgerRepo) Create(ctx context.Context, entry *models.LedgerEntry) (*mo
 	return &result, err
 }
 
-func (r *LedgerRepo) Update(ctx context.Context, userID string, id primitive.ObjectID, req models.LedgerRequest, updatedAt time.Time) (*models.LedgerEntry, error) {
+func (r *LedgerRepo) Update(ctx context.Context, userID string, id primitive.ObjectID, req models.LedgerRequest, attribution models.LedgerAttribution, updatedAt time.Time) (*models.LedgerEntry, error) {
 	var result models.LedgerEntry
 	err := r.collection.FindOneAndUpdate(ctx, scoped(ctx, bson.M{"_id": id, "user_id": userID}), bson.M{"$set": bson.M{
 		"status": req.Status, "kind": req.Kind, "amount_paise": req.AmountPaise,
 		"date": req.Date, "description": req.Description, "category": req.Category,
 		"bank": req.Bank, "account": req.Account, "due_date": req.DueDate, "updated_at": updatedAt,
+		"profile_id": attribution.ProfileID, "linked_account_type": attribution.LinkedAccountType,
+		"linked_account_id": attribution.LinkedAccountID, "sms_received_at": attribution.SMSReceivedAt,
 	}}, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&result)
 	return &result, err
 }

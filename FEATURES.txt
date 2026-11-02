@@ -6,6 +6,9 @@ MOBILE COMPANION - INITIAL RELEASE
 - Android Capacitor project sharing the existing login, screens and backend
 - Personal income/expense/refund/transfer/bill ledger with integer paise amounts
 - Monthly confirmed totals, review/edit/reject inbox, web CSV, JSON backup/restore
+- Ledger account/card and member links, member/account filters and per-member totals
+- Device-local SMS member preference; unique account/owner matching with review
+- Possible duplicate warnings for shared accounts; no automatic rejection
 - Local bank/card SMS parsing and opt-in, user-triggered Android inbox scanning
 - Initial templates: HDFC, ICICI, Axis, SBI, OneCard and YES BANK
 - SMS imports remain pending until reviewed; identical rescans/retries deduplicated

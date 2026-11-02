@@ -30,7 +30,14 @@ All user data uses the effective user ID, including read-only admin view-as.
   failures return errors rather than presenting unavailable figures as zeros.
 - The ledger stores integer paise. Summary endpoints convert to rupees, exclude
   pending/rejected records, and keep bills/transfers separate from expenses.
-  Account balances are dated snapshots, not reconciled or live-bank balances.
+  Ledger entries can be explicitly linked to a family profile and a saved bank
+  account/card; `GET /api/v1/ledger/context` returns only the account/member
+  choices and Family ownership needed by clients. Writes validate these
+  references against the effective user. Per-device SMS member defaults stay
+  in client-local storage. Same-day/near-time duplicate candidates are reviewed,
+  never automatically rejected. Bank & Cash monthly in/out totals use explicit
+  bank-account links; last-four matches alone are not assigned to an account.
+  Account balances remain dated snapshots, not reconciled or live-bank balances.
 - `bank_accounts`, `budgets`, `insurance_policies`, `gold_holdings`, `properties`,
   `profile_assignments` and `notification_settings` extend persisted user data.
   Family summaries combine existing profiles with ownership assignments.

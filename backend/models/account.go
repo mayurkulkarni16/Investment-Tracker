@@ -25,7 +25,7 @@ type BankAccount struct {
 	CreatedAt       time.Time          `json:"created_at" bson:"created_at"`
 	UpdatedAt       time.Time          `json:"updated_at" bson:"updated_at"`
 
-	// Computed from confirmed ledger entries matching LastFour, current month.
+	// Computed from confirmed ledger entries explicitly linked to this account, current month.
 	MonthInflow  float64 `json:"month_inflow" bson:"-"`
 	MonthOutflow float64 `json:"month_outflow" bson:"-"`
 	DaysStale    int     `json:"days_stale" bson:"-"`

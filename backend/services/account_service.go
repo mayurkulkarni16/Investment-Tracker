@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -88,7 +89,10 @@ func (s *AccountService) GetAll(ctx context.Context, userID string) ([]models.Ba
 	if err != nil {
 		return nil, err
 	}
-	entries, _ := s.ledgerRepo.GetAll(ctx, userID)
+	entries, err := s.ledgerRepo.GetAll(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("load account transactions: %w", err)
+	}
 	now := time.Now()
 	for i := range accounts {
 		s.decorate(&accounts[i], entries, now)
@@ -105,7 +109,10 @@ func (s *AccountService) GetByID(ctx context.Context, id string) (*models.BankAc
 	if err != nil {
 		return nil, err
 	}
-	entries, _ := s.ledgerRepo.GetAll(ctx, acc.UserID)
+	entries, err := s.ledgerRepo.GetAll(ctx, acc.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("load account transactions: %w", err)
+	}
 	s.decorate(acc, entries, time.Now())
 	return acc, nil
 }
@@ -201,12 +208,12 @@ func (s *AccountService) decorate(acc *models.BankAccount, entries []models.Ledg
 	if !acc.BalanceAsOf.IsZero() {
 		acc.DaysStale = int(now.Sub(acc.BalanceAsOf).Hours() / 24)
 	}
-	if acc.LastFour == "" {
-		return
-	}
 	month := now.Format("2006-01")
 	for _, e := range entries {
-		if e.Status != "confirmed" || e.Account != acc.LastFour || !strings.HasPrefix(e.Date, month) {
+		if e.Status != "confirmed" || !strings.HasPrefix(e.Date, month) {
+			continue
+		}
+		if e.LinkedAccountType != "bank_account" || e.LinkedAccountID != acc.ID.Hex() {
 			continue
 		}
 		amt := float64(e.AmountPaise) / 100

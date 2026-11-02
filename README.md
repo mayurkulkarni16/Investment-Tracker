@@ -10,8 +10,13 @@ FinBoard (this repository: Investment Tracker) is a comprehensive personal finan
 - Personal Android companion using the existing React app and Go API.
 - Manual income, expense, refund, transfer and bill records with monthly totals,
   pending review, corrections, web CSV export and JSON backup/restore support.
+- Link transactions to a saved bank account/card and family member; filter and
+  see confirmed totals per member. Each phone can store its own SMS member
+  default. Unique account/owner matches are suggested and remain editable.
 - Local SMS parsing plus an opt-in Android inbox scan for initial HDFC, ICICI,
   Axis, SBI, OneCard and YES BANK templates. Imported records require review.
+- Possible shared-account duplicates are flagged for review, not automatically
+  rejected. Same-day matches without SMS timestamps are less certain.
 - This is an initial slice: no background SMS ingestion or automatic statement
   reconciliation yet. The ledger is separate from investment cashflow/card balances.
 - [Android setup and limitations](frontend/ANDROID.md) |
@@ -29,7 +34,7 @@ FinBoard (this repository: Investment Tracker) is a comprehensive personal finan
 - **Credit Cards** — Card management with billing statements, payment tracking, EMI conversions, transaction categorization, credit score history, and utilization monitoring.
 
 ### Household Finance & Planning
-- **Bank & Cash** - Bank accounts, wallets and cash balances with dated balance history, emergency-fund flags and stale-balance warnings. These are recorded snapshots, not live bank feeds; ledger entries do not automatically reconcile balances.
+- **Bank & Cash** - Bank accounts, wallets and cash balances with dated balance history, emergency-fund flags and stale-balance warnings. Monthly in/out totals use confirmed ledger entries explicitly linked to each account; unlinked entries remain in overall ledger totals. Balances are recorded snapshots, not live bank feeds, and are not automatically reconciled.
 - **Income, Expenses & Budgets** - Confirmed ledger totals, monthly savings rates, top spending categories and category limits with warnings at 80% and alerts at 100% or more. Pending SMS imports are excluded until reviewed.
 - **Dashboard Money Overview** - Bank/cash totals, this month's income and expenses, budget alerts, life/health cover and premiums due within 30 days. Available independently of investment holdings.
 - **Insurance** - Policy tracking, premium schedules, cover gaps and estimated 80C/80D premium figures. Scheduled premiums are estimates, not proof of payment or tax eligibility.

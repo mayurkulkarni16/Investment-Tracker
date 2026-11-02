@@ -33,6 +33,7 @@ func Register(r *gin.Engine, c *container.Container, cfg *config.Config) {
 
 		// Dashboard & Projections
 		api.GET("/ledger", c.LedgerHandler.GetAll)
+		api.GET("/ledger/context", c.LedgerHandler.Context)
 		api.POST("/ledger", c.LedgerHandler.Save)
 		api.PUT("/ledger/:id", c.LedgerHandler.Save)
 		api.GET("/ledger/export", c.LedgerHandler.Export)

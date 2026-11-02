@@ -41,14 +41,31 @@ keystore. No signing secret is included in this repository.
 
 ## SMS workflow
 
-1. Log in, open **Income & Expenses**, and select a scan window (1-90 days).
-2. Read and accept the disclosure, then choose **Scan and queue for review**.
-3. Grant Android SMS permission. Denial leaves all manual features usable.
-4. Supported alerts become pending structured records in your account. Inspect
-   each with **Review / edit**, correct details, and set status to **Confirmed**.
-5. Mark duplicates or unwanted records **Rejected**. Rejected imports are retained
+1. Add family members, bank accounts and credit cards in the app. Enter the
+   correct bank/issuer and last four digits, then assign each account or card to
+   its owner(s) on **Family**.
+2. Log in on each phone with the shared account. In **Income & Expenses**, choose
+   who owns that device. This preference is stored on that device only, separately
+   for each login; it is not synchronized to the other phone.
+3. Select a scan window (1-90 days), read and accept the disclosure, then choose
+   **Scan and queue for review**. Grant Android SMS permission. Denial leaves
+   all manual features usable.
+4. Supported alerts become pending records. A unique bank/last-four match links
+   a saved account or card. A sole owner takes precedence over the device default;
+   for a joint account the device member is suggested only if they are an owner.
+   Ambiguous matches are left unlinked. Correct the account and member with
+   **Review / edit**, then set status to **Confirmed**.
+5. Review possible duplicate warnings. Mark duplicates or unwanted records **Rejected**.
+   Confirmation with a warning requires explicit review; similar payments can be
+   legitimate and are never rejected automatically. Rejected imports are retained
    to prevent the same SMS being re-added by a rescan.
 6. Rescan to pick up new messages. This release has no background SMS listener.
+
+Use the member and account filters for the shared transaction list and confirmed
+totals. The per-member breakdown keeps unassigned records separate. Earlier
+ledger records are not automatically changed; link and assign them when reviewing.
+Both people using one login can see, edit and delete all household data. Family
+profiles and the device preference are not separate accounts or access controls.
 
 The scan is limited to 5,000 examined inbox messages / 500 matching bank messages
 per run. A visible truncation notice requests a shorter scan window. Parser
@@ -57,8 +74,9 @@ template is understood. Unsupported messages are counted and not guessed.
 Use manual entry for them, or paste a supported message to preview it.
 
 SMS bodies are read temporarily on-device, parsed locally and not stored by the
-app or uploaded to the API. The backend stores only structured financial fields,
-last four digits, and a SHA-256 fingerprint. OTP/promo templates are excluded.
+app or uploaded to the API. The backend stores structured financial fields,
+the SMS receipt time, last four digits, and a SHA-256 fingerprint. OTP/promo
+templates are excluded.
 Manual paste text stays in component memory until cleared, saved, or the screen
 is closed. Never enter real OTPs or full account/card numbers.
 
@@ -77,11 +95,18 @@ saved financial records.
   date when necessary. Numeric bill due dates are extracted only when explicit
   and valid; missing values remain blank.
 - Rescanning the same sender/timestamp/body is idempotent, including request
-  retries. Pasted messages with a different timestamp, a second notification
-  channel, and existing manual/card entries need manual duplicate review.
+  retries. Possible duplicates with the same day, type, amount and last four
+  are highlighted when SMS receipt times are within five minutes. If a time is
+  unavailable, same-day matches are shown as less certain. Different saved
+  accounts and known different banks are not treated as the same account.
+  Detection can miss duplicates and can flag legitimate repeated payments;
+  inspect each warning. Credit-card module transactions are not matched.
 - The ledger is separate from the existing Credit Cards and investment cashflow
   modules. It does not automatically settle statements, update card outstanding,
   alter net worth, or create loan/investment transactions.
+- Bank & Cash monthly in/out totals include only confirmed ledger records linked
+  to that account. Existing unlinked entries remain in overall ledger totals but
+  are not attributed to an account until reviewed and linked.
 - CSV download is exposed on the web app. Use web Settings for backup/restore;
   native file sharing/export is not implemented.
 - No budgets, background reminders, automatic posting, offline queue or biometric

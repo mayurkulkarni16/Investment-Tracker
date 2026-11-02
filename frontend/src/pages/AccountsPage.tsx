@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   getAccounts, createAccount, updateAccount, deleteAccount, updateAccountBalance,
@@ -229,6 +230,7 @@ export default function AccountsPage() {
               </label>
             )}
           </div>
+          <p className="text-muted mb-3">Monthly in/out totals include only confirmed transactions explicitly linked to each account. Review and link earlier records in <Link to="/ledger">Income &amp; Expenses</Link>.</p>
 
           {grouped.map(g => {
             const groupTotal = g.items.filter(a => a.status !== 'closed').reduce((s, a) => s + a.balance, 0);

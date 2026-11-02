@@ -146,7 +146,7 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 
 	// Handlers
 	return &Container{
-		LedgerHandler:        handlers.NewLedgerHandler(services.NewLedgerService(ledgerRepo)),
+		LedgerHandler:        handlers.NewLedgerHandler(services.NewLedgerService(ledgerRepo, profileRepo, bankRepo, creditCardRepo, assignmentRepo)),
 		AuthHandler:          handlers.NewAuthHandler(authService),
 		MutualFundHandler:    handlers.NewMutualFundHandler(mfService),
 		CorporateBondHandler: handlers.NewCorporateBondHandler(bondService),

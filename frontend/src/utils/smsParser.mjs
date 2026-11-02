@@ -74,6 +74,8 @@ export function parseSms({ sender, body, receivedAt }) {
     draft: {
       source: 'sms', status: 'pending', kind, amount_paise: amountPaise,
       date, bank, account, due_date: bill ? dueDate(body) : '',
+      profile_id: '', linked_account_type: '', linked_account_id: '',
+      sms_received_at: new Date(receivedAt).toISOString(),
       description: `${bank} ${bill ? 'card bill' : credit ? 'credit / refund - review classification' : transfer ? 'card payment / transfer' : 'debit / card spend'}`,
       category: 'Uncategorized',
     },

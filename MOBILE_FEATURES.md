@@ -14,6 +14,10 @@ with initial sender/template support for HDFC, ICICI, Axis, SBI, OneCard and YES
   bounded historical window, and structured pending imports.
 - Atomic retry/rescan protection for the same sender, timestamp, and message;
   no raw SMS persistence/upload.
+- Family member and saved account/card links on ledger entries, device-local
+  SMS member defaults, member/account filters and per-member confirmed totals.
+- Reviewable same-account duplicate warnings, including cross-phone SMS alerts;
+  ambiguous matches are not linked and records are not automatically rejected.
 - All imports require review before affecting totals.
 
 Not yet implemented: background SMS reception, automatic posting, statement/card

@@ -7,10 +7,26 @@
 .ledger-import { border-block: 1px solid var(--border); padding-block: 16px; margin-bottom: 16px; }
 .ledger-page summary { cursor: pointer; margin-bottom: 12px; }
 .ledger-page .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.ledger-member-totals { list-style: none; padding: 0; margin: 0 0 20px; }
+.ledger-member-totals li { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.ledger-member-totals strong { min-width: 120px; }
+.ledger-duplicates { margin: 10px 0; padding: 10px; border: 1px solid var(--border); border-left: 4px solid #d97706; border-radius: 6px; white-space: normal; }
+.ledger-duplicates p { margin: 4px 0; }
+.ledger-duplicates ul { padding-left: 20px; margin: 6px 0 0; }
+.ledger-duplicates li { margin: 6px 0; }
+.ledger-link-button { border: 0; padding: 0; background: none; color: var(--primary); text-decoration: underline; cursor: pointer; font: inherit; }
 @media (max-width: 768px) {
   .ledger-page .form-row { grid-template-columns: 1fr; gap: 0; }
   .ledger-page .page-header { align-items: flex-start; gap: 12px; }
   .ledger-page .page-header h1 { font-size: 21px; }
   .ledger-page .btn { min-height: 44px; }
   .ledger-page input, .ledger-page select, .ledger-page textarea { font-size: 16px; }
+  .ledger-member-totals li { flex-direction: column; gap: 4px; }
+  .ledger-page .ledger-table, .ledger-page .ledger-table tbody, .ledger-page .ledger-table tr { display: block; width: 100%; }
+  .ledger-page .ledger-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+  .ledger-page .ledger-table tr { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .ledger-page .ledger-table td { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 8px; padding: 5px 0; border: 0; white-space: normal; }
+  .ledger-page .ledger-table td::before { content: attr(data-label); font-weight: 600; }
+  .ledger-page .ledger-duplicates { overflow-wrap: anywhere; }
+  .ledger-page .ledger-link-button { min-height: 44px; }
 }
