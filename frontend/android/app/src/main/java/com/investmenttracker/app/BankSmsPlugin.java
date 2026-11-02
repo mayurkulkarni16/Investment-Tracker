@@ -60,6 +60,8 @@ public class BankSmsPlugin extends Plugin {
         getBridge().execute(() -> {
             int days = call.getInt("days", 7);
             long since = System.currentTimeMillis() - days * 86_400_000L;
+            Long sinceMs = call.getLong("sinceMs");
+            if (sinceMs != null) since = Math.max(sinceMs, since);
             JSArray messages = new JSArray();
             int scanned = 0;
             boolean truncated = false;

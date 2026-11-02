@@ -47,7 +47,9 @@ keystore. No signing secret is included in this repository.
 2. Log in on each phone with the shared account. In **Income & Expenses**, choose
    who owns that device. This preference is stored on that device only, separately
    for each login; it is not synchronized to the other phone.
-3. Select a scan window (1-90 days), read and accept the disclosure, then choose
+3. Choose where the scan starts: **From a date** (default: the 1st of the current
+   month; up to 89 days back) or **From the last few days** (1-90). Read and
+   accept the disclosure, then choose
    **Scan and queue for review**. Grant Android SMS permission. Denial leaves
    all manual features usable.
 4. Supported alerts become pending records. A unique bank/last-four match links

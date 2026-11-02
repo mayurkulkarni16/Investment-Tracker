@@ -80,6 +80,8 @@ export default function LedgerPage() {
   const [body, setBody] = useState('');
   const [receivedAt, setReceivedAt] = useState(() => `${localDate(Date.now())}T12:00`);
   const [days, setDays] = useState(7);
+  const [scanMode, setScanMode] = useState<'days' | 'date'>('date');
+  const [scanFrom, setScanFrom] = useState(() => `${localDate(Date.now()).slice(0, 7)}-01`);
   const [consent, setConsent] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -224,15 +226,22 @@ export default function LedgerPage() {
     } catch (err) { setError(errorText(err)); }
   };
 
+  const [scanBounds] = useState(() => ({ today: localDate(Date.now()), min: localDate(Date.now() - 89 * 86_400_000) }));
+  const { today, min: scanMinDate } = scanBounds;
+  const scanFromMs = new Date(`${scanFrom}T00:00:00`).getTime();
+  const scanValid = scanMode === 'date'
+    ? /^\d{4}-\d{2}-\d{2}$/.test(scanFrom) && scanFrom >= scanMinDate && scanFrom <= today && Number.isFinite(scanFromMs)
+    : Number.isInteger(days) && days >= 1 && days <= 90;
+
   const scan = async () => {
-    if (!consent || isViewOnly || !ready) return;
+    if (!consent || isViewOnly || !ready || !scanValid) return;
     setBusy(true); setError(''); setNotice('');
     let queued = 0;
     let skipped = 0;
     let unlinked = 0;
     let unassigned = 0;
     try {
-      const result = await BankSms.scan({ days });
+      const result = await BankSms.scan(scanMode === 'date' ? { days: 90, sinceMs: scanFromMs } : { days });
       for (const message of result.messages) {
         const parsed = parseSms(message);
         if (!parsed.draft) { skipped++; continue; }
@@ -385,9 +394,19 @@ export default function LedgerPage() {
           <p>Initial templates for HDFC, ICICI, Axis, SBI, OneCard and YES BANK. Parsing stays on this device. Only structured fields, SMS receipt time and a fingerprint are sent to your backend, not SMS bodies. Sender names are not proof of authenticity.</p>
           {hasAndroidSms && <div className="ledger-import">
             <label className="ledger-consent"><input type="checkbox" checked={consent} disabled={busy || !ready} onChange={e => setConsent(e.target.checked)} /> I allow this scan to read supported bank senders from my SMS inbox and save supported alerts as pending records to my account. OTPs and unrelated messages are excluded.</label>
-            <div className="form-group"><label htmlFor="scan-days">Scan last days (1-90)</label><input id="scan-days" type="number" min={1} max={90} value={days} onChange={e => setDays(Number(e.target.value))} /></div>
+            <div className="form-row">
+              <div className="form-group"><label htmlFor="scan-mode">Scan messages</label>
+                <select id="scan-mode" value={scanMode} onChange={e => setScanMode(e.target.value === 'days' ? 'days' : 'date')}>
+                  <option value="date">From a date</option><option value="days">From the last few days</option>
+                </select>
+              </div>
+              {scanMode === 'date'
+                ? <div className="form-group"><label htmlFor="scan-from">From date (up to 90 days ago)</label><input id="scan-from" type="date" min={scanMinDate} max={today} value={scanFrom} onChange={e => setScanFrom(e.target.value)} /></div>
+                : <div className="form-group"><label htmlFor="scan-days">Last days (1-90)</label><input id="scan-days" type="number" min={1} max={90} value={days} onChange={e => setDays(Number(e.target.value))} /></div>}
+            </div>
+            {!scanValid && <p className="text-danger">{scanMode === 'date' ? `Choose a date from ${scanMinDate} to today.` : 'Enter a number of days from 1 to 90.'}</p>}
             <div className="ledger-actions">
-              <button className="btn btn-primary" disabled={busy || !ready || !consent || days < 1 || days > 90} onClick={scan}>Scan and queue for review</button>
+              <button className="btn btn-primary" disabled={busy || !ready || !consent || !scanValid} onClick={scan}>Scan and queue for review</button>
               <button className="btn btn-outline" disabled={busy} onClick={() => { BankSms.openSettings().catch(err => setError(errorText(err))); }}>Manage SMS permission</button>
             </div>
             <p className="text-muted">Scan is user-triggered, not a background listener. Rescan for new messages. Revoke permission in Android settings at any time.</p>
