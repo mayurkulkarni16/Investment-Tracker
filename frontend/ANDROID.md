@@ -93,9 +93,11 @@ saved financial records.
 - Transfers/card repayments and bill notices do not count as income or expenses.
 - A generic bank credit is only an income *candidate*. Correct own-account
   transfers, investment redemptions, refunds and loan disbursements in review.
-- Message receipt date is the default date; correct it to the actual transaction
-  date when necessary. Numeric bill due dates are extracted only when explicit
-  and valid; missing values remain blank.
+- The date written in the alert (for example "on 01-11-26") is used when it is
+  valid and within 31 days before receipt; otherwise the receipt date is used.
+  Expenses use the payee/merchant from "To"/"at" as the description. Numeric bill
+  due dates (2- or 4-digit years) are extracted only when explicit and valid;
+  missing values remain blank.
 - Rescanning the same sender/timestamp/body is idempotent, including request
   retries. Possible duplicates with the same day, type, amount and last four
   are highlighted when SMS receipt times are within five minutes. If a time is

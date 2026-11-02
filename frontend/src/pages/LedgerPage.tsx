@@ -227,6 +227,7 @@ export default function LedgerPage() {
   };
 
   const [scanBounds] = useState(() => ({ today: localDate(Date.now()), min: localDate(Date.now() - 89 * 86_400_000) }));
+  const [scanSummary, setScanSummary] = useState('');
   const { today, min: scanMinDate } = scanBounds;
   const scanFromMs = new Date(`${scanFrom}T00:00:00`).getTime();
   const scanValid = scanMode === 'date'
@@ -235,7 +236,7 @@ export default function LedgerPage() {
 
   const scan = async () => {
     if (!consent || isViewOnly || !ready || !scanValid) return;
-    setBusy(true); setError(''); setNotice('');
+    setBusy(true); setError(''); setNotice(''); setScanSummary('Scanning messages...');
     let queued = 0;
     let skipped = 0;
     let unlinked = 0;
@@ -252,9 +253,12 @@ export default function LedgerPage() {
         if (!saved.profile_id) unassigned++;
       }
       setStatus('pending'); setMonth(''); setMemberFilter('all'); setAccountFilter('all');
-      setNotice(`Processed ${queued} supported alerts (existing imports are kept, not duplicated); skipped ${skipped} unsupported alerts. ${unlinked} could not be linked to one account; ${unassigned} have no suggested member. ${result.truncated ? 'Scan limit reached: use a shorter window. ' : ''}Review the account, member and possible duplicates on each pending record.`);
+      const summary = `Found ${result.messages.length} bank messages: ${queued} queued as pending for review, ${skipped} not recognized.${result.truncated ? ' Scan limit reached: choose a later start date.' : ''}`;
+      setScanSummary(summary);
+      setNotice(`${summary} Existing imports are kept, not duplicated. ${unlinked} could not be linked to one account; ${unassigned} have no suggested member. Review the account, member and possible duplicates on each pending record.`);
     } catch (err) {
-      setError(`${queued} alerts processed before scan stopped. ${apiErrorMessage(err, errorText(err))} Retry is safe for identical SMS records.`);
+      const message = `${queued} alerts processed before scan stopped. ${apiErrorMessage(err, errorText(err))} Retry is safe for identical SMS records.`;
+      setError(message); setScanSummary(message);
     } finally { setBusy(false); refresh(); }
   };
 
@@ -410,6 +414,7 @@ export default function LedgerPage() {
               <button className="btn btn-outline" disabled={busy} onClick={() => { BankSms.openSettings().catch(err => setError(errorText(err))); }}>Manage SMS permission</button>
             </div>
             <p className="text-muted">Scan is user-triggered, not a background listener. Rescan for new messages. Revoke permission in Android settings at any time.</p>
+            {scanSummary && <p role="status" className="card"><strong>{scanSummary}</strong>{!busy && ' Pending records are listed below in the review inbox.'}</p>}
           </div>}
           <details><summary>Paste a message manually</summary>
             <p className="text-muted">Do not paste OTPs. A pasted message may duplicate a scanned/manual record: inspect existing records before confirming.</p>

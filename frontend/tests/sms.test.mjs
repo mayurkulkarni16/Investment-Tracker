@@ -60,3 +60,23 @@ test('amount punctuation and ambiguity never produce partial values', () => {
   assert.throws(() => parseSms(message('Debited INR 1,2')), /amount/);
   assert.equal(parseSms(message('Card statement: Total due INR 300. Min due INR 50. Due on 31/02/2026')).draft.due_date, '');
 });
+
+test('UPI "Sent" alerts are expenses dated from the message, with the payee', () => {
+  const sent = { sender: 'JX-HDFCBK-S', body: 'Sent Rs.250.00\nFrom HDFC Bank A/C *1111\nTo Test Store\nOn 19/10/26\nRef 123456789012\nNot You?\nCall 1800000000\n', receivedAt: '2026-10-21T10:00:00Z' };
+  const { draft } = parseSms(sent);
+  assert.equal(draft.kind, 'expense');
+  assert.equal(draft.amount_paise, 25000);
+  assert.equal(draft.account, '1111');
+  assert.equal(draft.date, '2026-10-19');
+  assert.equal(draft.description, 'Test Store (HDFC)');
+  assert.equal(parseSms({ ...sent, body: sent.body.replace('19/10/26', '25/10/26') }).draft.date, '2026-10-21');
+  const spent = parseSms(message('Spent INR 900 \nusing Axis Bank Credit Card no. XX2222 on 20-10-26 06:17:24 IST at \nTESTSHOP. \nAvl limit: INR 5000.', 'AX-AXISBK-S')).draft;
+  assert.deepEqual([spent.kind, spent.amount_paise, spent.date, spent.description], ['expense', 90000, '2026-10-20', 'TESTSHOP (Axis)']);
+});
+
+test('card due reminders with total due become bills; card payments read as transfers', () => {
+  const bill = parseSms(message('Payment of Credit Card X3333 is due on 05/11/26. Min due Rs.100.00. Total Due Rs.1200.50. Pay before last date.', 'AX-YESBNK-S')).draft;
+  assert.deepEqual([bill.kind, bill.amount_paise, bill.account, bill.due_date], ['bill', 120050, '3333', '2026-11-05']);
+  const paid = parseSms(message('Payment of INR 500.00 has been received towards your Axis Bank Credit Card XX4444 on 21-10-26', 'AD-AXISBK-S')).draft;
+  assert.deepEqual([paid.kind, paid.description], ['transfer', 'Axis card payment / transfer']);
+});

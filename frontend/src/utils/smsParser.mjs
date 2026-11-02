@@ -27,13 +27,30 @@ export function localDate(value) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function dueDate(body) {
-  const match = body.match(/due(?:\s+(?:date|on|by|is))*\s*[:\-]?\s*(\d{2})[/-](\d{2})[/-](\d{4})\b/i);
-  if (!match) return '';
-  const [, day, month, year] = match;
-  const date = `${year}-${month}-${day}`;
+function isoDate(day, month, year) {
+  const date = `${year.length === 2 ? `20${year}` : year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   const parsed = new Date(`${date}T12:00:00Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date ? date : '';
+}
+
+function dueDate(body) {
+  const match = body.match(/due(?:\s+(?:date|on|by|is))*\s*[:\-]?\s*(\d{1,2})[/-](\d{1,2})[/-](\d{4}|\d{2})\b/i);
+  return match ? isoDate(match[1], match[2], match[3]) : '';
+}
+
+// Uses the date printed in the alert ("on 01-11-26") when it is plausible, else the receipt date.
+function transactionDate(body, received) {
+  const match = body.match(/\bon\s+(\d{1,2})[/-](\d{1,2})[/-](\d{4}|\d{2})\b/i);
+  const date = match ? isoDate(match[1], match[2], match[3]) : '';
+  if (!date || date > received) return received;
+  const ageDays = (Date.parse(`${received}T00:00:00Z`) - Date.parse(`${date}T00:00:00Z`)) / 86_400_000;
+  return ageDays <= 31 ? date : received;
+}
+
+function merchant(body) {
+  const match = body.match(/\b(?:to|at)\s+([^\n]{2,40}?)\s*(?:\.(?:\s|$)|\n|$)/i);
+  const name = match?.[1].trim() ?? '';
+  return /\b(?:a\/c|account|card|vpa)\b/i.test(name) ? '' : name;
 }
 
 export function parseSms({ sender, body, receivedAt }) {
@@ -44,9 +61,9 @@ export function parseSms({ sender, body, receivedAt }) {
   if (/\b(?:OTP|one[- ]time password|verification code|offer|pre[- ]approved)\b/i.test(body)) {
     return { reason: 'OTP, promotional or verification message excluded.' };
   }
-  const date = localDate(receivedAt);
-  const bill = /\b(?:statement|bill)\b/i.test(body) && /\b(?:total\s+(?:amount\s+|amt\.?\s+)?due|payment\s+due)\b/i.test(body);
-  const debit = /\b(?:debited|spent|purchase(?:d)?|withdrawn|charged)\b/i.test(body);
+  const received = localDate(receivedAt);
+  const bill = /\b(?:statement|bill|due\s+(?:on|date|by))\b/i.test(body) && /\b(?:total\s+(?:amount\s+|amt\.?\s+)?due|payment\s+due)\b/i.test(body);
+  const debit = /\b(?:debited|spent|sent|purchase(?:d)?|withdrawn|charged)\b/i.test(body);
   const credit = /\b(?:credited|received|refund(?:ed)?|reversed)\b/i.test(body);
   const payment = /\b(?:payment|paid)\b/i.test(body) && /\b(?:credit\s*card|card|cc)\b/i.test(body) && !bill;
   const transfer = /\b(?:self[- ]transfer|own account|credit card payment|cc payment)\b/i.test(body) || payment;
@@ -62,7 +79,7 @@ export function parseSms({ sender, body, receivedAt }) {
       return /(?:total\s+(?:amount\s+|amt\.?\s+)?due|payment\s+due)\s*[:\-]?\s*$/i.test(before);
     }
     if (/\b(?:balance|bal|limit|minimum|min\.?\s*due|available)\s*[:.\-]?\s*$/i.test(before)) return false;
-    return /(?:debited|spent|purchase(?:d)?|withdrawn|charged|credited|received|refunded|reversed|paid|payment(?:\s+of)?|for|of)\s*[:\-]?\s*$/i.test(before)
+    return /(?:debited|spent|sent|purchase(?:d)?|withdrawn|charged|credited|received|refunded|reversed|paid|payment(?:\s+of)?|for|of)\s*[:\-]?\s*$/i.test(before)
       || /^\s*(?:has been\s+|is\s+)?(?:debited|credited|spent|paid|received|withdrawn|charged|refunded|reversed|was spent)/i.test(after);
   });
   if (selected.length !== 1) return { reason: 'Could not identify one unambiguous transaction amount. Enter manually.' };
@@ -70,16 +87,17 @@ export function parseSms({ sender, body, receivedAt }) {
   const account = body.match(/(?:a\/c|acct?|account|card)(?:\s+(?:no\.?|ending(?:\s+with)?|xx|number|with))?[\s:*xX.\-]*(\d{4})(?!\d)/i)?.[1] ?? '';
   const refund = /\b(?:refund(?:ed)?|reversed)\b/i.test(body);
   const kind = bill ? 'bill' : transfer ? 'transfer' : refund ? 'refund' : credit ? 'income' : 'expense';
+  const payee = kind === 'expense' ? merchant(body) : '';
   return {
     draft: {
       source: 'sms', status: 'pending', kind, amount_paise: amountPaise,
-      date, bank, account, due_date: bill ? dueDate(body) : '',
+      date: bill ? received : transactionDate(body, received), bank, account, due_date: bill ? dueDate(body) : '',
       profile_id: '', linked_account_type: '', linked_account_id: '',
       sms_received_at: new Date(receivedAt).toISOString(),
-      description: `${bank} ${bill ? 'card bill' : credit ? 'credit / refund - review classification' : transfer ? 'card payment / transfer' : 'debit / card spend'}`,
+      description: payee ? `${payee} (${bank})` : `${bank} ${bill ? 'card bill' : transfer ? 'card payment / transfer' : credit ? 'credit / refund - review classification' : 'debit / card spend'}`,
       category: 'Uncategorized',
     },
-    warning: 'Review amount, transaction date (defaults to SMS receipt date), income vs refund/transfer, and existing records. SMS is not a bank statement.',
+    warning: 'Review amount, transaction date (taken from the message when present, otherwise the SMS receipt date), income vs refund/transfer, and existing records. SMS is not a bank statement.',
   };
 }
 
