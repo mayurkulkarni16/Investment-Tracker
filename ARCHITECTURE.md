@@ -845,7 +845,7 @@ When a principal repayment is marked as received:
 - **Rate estimation**: the holding's XIRR blended with the category's long-term return (`services/asset_class.go`); credibility = years / (years + 5), capped at 50%, so short track records barely move the assumption
 - **Volatility**: category-specific (e.g. large cap 16%, small cap 26%, gilt 5%, liquid/overnight 0.8%, stocks 25%)
 - **Contributions**: active SIPs (converted to monthly, until their end date), PF and NPS contributions at last year's pace
-- **Scheduled holdings** follow contracts with no randomness: FD accrued value (proceeds held as cash after maturity), PF at its declared rate, bond principal + scheduled coupons, vehicle rentals at book value + promised payouts
+- **Scheduled holdings** follow contracts with no randomness: FD accrued value (proceeds held as cash after maturity), PF at its declared rate, bond principal + scheduled coupons, alternate investments at book value + promised payouts (open-ended ones for the whole horizon)
 - **Scenarios** shift only market-linked returns (bull: equity +3%, debt +0.5%; bear: equity −4%, debt −1%)
 - **Liabilities**: home/personal loans amortised at their current EMI → net-worth projection (credit cards excluded)
 - Optional `inflation` parameter expresses all values in today's money
@@ -923,17 +923,17 @@ The dashboard aggregates across all investment and liability types:
 
 | Metric                     | Source                                                                         |
 |----------------------------|--------------------------------------------------------------------------------|
-| Total Invested             | Sum across MF + Stocks + Bonds + FD + PF + NPS + Vehicle Rentals              |
-| Current Value              | MF (units×NAV) + Stocks (qty×price) + FD + Bonds + PF + NPS current values + Vehicle Rental book value |
-| Total Gains                | Current Value - Total Invested + vehicle rental payouts/buyback received       |
+| Total Invested             | Sum across MF + Stocks + Bonds + FD + PF + NPS + Alternate Investments        |
+| Current Value              | MF (units×NAV) + Stocks (qty×price) + FD + Bonds + PF + NPS current values + Alternate Investment book value |
+| Total Gains                | Current Value - Total Invested + alternate investment payouts/buyback received|
 | Overall Return %           | (Gains / Invested) × 100                                                       |
 | Portfolio XIRR             | Time-weighted return from all transaction cashflows                             |
 | Risk Score                 | Composite of equity/debt ratio, diversification, concentration, loan-to-asset  |
-| Upcoming Payouts           | Next 30 days: bond interest, FD maturity, bond principal, vehicle rental payouts/buyback |
+| Upcoming Payouts           | Next 30 days: bond interest, FD maturity, bond principal, alternate investment payouts/buyback |
 | Loan Summary               | Total outstanding, total EMI, total prepayments (home + personal)              |
 | Credit Card Summary        | Total outstanding, total limit, avg utilization                                |
 | ELSS Tax Saving (80C)      | Sum of ELSS investments in current FY (max ₹1.5L)                             |
-| Asset Allocation Pie       | % in MF, Stocks, Bonds, FD, PF, NPS, Vehicle Rentals                          |
+| Asset Allocation Pie       | % in MF, Stocks, Bonds, FD, PF, NPS, Alternate Investments                    |
 | Rebalancing Suggestions    | User provides target allocation → system suggests buy/sell actions             |
 
 ---

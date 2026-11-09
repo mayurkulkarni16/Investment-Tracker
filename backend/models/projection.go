@@ -18,7 +18,7 @@ const (
 
 type InvestmentProjection struct {
 	Name                string            `json:"name"`
-	Category            string            `json:"category"` // mutual_fund, stock, nps, fixed_deposit, provident_fund, corporate_bond, vehicle_rental
+	Category            string            `json:"category"` // mutual_fund, stock, nps, fixed_deposit, provident_fund, corporate_bond, alternate_investment
 	Basis               string            `json:"basis"`
 	CurrentValue        float64           `json:"current_value"`
 	AssumedRatePct      float64           `json:"assumed_rate_pct"`

@@ -19,7 +19,7 @@ type ExportService struct {
 	homeLoanRepo      *repository.HomeLoanRepo
 	personalLoanRepo  *repository.PersonalLoanRepo
 	npsRepo           *repository.NPSRepo
-	vehicleRentalRepo *repository.VehicleRentalRepo
+	altInvestmentRepo *repository.AlternateInvestmentRepo
 	finance           *financeExportRepos
 }
 
@@ -32,12 +32,12 @@ func NewExportService(
 	homeLoanRepo *repository.HomeLoanRepo,
 	personalLoanRepo *repository.PersonalLoanRepo,
 	npsRepo *repository.NPSRepo,
-	vehicleRentalRepo *repository.VehicleRentalRepo,
+	altInvestmentRepo *repository.AlternateInvestmentRepo,
 ) *ExportService {
 	return &ExportService{
 		mfRepo: mfRepo, stockRepo: stockRepo, fdRepo: fdRepo, pfRepo: pfRepo,
 		bondRepo: bondRepo, homeLoanRepo: homeLoanRepo, personalLoanRepo: personalLoanRepo,
-		npsRepo: npsRepo, vehicleRentalRepo: vehicleRentalRepo,
+		npsRepo: npsRepo, altInvestmentRepo: altInvestmentRepo,
 	}
 }
 
@@ -59,8 +59,8 @@ func (s *ExportService) ExportCSV(ctx context.Context, userID string, module str
 		s.exportPersonalLoans(ctx, userID, w)
 	case "nps":
 		s.exportNPS(ctx, userID, w)
-	case "vehicle_rentals":
-		s.exportVehicleRentals(ctx, userID, w)
+	case "alternate_investments", "vehicle_rentals":
+		s.exportAlternateInvestments(ctx, userID, w)
 	case "bank_accounts":
 		s.exportBankAccounts(ctx, userID, w)
 	case "gold":
@@ -164,21 +164,25 @@ func (s *ExportService) exportNPS(ctx context.Context, userID string, w *csv.Wri
 	}
 }
 
-func (s *ExportService) exportVehicleRentals(ctx context.Context, userID string, w *csv.Writer) {
-	w.Write([]string{"Type", "Provider", "Vehicle Model", "Units", "Invested", "Monthly Payout", "Payouts Received", "Received Count", "Total Payouts", "Overdue Count", "Overdue Amount", "Book Value", "Total Return", "XIRR %", "Purchase Date", "Agreement End", "Status"})
-	rentals, _ := s.vehicleRentalRepo.GetAll(ctx, userID)
+func (s *ExportService) exportAlternateInvestments(ctx context.Context, userID string, w *csv.Writer) {
+	w.Write([]string{"Type", "Asset Type", "Provider", "Asset", "Units", "Invested", "Monthly Payout", "Payouts Received", "Received Count", "Total Payouts", "Overdue Count", "Overdue Amount", "Book Value", "Total Return", "XIRR %", "Purchase Date", "Agreement End", "Status"})
+	alts, _ := s.altInvestmentRepo.GetAll(ctx, userID)
 	now := time.Now()
-	for i := range rentals {
-		vr := &rentals[i]
-		ComputeVehicleRental(vr, now)
+	for i := range alts {
+		vr := &alts[i]
+		ComputeAlternateInvestment(vr, now)
+		end := vr.AgreementEndDate.Format("2006-01-02")
+		if vr.OpenEnded {
+			end = "Open-ended"
+		}
 		w.Write([]string{
-			"Vehicle Rental", vr.Provider, vr.VehicleModel, fmt.Sprintf("%d", vr.Units),
+			"Alternate Investment", string(vr.AssetType), vr.Provider, vr.AssetName, fmt.Sprintf("%d", vr.Units),
 			fmt.Sprintf("%.2f", vr.InvestmentAmount), fmt.Sprintf("%.2f", vr.MonthlyPayout),
 			fmt.Sprintf("%.2f", vr.TotalPayoutsReceived), fmt.Sprintf("%d", vr.PayoutsReceivedCount),
 			fmt.Sprintf("%d", len(vr.Payouts)), fmt.Sprintf("%d", vr.OverdueCount),
 			fmt.Sprintf("%.2f", vr.OverdueAmount), fmt.Sprintf("%.2f", vr.CurrentValue),
 			fmt.Sprintf("%.2f", vr.TotalReturn), fmt.Sprintf("%.2f", vr.XIRR),
-			vr.PurchaseDate.Format("2006-01-02"), vr.AgreementEndDate.Format("2006-01-02"), string(vr.Status),
+			vr.PurchaseDate.Format("2006-01-02"), end, string(vr.Status),
 		})
 	}
 }
@@ -202,7 +206,7 @@ func (s *ExportService) exportAll(ctx context.Context, userID string, w *csv.Wri
 	w.Write([]string{"--- NPS ---"})
 	s.exportNPS(ctx, userID, w)
 	w.Write([]string{""})
-	w.Write([]string{"--- VEHICLE RENTALS ---"})
-	s.exportVehicleRentals(ctx, userID, w)
+	w.Write([]string{"--- ALTERNATE INVESTMENTS ---"})
+	s.exportAlternateInvestments(ctx, userID, w)
 	s.exportFinance(ctx, userID, w)
 }

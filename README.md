@@ -29,7 +29,7 @@ FinBoard (this repository: Investment Tracker) is a comprehensive personal finan
 - **Fixed Deposits** — Cumulative and non-cumulative FDs with maturity amount calculation and auto-renewal tracking.
 - **Provident Fund** — EPF, VPF, and PPF support. Monthly contribution tracking by financial year, employee + employer split, PF passbook PDF import, and interest calculation per EPFO rules.
 - **NPS (National Pension System)** — Tier 1/Tier 2 accounts, contribution tracking, asset allocation (equity/corporate bond/govt securities/alternate), fund manager tracking, and 80CCD tax deduction computation.
-- **Vehicle Rentals** — EV fleet leasing schemes (e.g. Ridoji): auto-generated monthly payout schedule, manual payout confirmation with overdue alerts, buyback tracking, straight-line book value, capital recovered, and XIRR.
+- **Alternate Investments** — Operator-managed assets that pay a fixed monthly amount: EV fleet leasing (e.g. EZU Electric, Ridoji), cow ownership (e.g. Gir/Jersey at Amrutha Farms) and others. Auto-generated monthly payout schedule (fixed tenure or open-ended), manual payout confirmation with overdue alerts, buyback tracking, book value (straight-line to buyback, at cost, or manual), break-even months, milk-yield sanity check for livestock, quick-fill presets, duplicate-as-new (each investment keeps the rate it was agreed at), capital recovered, and XIRR.
 - **SIPs** — Systematic investment plan tracking with installment recording, fund linking, frequency/date management, and completion stats.
 - **Credit Cards** — Card management with billing statements, payment tracking, EMI conversions, transaction categorization, credit score history, and utilization monitoring.
 
@@ -52,7 +52,7 @@ FinBoard (this repository: Investment Tracker) is a comprehensive personal finan
 
 ### Analytics & Intelligence
 - **Dashboard** — Portfolio summary with XIRR, asset allocation, risk metrics (equity/debt ratio, risk score, diversification, concentration risk, loan-to-asset ratio), upcoming payouts, loan and credit card summaries, and rebalancing suggestions.
-- **Investment Projections** — Monte Carlo simulation (2,000 jointly simulated paths with market correlation) with P10/P50/P90 bands for 1–30 year horizons. Expected returns blend your XIRR with category long-term returns; FDs, PF, bonds and vehicle rentals follow their schedules. Bull/bear/base scenarios, optional "today's money" (inflation-adjusted) view, and a net-worth projection with loans amortised.
+- **Investment Projections** — Monte Carlo simulation (2,000 jointly simulated paths with market correlation) with P10/P50/P90 bands for 1–30 year horizons. Expected returns blend your XIRR with category long-term returns; FDs, PF, bonds and alternate investments follow their schedules. Bull/bear/base scenarios, optional "today's money" (inflation-adjusted) view, and a net-worth projection with loans amortised.
 - **Cashflow Analysis** — Monthly inflow/outflow aggregation across all investment types with month-level drilldown.
 - **Insights Engine** — Automated portfolio analysis generating actionable insights across risk, performance, tax, diversification, loan, goal, and opportunity categories with severity levels (critical/warning/info/positive).
 - **Benchmark Comparison** — Nifty 50 and Sensex levels with 1Y/3Y/5Y returns (absolute and annualised) via Yahoo Finance, cached hourly; chart periods 1m–5y.
@@ -324,17 +324,19 @@ All endpoints are prefixed with `/api/v1`. Authenticated routes require `Authori
 | DELETE | `/nps/:id`                      | Delete NPS account           |
 | POST   | `/nps/:id/contributions`        | Add contribution             |
 
-### Vehicle Rentals
-| Method | Endpoint                                     | Description                                        |
-|--------|----------------------------------------------|----------------------------------------------------|
-| GET    | `/vehicle-rentals`                           | List vehicle rental investments                    |
-| POST   | `/vehicle-rentals`                           | Create (generates monthly payout schedule)         |
-| GET    | `/vehicle-rentals/:id`                       | Get by ID                                          |
-| PUT    | `/vehicle-rentals/:id`                       | Update terms (keeps recorded receipts)             |
-| DELETE | `/vehicle-rentals/:id`                       | Delete                                             |
-| PUT    | `/vehicle-rentals/:id/payouts/:payoutId`     | Mark payout received (date, amount) or pending     |
-| POST   | `/vehicle-rentals/:id/mark-due-received`     | Mark all due payouts as received in full           |
-| PUT    | `/vehicle-rentals/:id/buyback`               | Mark buyback received or pending                   |
+### Alternate Investments
+`/vehicle-rentals/...` remains as an alias of every route below for older app builds.
+
+| Method | Endpoint                                          | Description                                        |
+|--------|---------------------------------------------------|----------------------------------------------------|
+| GET    | `/alternate-investments`                          | List alternate investments                         |
+| POST   | `/alternate-investments`                          | Create (generates monthly payout schedule; `tenure_months: 0` = open-ended) |
+| GET    | `/alternate-investments/:id`                      | Get by ID                                          |
+| PUT    | `/alternate-investments/:id`                      | Update terms (keeps recorded receipts)             |
+| DELETE | `/alternate-investments/:id`                      | Delete                                             |
+| PUT    | `/alternate-investments/:id/payouts/:payoutId`    | Mark payout received (date, amount) or pending     |
+| POST   | `/alternate-investments/:id/mark-due-received`    | Mark all due payouts as received in full           |
+| PUT    | `/alternate-investments/:id/buyback`              | Mark buyback received or pending                   |
 
 ### Credit Cards
 | Method | Endpoint                              | Description                    |
@@ -434,7 +436,7 @@ All endpoints are prefixed with `/api/v1`. Authenticated routes require `Authori
 | `home_loans`            | Home loan records with EMI/prepayment history     |
 | `personal_loans`        | Personal loan records with EMI history            |
 | `nps_accounts`          | NPS accounts with contributions                   |
-| `vehicle_rentals`       | Vehicle rental (EV leasing) investments with payouts |
+| `vehicle_rentals`       | Alternate investments (EV leasing, livestock, ...) with payouts; name kept from before the rename |
 | `credit_cards`          | Credit cards with statements and EMIs             |
 | `sips`                  | SIP plans with installment records                |
 | `goals`                 | Financial goals with linked investments           |

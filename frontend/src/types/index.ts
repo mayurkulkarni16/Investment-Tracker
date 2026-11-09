@@ -103,10 +103,12 @@ export interface PrincipalRepaymentInput {
   amount: number;
 }
 
-// Vehicle Rental (EV fleet leasing) types
-export type VehicleRentalStatus = 'active' | 'completed';
+// Alternate investments (EV fleet leasing, cow ownership, ...) types
+export type AlternateInvestmentStatus = 'active' | 'completed';
+export type AltAssetType = 'vehicle' | 'livestock' | 'other';
+export type AltValuationMethod = 'straight_line' | 'at_cost' | 'manual';
 
-export interface RentalPayout {
+export interface AltPayout {
   payout_id: string;
   scheduled_date: string;
   amount: number;
@@ -116,10 +118,11 @@ export interface RentalPayout {
   is_overdue: boolean;
 }
 
-export interface VehicleRental {
+export interface AlternateInvestment {
   id: string;
+  asset_type: AltAssetType;
   provider: string;
-  vehicle_model: string;
+  asset_name: string;
   units: number;
   unit_price: number;
   gst_percent: number;
@@ -127,20 +130,25 @@ export interface VehicleRental {
   investment_amount: number;
   purchase_date: string;
   payout_start_date: string;
-  tenure_months: number;
+  tenure_months: number; // 0 = open-ended
   monthly_payout_per_unit: number;
   buyback_percent: number;
   buyback_amount: number;
   buyback_status: PayoutStatus;
   buyback_received_date?: string;
   buyback_received: number;
-  registration_numbers: string[];
+  valuation_method: AltValuationMethod;
+  manual_value: number;
+  daily_yield_litres: number;
+  price_per_litre: number;
+  identifiers: string[];
   agreement_number: string;
-  payouts: RentalPayout[];
+  payouts: AltPayout[];
   notes: string;
   created_at: string;
   updated_at: string;
-  status: VehicleRentalStatus;
+  status: AlternateInvestmentStatus;
+  open_ended: boolean;
   agreement_end_date: string;
   monthly_payout: number;
   expected_total_payout: number;
@@ -152,12 +160,15 @@ export interface VehicleRental {
   current_value: number;
   total_return: number;
   capital_recovered_pct: number;
+  break_even_months: number;
+  gross_monthly_revenue: number;
   xirr: number;
 }
 
-export interface CreateVehicleRentalRequest {
+export interface CreateAlternateInvestmentRequest {
+  asset_type: AltAssetType;
   provider: string;
-  vehicle_model: string;
+  asset_name: string;
   units: number;
   unit_price: number;
   gst_percent: number;
@@ -167,12 +178,16 @@ export interface CreateVehicleRentalRequest {
   tenure_months: number;
   monthly_payout_per_unit: number;
   buyback_percent: number;
-  registration_numbers: string[];
+  valuation_method: AltValuationMethod;
+  manual_value: number;
+  daily_yield_litres: number;
+  price_per_litre: number;
+  identifiers: string[];
   agreement_number: string;
   notes: string;
 }
 
-export interface UpdateRentalPayoutRequest {
+export interface UpdateAltPayoutRequest {
   status: PayoutStatus;
   received_date?: string;
   amount?: number;
@@ -334,7 +349,7 @@ export interface DashboardSummary {
   provident_fund_summary: InvestmentSummary;
   stock_summary: InvestmentSummary;
   nps_summary: InvestmentSummary;
-  vehicle_rental_summary?: InvestmentSummary;
+  alternate_investment_summary?: InvestmentSummary;
   home_loan_summary: LoanSummary;
   personal_loan_summary: LoanSummary;
   credit_card_summary: CreditCardSummary;
@@ -1042,7 +1057,7 @@ export interface NetWorthSnapshot {
   provident_fund: number;
   nps: number;
   corporate_bonds: number;
-  vehicle_rentals?: number;
+  alternate_investments?: number;
   other_assets: number;
   total_assets: number;
   home_loans: number;

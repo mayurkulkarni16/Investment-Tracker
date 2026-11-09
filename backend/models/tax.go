@@ -77,7 +77,7 @@ type TaxSummary struct {
 	InterestIncome    float64               `json:"interest_income"` // FD + bonds
 	DividendIncome    float64               `json:"dividend_income"`
 	RentalIncome      float64               `json:"rental_income"`       // let-out property (gross)
-	OtherRentalIncome float64               `json:"other_rental_income"` // vehicle leasing payouts
+	OtherRentalIncome float64               `json:"other_rental_income"` // alternate investment payouts (EV leasing, cow ownership, ...)
 	TotalDeductions   float64               `json:"total_deductions"`
 	TotalTaxableGains float64               `json:"total_taxable_gains"`
 }

@@ -9,7 +9,7 @@ import (
 // AssetItem is one asset or liability with its current value, used by net
 // worth, family (per-member) views and document attachments.
 type AssetItem struct {
-	AssetType   string  `json:"asset_type"` // mutual_fund, stock, fixed_deposit, provident_fund, nps, corporate_bond, vehicle_rental, bank_account, gold, property, insurance, home_loan, personal_loan, credit_card
+	AssetType   string  `json:"asset_type"` // mutual_fund, stock, fixed_deposit, provident_fund, nps, corporate_bond, vehicle_rental (alternate investment), bank_account, gold, property, insurance, home_loan, personal_loan, credit_card
 	AssetID     string  `json:"asset_id"`
 	Name        string  `json:"name"`
 	Category    string  `json:"category"` // net worth bucket, e.g. "Mutual Funds"

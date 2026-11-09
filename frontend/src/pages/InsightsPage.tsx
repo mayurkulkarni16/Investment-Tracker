@@ -31,7 +31,7 @@ export default function InsightsPage() {
   const { toast } = useToast();
 
   // Rebalancing state
-  const CATEGORIES = ['Mutual Funds', 'Stocks', 'Corporate Bonds', 'Fixed Deposits', 'Provident Fund', 'NPS', 'Vehicle Rentals'];
+  const CATEGORIES = ['Mutual Funds', 'Stocks', 'Corporate Bonds', 'Fixed Deposits', 'Provident Fund', 'NPS', 'Alternate Investments'];
   const [targets, setTargets] = useState<Record<string, number>>(() => {
     const t: Record<string, number> = {};
     CATEGORIES.forEach(c => t[c] = 0);

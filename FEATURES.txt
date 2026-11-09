@@ -124,13 +124,18 @@ HOUSEHOLD FINANCE & PLANNING
   - Asset allocation tracking (equity, corporate bond, govt securities, alternate assets)
   - Fund manager tracking (SBI, LIC, HDFC, etc.)
 
-3h-2. Vehicle Rentals (EV fleet leasing, e.g. Ridoji)
-  - Track vehicles bought and leased to a fleet operator for a fixed monthly rental
-  - Auto-generated monthly payout schedule (units x payout per unit, for the agreement tenure)
+3h-2. Alternate Investments (EV fleet leasing, cow ownership, other operator-managed assets)
+  - Asset types: vehicle leasing (e.g. EZU Electric, Ridoji), livestock (e.g. Gir/Jersey cows at Amrutha Farms), other
+  - Auto-generated monthly payout schedule (units x payout per unit) for a fixed tenure, or open-ended
+    (no fixed term: the schedule always runs 12 months ahead)
   - Payouts are confirmed manually (date + actual amount); unpaid payouts >5 days late are flagged overdue
   - "Mark all due as received", undo, short-payment tracking, buyback tracking
-  - Straight-line book value (purchase cost -> buyback value), capital recovered %, net return, XIRR
-  - Overdue payout and agreement-end alerts; included in dashboard, net worth, cashflow, backup and CSV export
+  - Book value: straight-line (purchase cost -> buyback value), held at cost, or entered manually
+  - Capital recovered %, break-even months, net return, XIRR; livestock shows stated milk sales vs payout
+  - Quick-fill presets from known brochures, and "Duplicate as new": each investment keeps the rate it was
+    agreed at, so new investments at a different rate don't change existing ones
+  - Overdue payout and agreement-end alerts; included in dashboard, net worth, cashflow, projections, tax,
+    backup and CSV export
 
 3i. Credit Cards
   - CRUD for credit cards
@@ -148,7 +153,7 @@ HOUSEHOLD FINANCE & PLANNING
 
 4. ANALYTICS & INTELLIGENCE
 ----------------------------
-- Investment Projections (Monte Carlo — 2000 jointly simulated, market-correlated paths; P10/P50/P90 bands; 1-30 year horizon; XIRR blended with category long-term returns; scheduled cashflows for FD/PF/bonds/vehicle rentals; bull/bear/base scenarios on market-linked returns; inflation-adjusted view; net-worth projection with loan amortisation)
+- Investment Projections (Monte Carlo — 2000 jointly simulated, market-correlated paths; P10/P50/P90 bands; 1-30 year horizon; XIRR blended with category long-term returns; scheduled cashflows for FD/PF/bonds/alternate investments; bull/bear/base scenarios on market-linked returns; inflation-adjusted view; net-worth projection with loan amortisation)
 - Cashflow Analysis (monthly inflow/outflow aggregation across all investments, month drilldown)
 - Insights Engine (portfolio analysis — risk, performance, tax, diversification, loan, goal, and opportunity insights with severity levels: critical/warning/info/positive)
 - Benchmark Comparison (Nifty 50 and Sensex via Yahoo Finance: 1Y/3Y/5Y returns with CAGR, hourly cache, 1m-5y chart periods)

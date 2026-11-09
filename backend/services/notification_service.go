@@ -18,7 +18,7 @@ type NotificationService struct {
 	bondRepo          *repository.CorporateBondRepo
 	sipRepo           *repository.SIPRepo
 	creditCardRepo    *repository.CreditCardRepo
-	vehicleRentalRepo *repository.VehicleRentalRepo
+	altInvestmentRepo *repository.AlternateInvestmentRepo
 	finance           *financeReminderSources
 	familyTax         *FamilyTaxService
 	goalService       *GoalService
@@ -32,13 +32,13 @@ func NewNotificationService(
 	bondRepo *repository.CorporateBondRepo,
 	sipRepo *repository.SIPRepo,
 	creditCardRepo *repository.CreditCardRepo,
-	vehicleRentalRepo *repository.VehicleRentalRepo,
+	altInvestmentRepo *repository.AlternateInvestmentRepo,
 	goalService *GoalService,
 ) *NotificationService {
 	return &NotificationService{
 		repo: repo, homeLoanRepo: homeLoanRepo, personalLoanRepo: personalLoanRepo,
 		fdRepo: fdRepo, bondRepo: bondRepo, sipRepo: sipRepo, creditCardRepo: creditCardRepo,
-		vehicleRentalRepo: vehicleRentalRepo,
+		altInvestmentRepo: altInvestmentRepo,
 		goalService:       goalService,
 	}
 }
@@ -157,14 +157,16 @@ func (s *NotificationService) GenerateNotifications(ctx context.Context, userID 
 		}
 	}
 
-	// Vehicle rental payouts: alert on overdue payouts and an upcoming buyback
-	rentals, _ := s.vehicleRentalRepo.GetAll(ctx, userID)
-	for i := range rentals {
-		vr := &rentals[i]
-		ComputeVehicleRental(vr, now)
+	// Alternate investment payouts: alert on overdue payouts and an upcoming
+	// buyback. Notification and reference types keep their pre-rename values
+	// because they are stored and used for de-duplication.
+	alts, _ := s.altInvestmentRepo.GetAll(ctx, userID)
+	for i := range alts {
+		vr := &alts[i]
+		ComputeAlternateInvestment(vr, now)
 		name := vr.Provider
-		if vr.VehicleModel != "" {
-			name += " " + vr.VehicleModel
+		if vr.AssetName != "" {
+			name += " " + vr.AssetName
 		}
 		if vr.OverdueCount > 0 {
 			// Keyed on the latest overdue payout: each newly missed month alerts once.
@@ -176,7 +178,7 @@ func (s *NotificationService) GenerateNotifications(ctx context.Context, userID 
 			}
 			generated = append(generated, models.Notification{
 				Type:          "rental_overdue",
-				Title:         "Rental Payout Overdue",
+				Title:         "Investment Payout Overdue",
 				Message:       fmt.Sprintf("%s: %d payout(s) totalling ₹%.0f not received. Follow up with the provider.", name, vr.OverdueCount, vr.OverdueAmount),
 				Date:          now,
 				ReferenceType: "vehicle_rental",
@@ -184,10 +186,10 @@ func (s *NotificationService) GenerateNotifications(ctx context.Context, userID 
 				DedupeKey:     dedupeKey("rental_overdue", vr.ID.Hex(), latestOverdue),
 			})
 		}
-		if vr.BuybackAmount > 0 && vr.BuybackStatus == models.PayoutPending && !vr.AgreementEndDate.Before(now) && !vr.AgreementEndDate.After(now.AddDate(0, 0, 30)) {
+		if !vr.OpenEnded && vr.BuybackAmount > 0 && vr.BuybackStatus == models.PayoutPending && !vr.AgreementEndDate.Before(now) && !vr.AgreementEndDate.After(now.AddDate(0, 0, 30)) {
 			generated = append(generated, models.Notification{
 				Type:          "rental_buyback",
-				Title:         "Rental Agreement Ending",
+				Title:         "Investment Agreement Ending",
 				Message:       fmt.Sprintf("%s agreement ends on %s. Buyback of ₹%.0f is due.", name, vr.AgreementEndDate.Format("02 Jan 2006"), vr.BuybackAmount),
 				Date:          vr.AgreementEndDate,
 				ReferenceType: "vehicle_rental",

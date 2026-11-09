@@ -10,7 +10,7 @@ import { categoryMeta } from '../components/dashboard/categories';
 import { SegmentedControl } from '../components/charts';
 
 const COLORS = CHART_COLORS;
-const CATEGORY_KEYS = ['mutual_fund', 'fixed_deposit', 'provident_fund', 'stock', 'corporate_bond', 'nps', 'vehicle_rental'];
+const CATEGORY_KEYS = ['mutual_fund', 'fixed_deposit', 'provident_fund', 'stock', 'corporate_bond', 'nps', 'alternate_investment'];
 // Same colours as the dashboard, which keys categories in the plural ("mutual_funds").
 const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
   CATEGORY_KEYS.map(k => [k, categoryMeta(k === 'nps' ? k : `${k}s`).color]),
@@ -22,7 +22,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   stock: 'Stock',
   corporate_bond: 'Corporate Bond',
   nps: 'NPS',
-  vehicle_rental: 'Vehicle Rental',
+  alternate_investment: 'Alternate Investment',
 };
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -382,7 +382,7 @@ export default function ProjectionsPage() {
         <p className="text-sm text-muted mb-3">
           Market-linked holdings (mutual funds, stocks, NPS) are simulated together over {(data.simulations || 2000).toLocaleString()} paths with a shared market factor, so the portfolio range reflects diversification.
           Their assumed rate is the expected median return: your own XIRR blended with the category's long-term return (short track records count for little).
-          FDs, PF, bonds and vehicle rentals follow their contractual schedules; payouts are held as cash, not reinvested.
+          FDs, PF, bonds and alternate investments follow their contractual schedules; payouts are held as cash, not reinvested.
           Scenarios only change market-linked returns (bull +3% / bear −4% for equity). P10–P90 is the 80% range.
         </p>
         <table className="text-md">

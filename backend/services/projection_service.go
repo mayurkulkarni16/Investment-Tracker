@@ -23,7 +23,7 @@ type ProjectionService struct {
 	sipRepo           *repository.SIPRepo
 	homeLoanRepo      *repository.HomeLoanRepo
 	personalLoanRepo  *repository.PersonalLoanRepo
-	vehicleRentalRepo *repository.VehicleRentalRepo
+	altInvestmentRepo *repository.AlternateInvestmentRepo
 }
 
 func NewProjectionService(
@@ -36,12 +36,12 @@ func NewProjectionService(
 	sipRepo *repository.SIPRepo,
 	homeLoanRepo *repository.HomeLoanRepo,
 	personalLoanRepo *repository.PersonalLoanRepo,
-	vehicleRentalRepo *repository.VehicleRentalRepo,
+	altInvestmentRepo *repository.AlternateInvestmentRepo,
 ) *ProjectionService {
 	return &ProjectionService{
 		mfRepo: mfRepo, fdRepo: fdRepo, pfRepo: pfRepo, stockRepo: stockRepo, bondRepo: bondRepo,
 		npsRepo: npsRepo, sipRepo: sipRepo, homeLoanRepo: homeLoanRepo, personalLoanRepo: personalLoanRepo,
-		vehicleRentalRepo: vehicleRentalRepo,
+		altInvestmentRepo: altInvestmentRepo,
 	}
 }
 
@@ -368,31 +368,22 @@ func (s *ProjectionService) collectHoldings(ctx context.Context, userID, scenari
 		}
 	}
 
-	// Vehicle rentals: book value plus promised payouts, assuming every payout is made on time.
-	if rentals, err := s.vehicleRentalRepo.GetAll(ctx, userID); err == nil {
-		for i := range rentals {
-			v := &rentals[i]
-			ComputeVehicleRental(v, now)
-			if v.Status == models.VehicleRentalCompleted || v.CurrentValue <= 0 && v.NextPayoutDate == nil {
+	// Alternate investments: book value plus promised payouts, assuming every
+	// payout is made on time (open-ended ones keep paying for the whole horizon).
+	if alts, err := s.altInvestmentRepo.GetAll(ctx, userID); err == nil {
+		for i := range alts {
+			v := &alts[i]
+			ComputeAlternateInvestment(v, now)
+			if v.Status == models.AltInvestmentCompleted || v.CurrentValue <= 0 && v.NextPayoutDate == nil {
 				continue
 			}
 			path := make([]float64, months+1)
 			for m := 0; m <= months; m++ {
 				t := addMonthsClamped(now, m)
-				val := vehicleRentalBookValue(v, t)
-				for _, p := range v.Payouts {
-					if p.Status == models.PayoutPending && p.ScheduledDate.After(now) && !p.ScheduledDate.After(t) {
-						val += p.Amount
-					}
-				}
-				path[m] = val
-			}
-			name := v.Provider
-			if v.VehicleModel != "" {
-				name += " - " + v.VehicleModel
+				path[m] = altInvestmentBookValue(v, t) + pendingAltPayoutsBetween(v, now, t)
 			}
 			specs = append(specs, holdingSpec{
-				name: name, category: "vehicle_rental", current: path[0], rate: promisedRentalReturn(v, now),
+				name: altInvestmentName(v), category: "alternate_investment", current: path[0], rate: promisedAltReturn(v, now),
 				scheduled: path, note: "Assumes every remaining payout is paid on time",
 			})
 		}
@@ -637,19 +628,30 @@ func fdValueAt(fd *models.FixedDeposit, now, t time.Time) float64 {
 	return v
 }
 
-// promisedRentalReturn is the annualised return implied by the remaining
-// promised payouts and buyback, measured from today's book value.
-func promisedRentalReturn(v *models.VehicleRental, now time.Time) float64 {
+// promisedAltReturn is the annualised return implied by the remaining
+// promised payouts and buyback, measured from today's book value. Open-ended
+// investments are measured over the next year, ending at that date's book value.
+func promisedAltReturn(v *models.AlternateInvestment, now time.Time) float64 {
 	if v.CurrentValue <= 0 {
 		return 0
 	}
 	flows := []Cashflow{{Date: now, Amount: -v.CurrentValue}}
-	for _, p := range v.Payouts {
-		if p.Status == models.PayoutPending && p.ScheduledDate.After(now) {
-			flows = append(flows, Cashflow{Date: p.ScheduledDate, Amount: p.Amount})
+	if v.OpenEnded {
+		end := now.AddDate(1, 0, 0)
+		for _, p := range v.Payouts {
+			if p.Status == models.PayoutPending && p.ScheduledDate.After(now) && !p.ScheduledDate.After(end) {
+				flows = append(flows, Cashflow{Date: p.ScheduledDate, Amount: p.Amount})
+			}
+		}
+		flows = append(flows, Cashflow{Date: end, Amount: altInvestmentBookValue(v, end)})
+	} else {
+		for _, p := range v.Payouts {
+			if p.Status == models.PayoutPending && p.ScheduledDate.After(now) {
+				flows = append(flows, Cashflow{Date: p.ScheduledDate, Amount: p.Amount})
+			}
 		}
 	}
-	if v.BuybackAmount > 0 && v.BuybackStatus == models.PayoutPending {
+	if !v.OpenEnded && v.BuybackAmount > 0 && v.BuybackStatus == models.PayoutPending {
 		flows = append(flows, Cashflow{Date: v.AgreementEndDate, Amount: v.BuybackAmount})
 	}
 	x, err := CalculateXIRR(flows)

@@ -70,8 +70,8 @@ func Register(r *gin.Engine, c *container.Container, cfg *config.Config) {
 		// NPS
 		registerNPSRoutes(api, c)
 
-		// Vehicle Rentals (EV fleet leasing)
-		registerVehicleRentalRoutes(api, c)
+		// Alternate Investments (EV fleet leasing, cow ownership, ...)
+		registerAlternateInvestmentRoutes(api, c)
 
 		// Credit Cards
 		registerCreditCardRoutes(api, c)
@@ -228,17 +228,18 @@ func registerNPSRoutes(api *gin.RouterGroup, c *container.Container) {
 	}
 }
 
-func registerVehicleRentalRoutes(api *gin.RouterGroup, c *container.Container) {
-	vr := api.Group("/vehicle-rentals")
-	{
-		vr.GET("", c.VehicleRentalHandler.GetAll)
-		vr.POST("", c.VehicleRentalHandler.Create)
-		vr.GET("/:id", c.VehicleRentalHandler.GetByID)
-		vr.PUT("/:id", c.VehicleRentalHandler.Update)
-		vr.DELETE("/:id", c.VehicleRentalHandler.Delete)
-		vr.PUT("/:id/payouts/:payoutId", c.VehicleRentalHandler.UpdatePayout)
-		vr.POST("/:id/mark-due-received", c.VehicleRentalHandler.MarkDueReceived)
-		vr.PUT("/:id/buyback", c.VehicleRentalHandler.UpdateBuyback)
+func registerAlternateInvestmentRoutes(api *gin.RouterGroup, c *container.Container) {
+	// "/vehicle-rentals" is the pre-rename path, kept for older app builds.
+	for _, prefix := range []string{"/alternate-investments", "/vehicle-rentals"} {
+		ai := api.Group(prefix)
+		ai.GET("", c.AlternateInvestmentHandler.GetAll)
+		ai.POST("", c.AlternateInvestmentHandler.Create)
+		ai.GET("/:id", c.AlternateInvestmentHandler.GetByID)
+		ai.PUT("/:id", c.AlternateInvestmentHandler.Update)
+		ai.DELETE("/:id", c.AlternateInvestmentHandler.Delete)
+		ai.PUT("/:id/payouts/:payoutId", c.AlternateInvestmentHandler.UpdatePayout)
+		ai.POST("/:id/mark-due-received", c.AlternateInvestmentHandler.MarkDueReceived)
+		ai.PUT("/:id/buyback", c.AlternateInvestmentHandler.UpdateBuyback)
 	}
 }
 

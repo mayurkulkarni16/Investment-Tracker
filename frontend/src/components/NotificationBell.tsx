@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Bell, Bike, Calculator, CalendarClock, ChartPie, Coins, CreditCard, FileText, Hourglass, Landmark, ShieldCheck, Target,
+  Bell, Calculator, CalendarClock, ChartPie, Coins, CreditCard, FileText, Hourglass, Landmark, Shapes, ShieldCheck, Target,
   TriangleAlert, Wallet, X, type LucideIcon,
 } from 'lucide-react';
 import { generateNotifications, getUnreadNotifications, markAllNotificationsRead, markNotificationRead } from '../api/notifications';
@@ -15,7 +15,7 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   credit_card_due: CreditCard,
   goal_milestone: Target,
   rental_overdue: TriangleAlert,
-  rental_buyback: Bike,
+  rental_buyback: Shapes,
   insurance_premium: ShieldCheck,
   policy_expiry: Hourglass,
   budget_over: Wallet,

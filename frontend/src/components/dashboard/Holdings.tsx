@@ -11,7 +11,7 @@ const SUMMARY_FIELD: Record<string, keyof DashboardSummary> = {
   corporate_bonds: 'corporate_bond_summary',
   provident_fund: 'provident_fund_summary',
   nps: 'nps_summary',
-  vehicle_rentals: 'vehicle_rental_summary',
+  alternate_investments: 'alternate_investment_summary',
 };
 
 export function HoldingsGrid({ data }: { data: DashboardSummary }) {

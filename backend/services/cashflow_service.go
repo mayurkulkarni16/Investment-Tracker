@@ -19,7 +19,7 @@ type CashflowService struct {
 	homeLoanRepo      *repository.HomeLoanRepo
 	personalLoanRepo  *repository.PersonalLoanRepo
 	creditCardRepo    *repository.CreditCardRepo
-	vehicleRentalRepo *repository.VehicleRentalRepo
+	altInvestmentRepo *repository.AlternateInvestmentRepo
 }
 
 type MonthlyCashflow struct {
@@ -38,8 +38,8 @@ type CashflowDetail struct {
 	Direction string  `json:"direction"`
 }
 
-func NewCashflowService(mfRepo *repository.MutualFundRepo, bondRepo *repository.CorporateBondRepo, fdRepo *repository.FixedDepositRepo, pfRepo *repository.ProvidentFundRepo, stockRepo *repository.StockRepo, npsRepo *repository.NPSRepo, homeLoanRepo *repository.HomeLoanRepo, personalLoanRepo *repository.PersonalLoanRepo, creditCardRepo *repository.CreditCardRepo, vehicleRentalRepo *repository.VehicleRentalRepo) *CashflowService {
-	return &CashflowService{mfRepo: mfRepo, bondRepo: bondRepo, fdRepo: fdRepo, pfRepo: pfRepo, stockRepo: stockRepo, npsRepo: npsRepo, homeLoanRepo: homeLoanRepo, personalLoanRepo: personalLoanRepo, creditCardRepo: creditCardRepo, vehicleRentalRepo: vehicleRentalRepo}
+func NewCashflowService(mfRepo *repository.MutualFundRepo, bondRepo *repository.CorporateBondRepo, fdRepo *repository.FixedDepositRepo, pfRepo *repository.ProvidentFundRepo, stockRepo *repository.StockRepo, npsRepo *repository.NPSRepo, homeLoanRepo *repository.HomeLoanRepo, personalLoanRepo *repository.PersonalLoanRepo, creditCardRepo *repository.CreditCardRepo, altInvestmentRepo *repository.AlternateInvestmentRepo) *CashflowService {
+	return &CashflowService{mfRepo: mfRepo, bondRepo: bondRepo, fdRepo: fdRepo, pfRepo: pfRepo, stockRepo: stockRepo, npsRepo: npsRepo, homeLoanRepo: homeLoanRepo, personalLoanRepo: personalLoanRepo, creditCardRepo: creditCardRepo, altInvestmentRepo: altInvestmentRepo}
 }
 
 func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, userID string, months int) ([]MonthlyCashflow, error) {
@@ -288,11 +288,11 @@ func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, userID string
 			}
 		}
 	}
-	// 12. Vehicle rentals: purchase (outflow), received payouts and buyback (inflow)
-	rentals, err := s.vehicleRentalRepo.GetAll(ctx, userID)
+	// 12. Alternate investments: purchase (outflow), received payouts and buyback (inflow)
+	alts, err := s.altInvestmentRepo.GetAll(ctx, userID)
 	if err == nil {
-		for i := range rentals {
-			for _, cf := range VehicleRentalCashflows(&rentals[i]) {
+		for i := range alts {
+			for _, cf := range AlternateInvestmentCashflows(&alts[i]) {
 				if cf.Date.Before(cutoff) {
 					continue
 				}
@@ -643,18 +643,16 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, userID string, mon
 		}
 	}
 
-	// 12. Vehicle rentals
-	rentals, err := s.vehicleRentalRepo.GetAll(ctx, userID)
+	// 12. Alternate investments
+	alts, err := s.altInvestmentRepo.GetAll(ctx, userID)
 	if err == nil {
-		for _, vr := range rentals {
-			name := vr.Provider
-			if vr.VehicleModel != "" {
-				name += " - " + vr.VehicleModel
-			}
+		for i := range alts {
+			vr := &alts[i]
+			name := altInvestmentName(vr)
 			if inMonth(vr.PurchaseDate) {
 				details = append(details, CashflowDetail{
 					Date:      vr.PurchaseDate.Format("2006-01-02"),
-					Category:  "Vehicle Rental",
+					Category:  "Alternate Investment",
 					Name:      name,
 					Type:      "purchase",
 					Amount:    vr.InvestmentAmount,
@@ -667,9 +665,9 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, userID string, mon
 				}
 				details = append(details, CashflowDetail{
 					Date:      p.ReceivedDate.Format("2006-01-02"),
-					Category:  "Vehicle Rental",
+					Category:  "Alternate Investment",
 					Name:      name,
-					Type:      "rental payout",
+					Type:      "payout",
 					Amount:    p.ReceivedAmount,
 					Direction: "inflow",
 				})
@@ -677,7 +675,7 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, userID string, mon
 			if vr.BuybackStatus == "received" && vr.BuybackReceivedDate != nil && inMonth(*vr.BuybackReceivedDate) {
 				details = append(details, CashflowDetail{
 					Date:      vr.BuybackReceivedDate.Format("2006-01-02"),
-					Category:  "Vehicle Rental",
+					Category:  "Alternate Investment",
 					Name:      name,
 					Type:      "buyback",
 					Amount:    vr.BuybackReceived,

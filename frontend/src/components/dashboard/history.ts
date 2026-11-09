@@ -10,7 +10,7 @@ export function monthLabel(month: string, short = false): string {
 }
 
 export const SNAPSHOT_INVESTMENT_KEYS = [
-  'mutual_funds', 'stocks', 'fixed_deposits', 'corporate_bonds', 'provident_fund', 'nps', 'vehicle_rentals',
+  'mutual_funds', 'stocks', 'fixed_deposits', 'corporate_bonds', 'provident_fund', 'nps', 'alternate_investments',
 ] as const;
 
 export type SnapshotInvestmentKey = typeof SNAPSHOT_INVESTMENT_KEYS[number];

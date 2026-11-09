@@ -9,7 +9,7 @@ export const SHORTCUTS: Record<string, string> = {
   'b': '/corporate-bonds',
   'p': '/provident-fund',
   'n': '/nps',
-  'v': '/vehicle-rentals',
+  'v': '/alternate-investments',
   'g': '/goals',
   'w': '/net-worth',
   'c': '/cashflow',

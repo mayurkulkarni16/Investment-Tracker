@@ -1,8 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  ArrowLeftRight, Bike, Briefcase, Building2, Calculator, ChartCandlestick, ChartColumn, ChartPie, CreditCard,
+  ArrowLeftRight, Briefcase, Building2, Calculator, ChartCandlestick, ChartColumn, ChartPie, CreditCard,
   FileText, Flame, Gem, HandCoins, House, Landmark, LayoutDashboard, Lightbulb, PiggyBank, Receipt, ScrollText,
-  Settings, ShieldCheck, Target, Telescope, TrendingUp, Users, Wallet,
+  Settings, Shapes, ShieldCheck, Target, Telescope, TrendingUp, Users, Wallet,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -37,7 +37,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { to: '/nps', label: 'NPS', icon: Briefcase, keywords: 'pension' },
       { to: '/gold', label: 'Gold', icon: Gem, keywords: 'sgb etf' },
       { to: '/real-estate', label: 'Real Estate', icon: Building2, keywords: 'property land' },
-      { to: '/vehicle-rentals', label: 'Vehicle Rentals', icon: Bike, keywords: 'rental bike' },
+      { to: '/alternate-investments', label: 'Alternate Investments', icon: Shapes, keywords: 'rental bike ev vehicle cow livestock dairy leasing' },
     ],
   },
   {

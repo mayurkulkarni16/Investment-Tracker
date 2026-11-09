@@ -10,37 +10,37 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type VehicleRentalHandler struct {
-	service *services.VehicleRentalService
+type AlternateInvestmentHandler struct {
+	service *services.AlternateInvestmentService
 }
 
-func NewVehicleRentalHandler(service *services.VehicleRentalService) *VehicleRentalHandler {
-	return &VehicleRentalHandler{service: service}
+func NewAlternateInvestmentHandler(service *services.AlternateInvestmentService) *AlternateInvestmentHandler {
+	return &AlternateInvestmentHandler{service: service}
 }
 
-func (h *VehicleRentalHandler) GetAll(c *gin.Context) {
+func (h *AlternateInvestmentHandler) GetAll(c *gin.Context) {
 	items, err := h.service.GetAll(c.Request.Context(), middleware.GetEffectiveUserID(c))
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 	if items == nil {
-		items = []models.VehicleRental{}
+		items = []models.AlternateInvestment{}
 	}
 	c.JSON(http.StatusOK, items)
 }
 
-func (h *VehicleRentalHandler) GetByID(c *gin.Context) {
+func (h *AlternateInvestmentHandler) GetByID(c *gin.Context) {
 	v, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		respondNotFound(c, err, "Vehicle rental investment not found")
+		respondNotFound(c, err, "Alternate investment not found")
 		return
 	}
 	c.JSON(http.StatusOK, v)
 }
 
-func (h *VehicleRentalHandler) Create(c *gin.Context) {
-	var req models.CreateVehicleRentalRequest
+func (h *AlternateInvestmentHandler) Create(c *gin.Context) {
+	var req models.CreateAlternateInvestmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -53,52 +53,52 @@ func (h *VehicleRentalHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, v)
 }
 
-func (h *VehicleRentalHandler) Update(c *gin.Context) {
-	var req models.CreateVehicleRentalRequest
+func (h *AlternateInvestmentHandler) Update(c *gin.Context) {
+	var req models.CreateAlternateInvestmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	v, err := h.service.Update(c.Request.Context(), c.Param("id"), req)
-	respondVehicleRental(c, v, err)
+	respondAlternateInvestment(c, v, err)
 }
 
-func (h *VehicleRentalHandler) Delete(c *gin.Context) {
+func (h *AlternateInvestmentHandler) Delete(c *gin.Context) {
 	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
-		respondVehicleRental(c, nil, err)
+		respondAlternateInvestment(c, nil, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Deleted successfully"})
 }
 
-func (h *VehicleRentalHandler) UpdatePayout(c *gin.Context) {
-	var req models.UpdateRentalPayoutRequest
+func (h *AlternateInvestmentHandler) UpdatePayout(c *gin.Context) {
+	var req models.UpdateAltPayoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	v, err := h.service.UpdatePayout(c.Request.Context(), c.Param("id"), c.Param("payoutId"), req)
-	respondVehicleRental(c, v, err)
+	respondAlternateInvestment(c, v, err)
 }
 
-func (h *VehicleRentalHandler) MarkDueReceived(c *gin.Context) {
+func (h *AlternateInvestmentHandler) MarkDueReceived(c *gin.Context) {
 	v, err := h.service.MarkDueReceived(c.Request.Context(), c.Param("id"))
-	respondVehicleRental(c, v, err)
+	respondAlternateInvestment(c, v, err)
 }
 
-func (h *VehicleRentalHandler) UpdateBuyback(c *gin.Context) {
-	var req models.UpdateRentalPayoutRequest
+func (h *AlternateInvestmentHandler) UpdateBuyback(c *gin.Context) {
+	var req models.UpdateAltPayoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	v, err := h.service.UpdateBuyback(c.Request.Context(), c.Param("id"), req)
-	respondVehicleRental(c, v, err)
+	respondAlternateInvestment(c, v, err)
 }
 
-func respondVehicleRental(c *gin.Context, v *models.VehicleRental, err error) {
+func respondAlternateInvestment(c *gin.Context, v *models.AlternateInvestment, err error) {
 	if err != nil {
-		respondNotFound(c, err, "Vehicle rental investment not found")
+		respondNotFound(c, err, "Alternate investment not found")
 		return
 	}
 	c.JSON(http.StatusOK, v)

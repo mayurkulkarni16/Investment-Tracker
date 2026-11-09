@@ -13,19 +13,19 @@ type NetWorthSnapshot struct {
 	Month  string             `json:"month" bson:"month"` // 2026-04
 
 	// Assets
-	MutualFunds    float64 `json:"mutual_funds" bson:"mutual_funds"`
-	Stocks         float64 `json:"stocks" bson:"stocks"`
-	FixedDeposits  float64 `json:"fixed_deposits" bson:"fixed_deposits"`
-	ProvidentFund  float64 `json:"provident_fund" bson:"provident_fund"`
-	NPS            float64 `json:"nps" bson:"nps"`
-	CorporateBonds float64 `json:"corporate_bonds" bson:"corporate_bonds"`
-	VehicleRentals float64 `json:"vehicle_rentals" bson:"vehicle_rentals"`
-	BankCash       float64 `json:"bank_cash" bson:"bank_cash"`
-	Gold           float64 `json:"gold" bson:"gold"`
-	RealEstate     float64 `json:"real_estate" bson:"real_estate"`
-	Insurance      float64 `json:"insurance" bson:"insurance"`
-	OtherAssets    float64 `json:"other_assets" bson:"other_assets"`
-	TotalAssets    float64 `json:"total_assets" bson:"total_assets"`
+	MutualFunds          float64 `json:"mutual_funds" bson:"mutual_funds"`
+	Stocks               float64 `json:"stocks" bson:"stocks"`
+	FixedDeposits        float64 `json:"fixed_deposits" bson:"fixed_deposits"`
+	ProvidentFund        float64 `json:"provident_fund" bson:"provident_fund"`
+	NPS                  float64 `json:"nps" bson:"nps"`
+	CorporateBonds       float64 `json:"corporate_bonds" bson:"corporate_bonds"`
+	AlternateInvestments float64 `json:"alternate_investments" bson:"vehicle_rentals"`
+	BankCash             float64 `json:"bank_cash" bson:"bank_cash"`
+	Gold                 float64 `json:"gold" bson:"gold"`
+	RealEstate           float64 `json:"real_estate" bson:"real_estate"`
+	Insurance            float64 `json:"insurance" bson:"insurance"`
+	OtherAssets          float64 `json:"other_assets" bson:"other_assets"`
+	TotalAssets          float64 `json:"total_assets" bson:"total_assets"`
 
 	// Liabilities
 	HomeLoans             float64 `json:"home_loans" bson:"home_loans"`

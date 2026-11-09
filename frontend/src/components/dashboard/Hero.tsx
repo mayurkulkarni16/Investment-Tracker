@@ -80,7 +80,7 @@ export function NetWorthHero({ finance, history }: { finance: FinanceOverview; h
 export function InvestmentsCard({ data }: { data: DashboardSummary }) {
   const holdings = [
     data.mutual_fund_summary, data.stock_summary, data.fixed_deposit_summary, data.corporate_bond_summary,
-    data.provident_fund_summary, data.nps_summary, data.vehicle_rental_summary,
+    data.provident_fund_summary, data.nps_summary, data.alternate_investment_summary,
   ].reduce((n, s) => n + (s?.count || 0), 0);
   const gainUp = data.total_gains >= 0;
 

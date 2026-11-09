@@ -21,7 +21,7 @@ type NetWorthService struct {
 	homeLoanRepo      *repository.HomeLoanRepo
 	personalLoanRepo  *repository.PersonalLoanRepo
 	creditCardRepo    *repository.CreditCardRepo
-	vehicleRentalRepo *repository.VehicleRentalRepo
+	altInvestmentRepo *repository.AlternateInvestmentRepo
 	bankRepo          *repository.BankAccountRepo
 	goldRepo          *repository.GoldRepo
 	propertyRepo      *repository.PropertyRepo
@@ -39,7 +39,7 @@ func NewNetWorthService(
 	homeLoanRepo *repository.HomeLoanRepo,
 	personalLoanRepo *repository.PersonalLoanRepo,
 	creditCardRepo *repository.CreditCardRepo,
-	vehicleRentalRepo *repository.VehicleRentalRepo,
+	altInvestmentRepo *repository.AlternateInvestmentRepo,
 ) *NetWorthService {
 	return &NetWorthService{
 		snapshotRepo:      snapshotRepo,
@@ -52,7 +52,7 @@ func NewNetWorthService(
 		homeLoanRepo:      homeLoanRepo,
 		personalLoanRepo:  personalLoanRepo,
 		creditCardRepo:    creditCardRepo,
-		vehicleRentalRepo: vehicleRentalRepo,
+		altInvestmentRepo: altInvestmentRepo,
 	}
 }
 
@@ -108,10 +108,11 @@ func (s *NetWorthService) ListItems(ctx context.Context, userID string) []models
 		NormalizeCorporateBond(&bonds[i])
 		add("corporate_bond", bonds[i].ID.Hex(), bonds[i].BondName, "Corporate Bonds", bonds[i].RemainingPrincipal, false)
 	}
-	rentals, _ := s.vehicleRentalRepo.GetAll(ctx, userID)
-	for i := range rentals {
-		ComputeVehicleRental(&rentals[i], now)
-		add("vehicle_rental", rentals[i].ID.Hex(), nonEmpty(rentals[i].VehicleModel, "Vehicle rental"), "Vehicle Rentals", rentals[i].CurrentValue, false)
+	alts, _ := s.altInvestmentRepo.GetAll(ctx, userID)
+	for i := range alts {
+		ComputeAlternateInvestment(&alts[i], now)
+		// Asset type "vehicle_rental" is the pre-rename key stored in profile assignments.
+		add("vehicle_rental", alts[i].ID.Hex(), altInvestmentName(&alts[i]), "Alternate Investments", alts[i].CurrentValue, false)
 	}
 	if s.bankRepo != nil {
 		accounts, _ := s.bankRepo.GetAll(ctx, userID)
@@ -203,7 +204,7 @@ func (s *NetWorthService) TakeSnapshot(ctx context.Context, userID string) (*mod
 		ProvidentFund:         current.Assets["Provident Fund"],
 		NPS:                   current.Assets["NPS"],
 		CorporateBonds:        current.Assets["Corporate Bonds"],
-		VehicleRentals:        current.Assets["Vehicle Rentals"],
+		AlternateInvestments:  current.Assets["Alternate Investments"],
 		BankCash:              current.Assets["Bank & Cash"],
 		Gold:                  current.Assets["Gold"],
 		RealEstate:            current.Assets["Real Estate"],

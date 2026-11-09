@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Bike, Briefcase, ChartCandlestick, ChartPie, Landmark, PiggyBank, ScrollText, Wallet } from 'lucide-react';
+import { Briefcase, ChartCandlestick, ChartPie, Landmark, PiggyBank, ScrollText, Shapes, Wallet } from 'lucide-react';
 
 export interface CategoryMeta {
   key: string;
@@ -16,7 +16,7 @@ const CATEGORIES: CategoryMeta[] = [
   { key: 'corporate_bonds', label: 'Corporate Bonds', color: '#06b6d4', icon: ScrollText, to: '/corporate-bonds' },
   { key: 'provident_fund', label: 'Provident Fund', color: '#ec4899', icon: PiggyBank, to: '/provident-fund' },
   { key: 'nps', label: 'NPS', color: '#8b5cf6', icon: Briefcase, to: '/nps' },
-  { key: 'vehicle_rentals', label: 'Vehicle Rentals', color: '#f97316', icon: Bike, to: '/vehicle-rentals' },
+  { key: 'alternate_investments', label: 'Alternate Investments', color: '#f97316', icon: Shapes, to: '/alternate-investments' },
 ];
 
 const BY_KEY = new Map(CATEGORIES.map(c => [c.key, c]));

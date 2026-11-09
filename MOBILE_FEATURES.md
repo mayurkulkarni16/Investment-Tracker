@@ -55,7 +55,7 @@ features below have shipped.
 - Login, logout, existing profiles, and shared web/mobile data.
 - Mobile-friendly dashboard: investments, net worth, liabilities, and upcoming dues.
 - Access existing investment modules: mutual funds, stocks, bonds, fixed deposits,
-  provident fund, NPS, SIPs, and vehicle rentals.
+  provident fund, NPS, SIPs, and alternate investments.
 - Access existing home-loan, personal-loan, credit-card, and goal workflows.
 - Dedicated income-and-expense ledger, separate from investment cashflow.
 - Manual transactions with amount, date, account, category, merchant, and notes.

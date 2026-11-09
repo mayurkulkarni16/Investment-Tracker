@@ -16,7 +16,7 @@ export function ContributionChart({ data }: { data: DashboardSummary }) {
     { name: 'Bonds', s: data.corporate_bond_summary },
     { name: 'PF', s: data.provident_fund_summary },
     { name: 'NPS', s: data.nps_summary },
-    { name: 'Rentals', s: data.vehicle_rental_summary },
+    { name: 'Alternate', s: data.alternate_investment_summary },
   ]
     .map(({ name, s }) => ({ name, invested: s?.total_invested || 0, gain: gainOf(s) }))
     .filter(d => d.invested > 0 || d.gain !== 0);

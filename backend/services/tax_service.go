@@ -23,7 +23,7 @@ type TaxService struct {
 	stockRepo        *repository.StockRepo
 	insuranceRepo    *repository.InsuranceRepo
 	propertyRepo     *repository.PropertyRepo
-	rentalRepo       *repository.VehicleRentalRepo
+	rentalRepo       *repository.AlternateInvestmentRepo
 }
 
 func NewTaxService(
@@ -47,7 +47,7 @@ func NewTaxService(
 func (s *TaxService) SetInsuranceRepo(r *repository.InsuranceRepo) { s.insuranceRepo = r }
 
 // SetIncomeRepos adds rental income from let-out property and vehicle leasing.
-func (s *TaxService) SetIncomeRepos(property *repository.PropertyRepo, rentals *repository.VehicleRentalRepo) {
+func (s *TaxService) SetIncomeRepos(property *repository.PropertyRepo, rentals *repository.AlternateInvestmentRepo) {
 	s.propertyRepo, s.rentalRepo = property, rentals
 }
 
@@ -261,8 +261,12 @@ func (s *TaxService) CollectLines(ctx context.Context, userID string, fy string)
 	}
 
 	if s.rentalRepo != nil {
-		rentals, _ := s.rentalRepo.GetAll(ctx, userID)
-		for _, r := range rentals {
+		alts, _ := s.rentalRepo.GetAll(ctx, userID)
+		now := time.Now()
+		for i := range alts {
+			r := &alts[i]
+			// Extends open-ended schedules so the rest of the FY is counted.
+			ComputeAlternateInvestment(r, now)
 			amt := 0.0
 			for _, p := range r.Payouts {
 				if !inFY(p.ScheduledDate) {
@@ -274,7 +278,7 @@ func (s *TaxService) CollectLines(ctx context.Context, userID string, fy string)
 					amt += p.Amount
 				}
 			}
-			add("vehicle_rental", r.ID.Hex(), strings.TrimSpace(r.Provider+" "+r.VehicleModel), models.LineOtherRental, round2(amt))
+			add("vehicle_rental", r.ID.Hex(), strings.TrimSpace(r.Provider+" "+r.AssetName), models.LineOtherRental, round2(amt))
 		}
 	}
 

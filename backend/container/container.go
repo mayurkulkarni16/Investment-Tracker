@@ -13,30 +13,30 @@ import (
 type Container struct {
 	LedgerHandler *handlers.LedgerHandler
 	// Handlers
-	AuthHandler          *handlers.AuthHandler
-	MutualFundHandler    *handlers.MutualFundHandler
-	CorporateBondHandler *handlers.CorporateBondHandler
-	FixedDepositHandler  *handlers.FixedDepositHandler
-	ProvidentFundHandler *handlers.ProvidentFundHandler
-	StockHandler         *handlers.StockHandler
-	HomeLoanHandler      *handlers.HomeLoanHandler
-	PersonalLoanHandler  *handlers.PersonalLoanHandler
-	ProjectionHandler    *handlers.ProjectionHandler
-	DashboardHandler     *handlers.DashboardHandler
-	NPSHandler           *handlers.NPSHandler
-	VehicleRentalHandler *handlers.VehicleRentalHandler
-	CreditCardHandler    *handlers.CreditCardHandler
-	GoalHandler          *handlers.GoalHandler
-	NetWorthHandler      *handlers.NetWorthHandler
-	SIPHandler           *handlers.SIPHandler
-	NotificationHandler  *handlers.NotificationHandler
-	ProfileHandler       *handlers.ProfileHandler
-	TaxHandler           *handlers.TaxHandler
-	BenchmarkHandler     *handlers.BenchmarkHandler
-	ExportHandler        *handlers.ExportHandler
-	BackupHandler        *handlers.BackupHandler
-	CashflowHandler      *handlers.CashflowHandler
-	InsightsHandler      *handlers.InsightsHandler
+	AuthHandler                *handlers.AuthHandler
+	MutualFundHandler          *handlers.MutualFundHandler
+	CorporateBondHandler       *handlers.CorporateBondHandler
+	FixedDepositHandler        *handlers.FixedDepositHandler
+	ProvidentFundHandler       *handlers.ProvidentFundHandler
+	StockHandler               *handlers.StockHandler
+	HomeLoanHandler            *handlers.HomeLoanHandler
+	PersonalLoanHandler        *handlers.PersonalLoanHandler
+	ProjectionHandler          *handlers.ProjectionHandler
+	DashboardHandler           *handlers.DashboardHandler
+	NPSHandler                 *handlers.NPSHandler
+	AlternateInvestmentHandler *handlers.AlternateInvestmentHandler
+	CreditCardHandler          *handlers.CreditCardHandler
+	GoalHandler                *handlers.GoalHandler
+	NetWorthHandler            *handlers.NetWorthHandler
+	SIPHandler                 *handlers.SIPHandler
+	NotificationHandler        *handlers.NotificationHandler
+	ProfileHandler             *handlers.ProfileHandler
+	TaxHandler                 *handlers.TaxHandler
+	BenchmarkHandler           *handlers.BenchmarkHandler
+	ExportHandler              *handlers.ExportHandler
+	BackupHandler              *handlers.BackupHandler
+	CashflowHandler            *handlers.CashflowHandler
+	InsightsHandler            *handlers.InsightsHandler
 
 	// Personal finance
 	AccountHandler      *handlers.AccountHandler
@@ -75,7 +75,7 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 	sipRepo := repository.NewSIPRepo(db)
 	notificationRepo := repository.NewNotificationRepo(db)
 	profileRepo := repository.NewProfileRepo(db)
-	vehicleRentalRepo := repository.NewVehicleRentalRepo(db)
+	altInvestmentRepo := repository.NewAlternateInvestmentRepo(db)
 	ledgerRepo := repository.NewLedgerRepo(db)
 	bankRepo := repository.NewBankAccountRepo(db)
 	budgetRepo := repository.NewBudgetRepo(db)
@@ -98,22 +98,22 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 	stockService := services.NewStockService(stockRepo, priceFetcher)
 	homeLoanService := services.NewHomeLoanService(homeLoanRepo)
 	personalLoanService := services.NewPersonalLoanService(personalLoanRepo)
-	projectionService := services.NewProjectionService(mfRepo, fdRepo, pfRepo, stockRepo, bondRepo, npsRepo, sipRepo, homeLoanRepo, personalLoanRepo, vehicleRentalRepo)
+	projectionService := services.NewProjectionService(mfRepo, fdRepo, pfRepo, stockRepo, bondRepo, npsRepo, sipRepo, homeLoanRepo, personalLoanRepo, altInvestmentRepo)
 	taxService := services.NewTaxService(mfRepo, fdRepo, pfRepo, npsRepo, bondRepo, homeLoanRepo, personalLoanRepo, stockRepo)
-	dashboardService := services.NewDashboardService(mfRepo, bondRepo, fdRepo, pfRepo, stockRepo, homeLoanRepo, personalLoanRepo, npsRepo, creditCardRepo, vehicleRentalRepo, taxService)
+	dashboardService := services.NewDashboardService(mfRepo, bondRepo, fdRepo, pfRepo, stockRepo, homeLoanRepo, personalLoanRepo, npsRepo, creditCardRepo, altInvestmentRepo, taxService)
 	npsService := services.NewNPSService(npsRepo)
-	vehicleRentalService := services.NewVehicleRentalService(vehicleRentalRepo)
+	altInvestmentService := services.NewAlternateInvestmentService(altInvestmentRepo)
 	creditCardService := services.NewCreditCardService(creditCardRepo)
 	goalService := services.NewGoalService(goalRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo, sipRepo)
-	netWorthService := services.NewNetWorthService(netWorthRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo, homeLoanRepo, personalLoanRepo, creditCardRepo, vehicleRentalRepo)
+	netWorthService := services.NewNetWorthService(netWorthRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo, homeLoanRepo, personalLoanRepo, creditCardRepo, altInvestmentRepo)
 	sipService := services.NewSIPService(sipRepo, mfRepo)
-	notificationService := services.NewNotificationService(notificationRepo, homeLoanRepo, personalLoanRepo, fdRepo, bondRepo, sipRepo, creditCardRepo, vehicleRentalRepo, goalService)
+	notificationService := services.NewNotificationService(notificationRepo, homeLoanRepo, personalLoanRepo, fdRepo, bondRepo, sipRepo, creditCardRepo, altInvestmentRepo, goalService)
 	profileService := services.NewProfileService(profileRepo)
 	benchmarkService := services.NewBenchmarkService()
-	exportService := services.NewExportService(mfRepo, stockRepo, fdRepo, pfRepo, bondRepo, homeLoanRepo, personalLoanRepo, npsRepo, vehicleRentalRepo)
-	backupService := services.NewBackupService(db, mfRepo, stockRepo, fdRepo, pfRepo, bondRepo, homeLoanRepo, personalLoanRepo, npsRepo, creditCardRepo, goalRepo, sipRepo, profileRepo, vehicleRentalRepo)
-	cashflowService := services.NewCashflowService(mfRepo, bondRepo, fdRepo, pfRepo, stockRepo, npsRepo, homeLoanRepo, personalLoanRepo, creditCardRepo, vehicleRentalRepo)
-	insightsService := services.NewInsightsService(mfService, stockService, bondService, fdService, pfService, homeLoanRepo, personalLoanRepo, npsService, goalService, taxService, vehicleRentalRepo)
+	exportService := services.NewExportService(mfRepo, stockRepo, fdRepo, pfRepo, bondRepo, homeLoanRepo, personalLoanRepo, npsRepo, altInvestmentRepo)
+	backupService := services.NewBackupService(db, mfRepo, stockRepo, fdRepo, pfRepo, bondRepo, homeLoanRepo, personalLoanRepo, npsRepo, creditCardRepo, goalRepo, sipRepo, profileRepo, altInvestmentRepo)
+	cashflowService := services.NewCashflowService(mfRepo, bondRepo, fdRepo, pfRepo, stockRepo, npsRepo, homeLoanRepo, personalLoanRepo, creditCardRepo, altInvestmentRepo)
+	insightsService := services.NewInsightsService(mfService, stockService, bondService, fdService, pfService, homeLoanRepo, personalLoanRepo, npsService, goalService, taxService, altInvestmentRepo)
 	scheduler := services.NewScheduler(userRepo, mfService, stockService, netWorthService, notificationService)
 
 	// Personal finance: cash, budgets, insurance, gold, real estate, family,
@@ -126,7 +126,7 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 	netWorthService.SetPersonalFinanceRepos(bankRepo, goldRepo, propertyRepo, insuranceRepo)
 	exportService.SetPersonalFinanceRepos(bankRepo, goldRepo, propertyRepo, insuranceRepo)
 	taxService.SetInsuranceRepo(insuranceRepo)
-	taxService.SetIncomeRepos(propertyRepo, vehicleRentalRepo)
+	taxService.SetIncomeRepos(propertyRepo, altInvestmentRepo)
 	profileService.SetCleanupRepos(assignmentRepo, memberIncomeRepo)
 	familyTaxService := services.NewFamilyTaxService(taxService, profileRepo, assignmentRepo, memberIncomeRepo, repository.NewTaxSettingsRepo(db))
 	insightsService.SetFamilyTax(familyTaxService)
@@ -146,31 +146,31 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 
 	// Handlers
 	return &Container{
-		LedgerHandler:        handlers.NewLedgerHandler(services.NewLedgerService(ledgerRepo, profileRepo, bankRepo, creditCardRepo, assignmentRepo)),
-		AuthHandler:          handlers.NewAuthHandler(authService),
-		MutualFundHandler:    handlers.NewMutualFundHandler(mfService),
-		CorporateBondHandler: handlers.NewCorporateBondHandler(bondService),
-		FixedDepositHandler:  handlers.NewFixedDepositHandler(fdService),
-		ProvidentFundHandler: handlers.NewProvidentFundHandler(pfService),
-		StockHandler:         handlers.NewStockHandler(stockService),
-		HomeLoanHandler:      handlers.NewHomeLoanHandler(homeLoanService),
-		PersonalLoanHandler:  handlers.NewPersonalLoanHandler(personalLoanService),
-		ProjectionHandler:    handlers.NewProjectionHandler(projectionService),
-		DashboardHandler:     handlers.NewDashboardHandler(dashboardService),
-		NPSHandler:           handlers.NewNPSHandler(npsService),
-		VehicleRentalHandler: handlers.NewVehicleRentalHandler(vehicleRentalService),
-		CreditCardHandler:    handlers.NewCreditCardHandler(creditCardService),
-		GoalHandler:          handlers.NewGoalHandler(goalService),
-		NetWorthHandler:      handlers.NewNetWorthHandler(netWorthService),
-		SIPHandler:           handlers.NewSIPHandler(sipService),
-		NotificationHandler:  handlers.NewNotificationHandler(notificationService),
-		ProfileHandler:       handlers.NewProfileHandler(profileService),
-		TaxHandler:           handlers.NewTaxHandler(taxService, familyTaxService),
-		BenchmarkHandler:     handlers.NewBenchmarkHandler(benchmarkService),
-		ExportHandler:        handlers.NewExportHandler(exportService),
-		BackupHandler:        handlers.NewBackupHandler(backupService),
-		CashflowHandler:      handlers.NewCashflowHandler(cashflowService),
-		InsightsHandler:      handlers.NewInsightsHandler(insightsService),
+		LedgerHandler:              handlers.NewLedgerHandler(services.NewLedgerService(ledgerRepo, profileRepo, bankRepo, creditCardRepo, assignmentRepo)),
+		AuthHandler:                handlers.NewAuthHandler(authService),
+		MutualFundHandler:          handlers.NewMutualFundHandler(mfService),
+		CorporateBondHandler:       handlers.NewCorporateBondHandler(bondService),
+		FixedDepositHandler:        handlers.NewFixedDepositHandler(fdService),
+		ProvidentFundHandler:       handlers.NewProvidentFundHandler(pfService),
+		StockHandler:               handlers.NewStockHandler(stockService),
+		HomeLoanHandler:            handlers.NewHomeLoanHandler(homeLoanService),
+		PersonalLoanHandler:        handlers.NewPersonalLoanHandler(personalLoanService),
+		ProjectionHandler:          handlers.NewProjectionHandler(projectionService),
+		DashboardHandler:           handlers.NewDashboardHandler(dashboardService),
+		NPSHandler:                 handlers.NewNPSHandler(npsService),
+		AlternateInvestmentHandler: handlers.NewAlternateInvestmentHandler(altInvestmentService),
+		CreditCardHandler:          handlers.NewCreditCardHandler(creditCardService),
+		GoalHandler:                handlers.NewGoalHandler(goalService),
+		NetWorthHandler:            handlers.NewNetWorthHandler(netWorthService),
+		SIPHandler:                 handlers.NewSIPHandler(sipService),
+		NotificationHandler:        handlers.NewNotificationHandler(notificationService),
+		ProfileHandler:             handlers.NewProfileHandler(profileService),
+		TaxHandler:                 handlers.NewTaxHandler(taxService, familyTaxService),
+		BenchmarkHandler:           handlers.NewBenchmarkHandler(benchmarkService),
+		ExportHandler:              handlers.NewExportHandler(exportService),
+		BackupHandler:              handlers.NewBackupHandler(backupService),
+		CashflowHandler:            handlers.NewCashflowHandler(cashflowService),
+		InsightsHandler:            handlers.NewInsightsHandler(insightsService),
 
 		AccountHandler:      handlers.NewAccountHandler(accountService, budgetService),
 		InsuranceHandler:    handlers.NewInsuranceHandler(insuranceService),

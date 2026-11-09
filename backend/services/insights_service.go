@@ -71,7 +71,7 @@ type InsightsService struct {
 	npsService        *NPSService
 	goalService       *GoalService
 	taxService        *TaxService
-	vehicleRentalRepo *repository.VehicleRentalRepo
+	altInvestmentRepo *repository.AlternateInvestmentRepo
 	familyTax         *FamilyTaxService
 }
 
@@ -89,13 +89,13 @@ func NewInsightsService(
 	npsService *NPSService,
 	goalService *GoalService,
 	taxService *TaxService,
-	vehicleRentalRepo *repository.VehicleRentalRepo,
+	altInvestmentRepo *repository.AlternateInvestmentRepo,
 ) *InsightsService {
 	return &InsightsService{
 		mfService: mfService, stockService: stockService, bondService: bondService,
 		fdService: fdService, pfService: pfService, homeLoanRepo: homeLoanRepo,
 		personalLoanRepo: personalLoanRepo, npsService: npsService, goalService: goalService,
-		taxService: taxService, vehicleRentalRepo: vehicleRentalRepo,
+		taxService: taxService, altInvestmentRepo: altInvestmentRepo,
 	}
 }
 
@@ -117,11 +117,11 @@ func (s *InsightsService) GetInsights(ctx context.Context, userID string) (*Insi
 	personalLoans, _ := s.personalLoanRepo.GetAll(ctx, userID)
 	npsAccounts, _ := s.npsService.GetAll(ctx, userID)
 	goals, _ := s.goalService.GetAll(ctx, userID)
-	var rentals []models.VehicleRental
-	if s.vehicleRentalRepo != nil {
-		rentals, _ = s.vehicleRentalRepo.GetAll(ctx, userID)
-		for i := range rentals {
-			ComputeVehicleRental(&rentals[i], now)
+	var alts []models.AlternateInvestment
+	if s.altInvestmentRepo != nil {
+		alts, _ = s.altInvestmentRepo.GetAll(ctx, userID)
+		for i := range alts {
+			ComputeAlternateInvestment(&alts[i], now)
 		}
 	}
 
@@ -157,7 +157,7 @@ func (s *InsightsService) GetInsights(ctx context.Context, userID string) (*Insi
 		totalEquity += nps.CurrentValue * share
 		totalDebt += nps.CurrentValue * (1 - share)
 	}
-	for _, v := range rentals {
+	for _, v := range alts {
 		totalAlternative += v.CurrentValue
 		totalAssets += v.CurrentValue
 	}
@@ -192,11 +192,12 @@ func (s *InsightsService) GetInsights(ctx context.Context, userID string) (*Insi
 		}
 	}
 
-	// ── Vehicle rentals / alternative schemes ──
-	for _, v := range rentals {
+	// ── Alternate investments (EV leasing, cow ownership and similar schemes) ──
+	for _, v := range alts {
 		if v.OverdueCount > 0 {
+			// The "rental-overdue:" key prefix predates the rename; kept so dismissals still apply.
 			add("rental-overdue:"+v.ID.Hex(), Insight{
-				Title:       fmt.Sprintf("Rental Payouts Overdue: %s", v.Provider),
+				Title:       fmt.Sprintf("Investment Payouts Overdue: %s", v.Provider),
 				Description: fmt.Sprintf("%d payout(s) totalling %s have not been received. Missed payouts are often the first sign of trouble in fixed-return schemes.", v.OverdueCount, formatINR(v.OverdueAmount)),
 				Severity:    SeverityCritical, Category: CatRisk,
 				Action: "Follow up in writing, keep the agreement and payment records, and avoid adding more money until payouts resume.",
@@ -207,7 +208,7 @@ func (s *InsightsService) GetInsights(ctx context.Context, userID string) (*Insi
 		if pct := totalAlternative / totalAssets * 100; pct > alternativeConcentration {
 			add("alternative-concentration", Insight{
 				Title:       "High Exposure to Unregulated Schemes",
-				Description: fmt.Sprintf("%.0f%% of your assets (%s) are in vehicle rental schemes, which aren't regulated by SEBI or RBI and depend on a single operator.", pct, formatINR(totalAlternative)),
+				Description: fmt.Sprintf("%.0f%% of your assets (%s) are in alternate investment schemes (such as EV leasing or cow ownership), which aren't regulated by SEBI or RBI and depend on a single operator.", pct, formatINR(totalAlternative)),
 				Severity:    SeverityWarning, Category: CatRisk,
 				Action: fmt.Sprintf("Consider keeping such schemes under %.0f%% of your portfolio.", alternativeConcentration),
 			})

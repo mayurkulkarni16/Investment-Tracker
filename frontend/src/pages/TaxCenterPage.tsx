@@ -525,7 +525,7 @@ export default function TaxCenterPage() {
                 {summary.interest_income > 0 && <div className="payout-item"><span>Interest (FD, bonds)</span><span>{formatCurrency(summary.interest_income)}</span></div>}
                 {summary.dividend_income > 0 && <div className="payout-item"><span>Dividends</span><span>{formatCurrency(summary.dividend_income)}</span></div>}
                 {(summary.rental_income || 0) > 0 && <div className="payout-item"><span>Rent from let-out property</span><span>{formatCurrency(summary.rental_income || 0)}</span></div>}
-                {(summary.other_rental_income || 0) > 0 && <div className="payout-item"><span>Vehicle leasing payouts</span><span>{formatCurrency(summary.other_rental_income || 0)}</span></div>}
+                {(summary.other_rental_income || 0) > 0 && <div className="payout-item"><span>Alternate investment payouts</span><span>{formatCurrency(summary.other_rental_income || 0)}</span></div>}
               </div>
             </div>
           )}

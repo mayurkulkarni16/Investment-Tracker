@@ -16,7 +16,7 @@ const (
 	LineLTCGEquity      = "ltcg_equity"  // 112A
 	LineGainSlab        = "gain_slab"    // debt MF etc. at slab
 	LineRent            = "rent"         // house property (gross annual rent)
-	LineOtherRental     = "other_rental" // vehicle leasing payouts (other sources)
+	LineOtherRental     = "other_rental" // alternate investment payouts, e.g. EV leasing (other sources)
 	Line80CEPF          = "80c_epf"      // EPF / VPF employee share
 	Line80CPPF          = "80c_ppf"      // PPF deposits
 	Line80CELSS         = "80c_elss"     // ELSS purchases

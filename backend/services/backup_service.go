@@ -27,7 +27,7 @@ type BackupService struct {
 	goalRepo          *repository.GoalRepo
 	sipRepo           *repository.SIPRepo
 	profileRepo       *repository.ProfileRepo
-	vehicleRentalRepo *repository.VehicleRentalRepo
+	altInvestmentRepo *repository.AlternateInvestmentRepo
 }
 
 func NewBackupService(
@@ -44,32 +44,32 @@ func NewBackupService(
 	goalRepo *repository.GoalRepo,
 	sipRepo *repository.SIPRepo,
 	profileRepo *repository.ProfileRepo,
-	vehicleRentalRepo *repository.VehicleRentalRepo,
+	altInvestmentRepo *repository.AlternateInvestmentRepo,
 ) *BackupService {
 	return &BackupService{
 		db: db, mfRepo: mfRepo, stockRepo: stockRepo, fdRepo: fdRepo, pfRepo: pfRepo,
 		bondRepo: bondRepo, homeLoanRepo: homeLoanRepo, personalLoanRepo: personalLoanRepo,
 		npsRepo: npsRepo, creditCardRepo: creditCardRepo, goalRepo: goalRepo,
-		sipRepo: sipRepo, profileRepo: profileRepo, vehicleRentalRepo: vehicleRentalRepo,
+		sipRepo: sipRepo, profileRepo: profileRepo, altInvestmentRepo: altInvestmentRepo,
 	}
 }
 
 type BackupData struct {
-	Version        string               `json:"version"`
-	MutualFunds    interface{}          `json:"mutual_funds"`
-	Stocks         interface{}          `json:"stocks"`
-	FixedDeposits  interface{}          `json:"fixed_deposits"`
-	ProvidentFund  interface{}          `json:"provident_fund"`
-	CorporateBonds interface{}          `json:"corporate_bonds"`
-	HomeLoans      interface{}          `json:"home_loans"`
-	PersonalLoans  interface{}          `json:"personal_loans"`
-	NPS            interface{}          `json:"nps"`
-	CreditCards    interface{}          `json:"credit_cards"`
-	Goals          interface{}          `json:"goals"`
-	SIPs           interface{}          `json:"sips"`
-	Profiles       interface{}          `json:"profiles"`
-	VehicleRentals interface{}          `json:"vehicle_rentals"`
-	LedgerEntries  []models.LedgerEntry `json:"ledger_entries"`
+	Version              string               `json:"version"`
+	MutualFunds          interface{}          `json:"mutual_funds"`
+	Stocks               interface{}          `json:"stocks"`
+	FixedDeposits        interface{}          `json:"fixed_deposits"`
+	ProvidentFund        interface{}          `json:"provident_fund"`
+	CorporateBonds       interface{}          `json:"corporate_bonds"`
+	HomeLoans            interface{}          `json:"home_loans"`
+	PersonalLoans        interface{}          `json:"personal_loans"`
+	NPS                  interface{}          `json:"nps"`
+	CreditCards          interface{}          `json:"credit_cards"`
+	Goals                interface{}          `json:"goals"`
+	SIPs                 interface{}          `json:"sips"`
+	Profiles             interface{}          `json:"profiles"`
+	AlternateInvestments interface{}          `json:"vehicle_rentals"` // pre-rename key, kept so old and new backups restore alike
+	LedgerEntries        []models.LedgerEntry `json:"ledger_entries"`
 
 	// Personal finance (documents/GridFS files are not included in backups)
 	BankAccounts         []models.BankAccount          `json:"bank_accounts"`
@@ -96,7 +96,7 @@ func (s *BackupService) Export(ctx context.Context, userID string) ([]byte, erro
 	goals, _ := s.goalRepo.GetAll(ctx, userID)
 	sips, _ := s.sipRepo.GetAll(ctx, userID)
 	profiles, _ := s.profileRepo.GetAll(ctx, userID)
-	vehicleRentals, _ := s.vehicleRentalRepo.GetAll(ctx, userID)
+	altInvestments, _ := s.altInvestmentRepo.GetAll(ctx, userID)
 	ledgerEntries, err := repository.NewLedgerRepo(s.db).GetAll(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("export ledger: %w", err)
@@ -113,21 +113,21 @@ func (s *BackupService) Export(ctx context.Context, userID string) ([]byte, erro
 	taxSettings, _ := repository.NewTaxSettingsRepo(s.db).GetAll(ctx, userID)
 
 	backup := BackupData{
-		Version:        "1.0",
-		MutualFunds:    mfs,
-		Stocks:         stocks,
-		FixedDeposits:  fds,
-		ProvidentFund:  pfs,
-		CorporateBonds: bonds,
-		HomeLoans:      homeLoans,
-		PersonalLoans:  personalLoans,
-		NPS:            nps,
-		CreditCards:    creditCards,
-		Goals:          goals,
-		SIPs:           sips,
-		Profiles:       profiles,
-		VehicleRentals: vehicleRentals,
-		LedgerEntries:  ledgerEntries,
+		Version:              "1.0",
+		MutualFunds:          mfs,
+		Stocks:               stocks,
+		FixedDeposits:        fds,
+		ProvidentFund:        pfs,
+		CorporateBonds:       bonds,
+		HomeLoans:            homeLoans,
+		PersonalLoans:        personalLoans,
+		NPS:                  nps,
+		CreditCards:          creditCards,
+		Goals:                goals,
+		SIPs:                 sips,
+		Profiles:             profiles,
+		AlternateInvestments: altInvestments,
+		LedgerEntries:        ledgerEntries,
 
 		BankAccounts:         bankAccounts,
 		Budgets:              budgets,
@@ -182,7 +182,7 @@ var restoreTargets = []restoreTarget{
 	{"goals", "goals", decodeAs[models.Goal]},
 	{"sips", "sips", decodeAs[models.SIP]},
 	{"profiles", "profiles", decodeAs[models.Profile]},
-	{"vehicle_rentals", "vehicle_rentals", decodeAs[models.VehicleRental]},
+	{"vehicle_rentals", "vehicle_rentals", decodeAs[models.AlternateInvestment]},
 	{"bank_accounts", "bank_accounts", decodeAs[models.BankAccount]},
 	{"budgets", "budgets", decodeAs[models.Budget]},
 	{"insurance_policies", "insurance_policies", decodeAs[models.InsurancePolicy]},
