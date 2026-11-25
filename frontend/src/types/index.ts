@@ -630,6 +630,60 @@ export interface ChangeRateRequest {
   new_rate: number;
 }
 
+// Overdraft: interest-only credit line; principal is repaid whenever you like.
+export type OverdraftTxnType = 'withdrawal' | 'repayment' | 'interest';
+
+export interface OverdraftTransaction {
+  txn_id: string;
+  date: string;
+  type: OverdraftTxnType;
+  amount: number;
+  notes: string;
+  balance_after: number;
+}
+
+export interface Overdraft {
+  id: string;
+  lender_name: string;
+  account_number: string;
+  sanctioned_limit: number;
+  interest_rate: number;
+  open_date: string;
+  status: 'active' | 'closed';
+  notes: string;
+  transactions: OverdraftTransaction[];
+  outstanding: number;
+  available_limit: number;
+  utilization_pct: number;
+  total_withdrawn: number;
+  total_repaid: number;
+  total_interest_paid: number;
+  monthly_interest: number;
+  accrued_interest: number;
+  last_interest_paid_date?: string;
+}
+
+export interface CreateOverdraftRequest {
+  lender_name: string;
+  account_number?: string;
+  sanctioned_limit: number;
+  interest_rate: number;
+  open_date: string;
+  opening_balance?: number;
+  notes?: string;
+}
+
+export interface UpdateOverdraftRequest extends Omit<CreateOverdraftRequest, 'opening_balance'> {
+  status: 'active' | 'closed';
+}
+
+export interface AddOverdraftTransactionRequest {
+  type: OverdraftTxnType;
+  date: string;
+  amount: number;
+  notes?: string;
+}
+
 export interface AddDisbursementRequest {
   date: string;
   amount: number;

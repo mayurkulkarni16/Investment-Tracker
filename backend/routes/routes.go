@@ -67,6 +67,9 @@ func Register(r *gin.Engine, c *container.Container, cfg *config.Config) {
 		// Personal Loans
 		registerPersonalLoanRoutes(api, c)
 
+		// Overdrafts
+		registerOverdraftRoutes(api, c)
+
 		// NPS
 		registerNPSRoutes(api, c)
 
@@ -198,6 +201,19 @@ func registerHomeLoanRoutes(api *gin.RouterGroup, c *container.Container) {
 		hl.POST("/:id/disbursement", c.HomeLoanHandler.AddDisbursement)
 		hl.POST("/:id/mark-complete", c.HomeLoanHandler.MarkConstructionComplete)
 		hl.POST("/:id/recalculate", c.HomeLoanHandler.Recalculate)
+	}
+}
+
+func registerOverdraftRoutes(api *gin.RouterGroup, c *container.Container) {
+	od := api.Group("/overdrafts")
+	{
+		od.GET("", c.OverdraftHandler.GetAll)
+		od.POST("", c.OverdraftHandler.Create)
+		od.GET("/:id", c.OverdraftHandler.GetByID)
+		od.PUT("/:id", c.OverdraftHandler.Update)
+		od.DELETE("/:id", c.OverdraftHandler.Delete)
+		od.POST("/:id/transactions", c.OverdraftHandler.AddTransaction)
+		od.DELETE("/:id/transactions/:txnId", c.OverdraftHandler.DeleteTransaction)
 	}
 }
 

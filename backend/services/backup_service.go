@@ -64,6 +64,7 @@ type BackupData struct {
 	CorporateBonds       interface{}          `json:"corporate_bonds"`
 	HomeLoans            interface{}          `json:"home_loans"`
 	PersonalLoans        interface{}          `json:"personal_loans"`
+	Overdrafts           []models.Overdraft   `json:"overdrafts"`
 	NPS                  interface{}          `json:"nps"`
 	CreditCards          interface{}          `json:"credit_cards"`
 	Goals                interface{}          `json:"goals"`
@@ -92,6 +93,7 @@ func (s *BackupService) Export(ctx context.Context, userID string) ([]byte, erro
 	bonds, _ := s.bondRepo.GetAll(ctx, userID)
 	homeLoans, _ := s.homeLoanRepo.GetAll(ctx, userID)
 	personalLoans, _ := s.personalLoanRepo.GetAll(ctx, userID)
+	overdrafts, _ := repository.NewOverdraftRepo(s.db).GetAll(ctx, userID)
 	nps, _ := s.npsRepo.GetAll(ctx, userID)
 	creditCards, _ := s.creditCardRepo.GetAll(ctx, userID)
 	goals, _ := s.goalRepo.GetAll(ctx, userID)
@@ -122,6 +124,7 @@ func (s *BackupService) Export(ctx context.Context, userID string) ([]byte, erro
 		CorporateBonds:       bonds,
 		HomeLoans:            homeLoans,
 		PersonalLoans:        personalLoans,
+		Overdrafts:           overdrafts,
 		NPS:                  nps,
 		CreditCards:          creditCards,
 		Goals:                goals,
@@ -178,6 +181,7 @@ var restoreTargets = []restoreTarget{
 	{"corporate_bonds", "corporate_bonds", decodeAs[models.CorporateBond]},
 	{"home_loans", "home_loans", decodeAs[models.HomeLoan]},
 	{"personal_loans", "personal_loans", decodeAs[models.PersonalLoan]},
+	{"overdrafts", "overdrafts", decodeAs[models.Overdraft]},
 	{"nps", "nps_accounts", decodeAs[models.NPSAccount]},
 	{"credit_cards", "credit_cards", decodeAs[models.CreditCard]},
 	{"goals", "goals", decodeAs[models.Goal]},

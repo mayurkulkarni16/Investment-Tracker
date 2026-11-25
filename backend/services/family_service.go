@@ -15,7 +15,7 @@ import (
 var assignableTypes = map[string]bool{
 	"mutual_fund": true, "stock": true, "fixed_deposit": true, "provident_fund": true, "nps": true,
 	"corporate_bond": true, "vehicle_rental": true, "bank_account": true, "gold": true, "property": true,
-	"insurance": true, "home_loan": true, "personal_loan": true, "credit_card": true,
+	"insurance": true, "home_loan": true, "personal_loan": true, "overdraft": true, "credit_card": true,
 }
 
 // FamilyService tags assets to family member profiles and summarises net

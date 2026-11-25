@@ -118,6 +118,17 @@ HOUSEHOLD FINANCE & PLANNING
   - Interest rate change recording
   - Full amortization schedule generation
 
+3g-2. Overdrafts (interest-only credit lines)
+  - Sanctioned limit, interest rate, open date and any amount already drawn
+  - Withdrawals increase the principal, interest payments leave it unchanged, and principal is repaid
+    whenever you want
+  - Outstanding, available limit, utilization, monthly interest estimate, interest due since the last
+    interest payment (accrued daily on the drawn balance), and a transaction history with balance after
+    each entry
+  - Withdrawals can't exceed the limit, repayments can't exceed the outstanding balance, and an
+    overdraft can only be closed once it's repaid
+  - Included in net worth (liability), dashboard loan-to-asset ratio, cashflow, family assignment and backup
+
 3h. NPS (National Pension System)
   - CRUD for NPS accounts (Tier 1 / Tier 2)
   - Contribution tracking with date
@@ -135,11 +146,12 @@ HOUSEHOLD FINANCE & PLANNING
   - "Mark all due as received", undo, short-payment tracking, buyback tracking
   - Book value: straight-line (purchase cost -> buyback value), held at cost, or entered manually
   - Capital recovered %, break-even months, net return, XIRR; livestock shows stated milk sales vs payout
-  - Quick-fill presets by provider (EZU Electric, Ridoji, Amrutha Farms); prices and payouts are
-    entered for each agreement, with any unit count
+  - Quick-fill presets by provider (EZU Electric, Ridoji, Amrutha Farms), or "Other / custom plan" for any
+    other provider; prices and payouts are entered for each agreement, with any unit count
   - "Duplicate as new": each investment keeps the rate it was agreed at, so new investments at a
     different rate don't change existing ones
   - Price is entered incl. GST; the ex-GST cost is derived from the GST rate
+  - Can be linked to goals: counts the book value plus payouts still due before the goal date
   - Overdue payout and agreement-end alerts; included in dashboard, net worth, cashflow, projections, tax,
     backup and CSV export
 
@@ -167,7 +179,7 @@ HOUSEHOLD FINANCE & PLANNING
 - Family tax: per-member old vs new regime for FY 2025-26 / 2026-27 (Income-tax Act, 2025 section numbers), clubbing rules (switchable for spouse / minor income), 87A rebate + marginal relief, surcharge, cess, senior slabs, break-even deductions, household saving suggestions
 - "Where to invest" advisor: ranks members by post-tax return for FD, bonds, debt/equity funds, ELSS, PPF, SSY, SCSS, NPS
 - Net Worth Tracking (real-time assets minus liabilities, daily snapshots, historical trends)
-- Financial Goals (target amount/date with optional inflation, link investments to goals (≤100% per investment across goals), on-track based on actual SIP/PF/NPS contributions, auto return from linked investments, shortfall and extra monthly investment needed, batch linking)
+- Financial Goals (target amount/date with optional inflation, link investments to goals (≤100% per investment across goals; alternate investments count book value plus payouts due before the target date), on-track based on actual SIP/PF/NPS contributions, auto return from linked investments, shortfall and extra monthly investment needed, batch linking)
 
 5. NOTIFICATIONS
 -----------------
@@ -200,6 +212,7 @@ HOUSEHOLD FINANCE & PLANNING
 - ProvidentFundPage
 - HomeLoansPage
 - PersonalLoansPage
+- OverdraftsPage
 - NPSPage
 - CreditCardsPage
 - GoalsPage

@@ -12,6 +12,7 @@ import ProvidentFundPage from './pages/ProvidentFundPage';
 import StocksPage from './pages/StocksPage';
 import HomeLoansPage from './pages/HomeLoansPage';
 import PersonalLoansPage from './pages/PersonalLoansPage';
+import OverdraftsPage from './pages/OverdraftsPage';
 import ProjectionsPage from './pages/ProjectionsPage';
 import NPSPage from './pages/NPSPage';
 import AlternateInvestmentsPage from './pages/AlternateInvestmentsPage';
@@ -77,6 +78,7 @@ function AppShell() {
             <Route path="/stocks" element={<StocksPage />} />
             <Route path="/home-loans" element={<HomeLoansPage />} />
             <Route path="/personal-loans" element={<PersonalLoansPage />} />
+            <Route path="/overdrafts" element={<OverdraftsPage />} />
             <Route path="/provident-fund" element={<ProvidentFundPage />} />
             <Route path="/nps" element={<NPSPage />} />
             <Route path="/alternate-investments" element={<AlternateInvestmentsPage />} />

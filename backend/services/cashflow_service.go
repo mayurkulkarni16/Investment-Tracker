@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"investment-tracker/models"
 	"investment-tracker/repository"
 )
 
@@ -20,6 +21,12 @@ type CashflowService struct {
 	personalLoanRepo  *repository.PersonalLoanRepo
 	creditCardRepo    *repository.CreditCardRepo
 	altInvestmentRepo *repository.AlternateInvestmentRepo
+	overdraftRepo     *repository.OverdraftRepo
+}
+
+// SetOverdraftRepo includes overdraft drawdowns, repayments and interest.
+func (s *CashflowService) SetOverdraftRepo(repo *repository.OverdraftRepo) {
+	s.overdraftRepo = repo
 }
 
 type MonthlyCashflow struct {
@@ -301,6 +308,26 @@ func (s *CashflowService) GetMonthlyCashflows(ctx context.Context, userID string
 					fp.outflow += -cf.Amount
 				} else {
 					fp.inflow += cf.Amount
+				}
+			}
+		}
+	}
+
+	// 13. Overdrafts: money drawn (inflow), principal repaid and interest paid (outflow)
+	if s.overdraftRepo != nil {
+		overdrafts, err := s.overdraftRepo.GetAll(ctx, userID)
+		if err == nil {
+			for i := range overdrafts {
+				for _, cf := range OverdraftCashflows(&overdrafts[i]) {
+					if cf.Date.Before(cutoff) {
+						continue
+					}
+					fp := getOrCreate(monthKey(cf.Date))
+					if cf.Amount < 0 {
+						fp.outflow += -cf.Amount
+					} else {
+						fp.inflow += cf.Amount
+					}
 				}
 			}
 		}
@@ -681,6 +708,32 @@ func (s *CashflowService) GetMonthDetail(ctx context.Context, userID string, mon
 					Amount:    vr.BuybackReceived,
 					Direction: "inflow",
 				})
+			}
+		}
+	}
+
+	// 13. Overdrafts: money drawn (inflow), principal repaid and interest paid (outflow)
+	if s.overdraftRepo != nil {
+		overdrafts, err := s.overdraftRepo.GetAll(ctx, userID)
+		if err == nil {
+			for i := range overdrafts {
+				for _, t := range overdrafts[i].Transactions {
+					if !inMonth(t.Date) {
+						continue
+					}
+					direction := "outflow"
+					if t.Type == models.OverdraftWithdrawal {
+						direction = "inflow"
+					}
+					details = append(details, CashflowDetail{
+						Date:      t.Date.Format("2006-01-02"),
+						Category:  "Overdraft",
+						Name:      overdrafts[i].LenderName + " overdraft",
+						Type:      string(t.Type),
+						Amount:    t.Amount,
+						Direction: direction,
+					})
+				}
 			}
 		}
 	}

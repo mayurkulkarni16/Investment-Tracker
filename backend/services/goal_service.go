@@ -27,6 +27,12 @@ type GoalService struct {
 	npsRepo   *repository.NPSRepo
 	bondRepo  *repository.CorporateBondRepo
 	sipRepo   *repository.SIPRepo
+	altRepo   *repository.AlternateInvestmentRepo
+}
+
+// SetAlternateInvestmentRepo lets goals link alternate investments.
+func (s *GoalService) SetAlternateInvestmentRepo(repo *repository.AlternateInvestmentRepo) {
+	s.altRepo = repo
 }
 
 func NewGoalService(
@@ -264,12 +270,14 @@ func (s *GoalService) sipContributions(ctx context.Context, userID string) map[s
 	return out
 }
 
-// goalHolding is the current state of one linked investment.
+// goalHolding is the current state of one linked investment. Unweighted
+// holdings do not influence the goal's derived return rate.
 type goalHolding struct {
 	value, monthly, rate float64
+	unweighted           bool
 }
 
-func (s *GoalService) holding(ctx context.Context, li models.LinkedInvestment, sips map[string]float64, now time.Time) (goalHolding, bool) {
+func (s *GoalService) holding(ctx context.Context, li models.LinkedInvestment, sips map[string]float64, now, target time.Time) (goalHolding, bool) {
 	id, err := parseObjectID(li.InvestmentID)
 	if err != nil {
 		return goalHolding{}, false
@@ -335,8 +343,33 @@ func (s *GoalService) holding(ctx context.Context, li models.LinkedInvestment, s
 		}
 		NormalizeCorporateBond(bond)
 		return goalHolding{value: bond.RemainingPrincipal, rate: bond.CouponRate}, true
+	case "alternate_investment":
+		if s.altRepo == nil {
+			return goalHolding{}, false
+		}
+		v, err := s.altRepo.GetByID(ctx, id)
+		if err != nil {
+			return goalHolding{}, false
+		}
+		return alternateGoalHolding(v, now, target), true
 	}
 	return goalHolding{}, false
+}
+
+// alternateGoalHolding counts the current book value plus the payouts still due
+// before the target date (or agreement end), spread evenly over the months to
+// the target as a monthly contribution. The book value already stands in for
+// any buyback. The asset's return is in its payouts, so it does not set the
+// goal's growth rate.
+func alternateGoalHolding(v *models.AlternateInvestment, now, target time.Time) goalHolding {
+	ComputeAlternateInvestment(v, now)
+	h := goalHolding{value: v.CurrentValue, unweighted: true}
+	months := monthsBetween(now, target)
+	if months <= 0 || !target.After(now) {
+		return h
+	}
+	h.monthly = pendingAltPayoutsBetween(v, now, target) / float64(months)
+	return h
 }
 
 // computeDerived fills in progress and projections. The goal is "on track" when
@@ -351,13 +384,16 @@ func (s *GoalService) computeDerived(ctx context.Context, goal *models.Goal, sip
 
 	var current, monthly, rateNum, rateDen float64
 	for _, li := range goal.LinkedInvestments {
-		h, ok := s.holding(ctx, li, sips, now)
+		h, ok := s.holding(ctx, li, sips, now, goal.TargetDate)
 		if !ok {
 			continue
 		}
 		share := li.AllocatedPct / 100
 		current += h.value * share
 		monthly += h.monthly * share
+		if h.unweighted {
+			continue
+		}
 		w := (h.value + h.monthly*12) * share
 		rateNum += h.rate * w
 		rateDen += w

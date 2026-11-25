@@ -19,6 +19,12 @@ type DashboardService struct {
 	creditCardRepo    *repository.CreditCardRepo
 	altInvestmentRepo *repository.AlternateInvestmentRepo
 	taxService        *TaxService
+	overdraftRepo     *repository.OverdraftRepo
+}
+
+// SetOverdraftRepo counts drawn overdraft balances in the loan-to-asset ratio.
+func (s *DashboardService) SetOverdraftRepo(repo *repository.OverdraftRepo) {
+	s.overdraftRepo = repo
 }
 
 func NewDashboardService(
@@ -559,6 +565,13 @@ func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (*Da
 	// Risk Metrics
 	totalAssets := dashboard.CurrentValue
 	totalLiabilities := dashboard.HomeLoanSummary.TotalOutstanding + dashboard.PersonalLoanSummary.TotalOutstanding + dashboard.CreditCardSummary.TotalOutstanding
+	if s.overdraftRepo != nil {
+		overdrafts, _ := s.overdraftRepo.GetAll(ctx, userID)
+		for i := range overdrafts {
+			ComputeOverdraft(&overdrafts[i], now)
+			totalLiabilities += overdrafts[i].Outstanding
+		}
+	}
 
 	// Equity/Debt Ratio
 	if debtValue > 0 {

@@ -85,6 +85,8 @@ const PRESETS: Preset[] = [
     values: { asset_type: 'livestock', provider: 'Amrutha Farms', asset_name: 'Jersey', units: 1, gst_percent: 0, tenure_months: 0, buyback_percent: 0, valuation_method: 'at_cost', daily_yield_litres: 30 },
   },
 ];
+// Quick Fill value for a plan not in PRESETS: clears preset values.
+const CUSTOM_PRESET = 'custom';
 
 // The form takes the GST-inclusive price; the API stores the ex-GST unit price.
 const exGstPrice = (inclGst: number, gstPercent: number) => inclGst / (1 + gstPercent / 100);
@@ -191,11 +193,20 @@ export default function AlternateInvestmentsPage() {
   const changeAssetType = (assetType: AltAssetType) => {
     const next = { ...form, asset_type: assetType, ...(editing === 'new' ? TYPE_DEFAULTS[assetType] : {}) };
     setForm({ ...next, unit_price: exGstPrice(priceInclGst, next.gst_percent) });
-    if (PRESETS[Number(presetIndex)]?.values.asset_type !== assetType) setPresetIndex('');
+    if (presetIndex !== CUSTOM_PRESET && PRESETS[Number(presetIndex)]?.values.asset_type !== assetType) setPresetIndex('');
   };
 
   const applyPreset = (index: string) => {
     setPresetIndex(index);
+    if (index === CUSTOM_PRESET) {
+      setForm({
+        ...form, ...TYPE_DEFAULTS[form.asset_type],
+        provider: '', asset_name: '', unit_price: 0, monthly_payout_per_unit: 0, price_per_litre: 0,
+      });
+      setPriceInclGst(0);
+      setPresetNote('Custom plan: enter the provider and terms from your agreement.');
+      return;
+    }
     const preset = PRESETS[Number(index)];
     if (!preset || index === '') return;
     setForm({
@@ -553,6 +564,7 @@ export default function AlternateInvestmentsPage() {
                     <select id="alt-preset" value={presetIndex} onChange={e => applyPreset(e.target.value)}>
                       <option value="">Choose a known plan…</option>
                       {PRESETS.map((p, i) => <option key={p.label} value={i}>{p.label}</option>)}
+                      <option value={CUSTOM_PRESET}>Other / custom plan</option>
                     </select>
                   </div>
                 )}

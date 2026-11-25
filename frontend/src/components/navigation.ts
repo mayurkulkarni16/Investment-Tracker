@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  ArrowLeftRight, Briefcase, Building2, Calculator, ChartCandlestick, ChartColumn, ChartPie, CreditCard,
+  ArrowLeftRight, Banknote, Briefcase, Building2, Calculator, ChartCandlestick, ChartColumn, ChartPie, CreditCard,
   FileText, Flame, Gem, HandCoins, House, Landmark, LayoutDashboard, Lightbulb, PiggyBank, Receipt, ScrollText,
   Settings, Shapes, ShieldCheck, Target, Telescope, TrendingUp, Users, Wallet,
 } from 'lucide-react';
@@ -54,6 +54,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { to: '/home-loans', label: 'Home Loans', icon: House, keywords: 'emi mortgage' },
       { to: '/personal-loans', label: 'Personal Loans', icon: HandCoins, keywords: 'emi' },
+      { to: '/overdrafts', label: 'Overdrafts', icon: Banknote, keywords: 'od credit line interest only' },
       { to: '/credit-cards', label: 'Credit Cards', icon: CreditCard, keywords: 'cc bill rewards' },
     ],
   },

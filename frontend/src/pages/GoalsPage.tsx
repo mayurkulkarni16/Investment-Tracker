@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { getNPSAccounts } from '../api/nps';
 import { getProvidentFunds } from '../api/providentFund';
 import { getCorporateBonds } from '../api/corporateBonds';
+import { getAlternateInvestments } from '../api/alternateInvestments';
 import type { Goal, CreateGoalRequest, UpdateGoalRequest, LinkInvestmentRequest } from '../types';
 import { formatCurrency, formatDate, formatCompactINR } from '../utils/format';
 import { useToast } from '../components/Toast';
@@ -53,6 +54,7 @@ export default function GoalsPage() {
         case 'nps': { const r = await getNPSAccounts(); items = (r.data || []).map(i => ({ id: i.id, name: `${i.account_holder_name} (${i.pran})` })); break; }
         case 'provident_fund': { const r = await getProvidentFunds(); items = (r.data || []).map(i => ({ id: i.id, name: `${i.employer_name} - ${i.account_number}` })); break; }
         case 'corporate_bond': { const r = await getCorporateBonds(); items = (r.data || []).map(i => ({ id: i.id, name: `${i.bond_name} (${i.issuer})` })); break; }
+        case 'alternate_investment': { const r = await getAlternateInvestments(); items = (r.data || []).map(i => ({ id: i.id, name: [i.provider, i.asset_name].filter(Boolean).join(' · ') })); break; }
       }
       setAvailableInvestments(items);
     } catch { setAvailableInvestments([]); }
@@ -272,7 +274,11 @@ export default function GoalsPage() {
                 <select value={linkForm.investment_type} onChange={e => { const type = e.target.value; setLinkForm({ ...linkForm, investment_type: type, investment_id: '', investment_name: '' }); setSelectedInvestments([]); fetchInvestments(type); }}>
                   <option value="mutual_fund">Mutual Fund</option><option value="stock">Stock</option><option value="fixed_deposit">Fixed Deposit</option>
                   <option value="nps">NPS</option><option value="provident_fund">Provident Fund</option><option value="corporate_bond">Corporate Bond</option>
+                  <option value="alternate_investment">Alternate Investment</option>
                 </select>
+                {linkForm.investment_type === 'alternate_investment' && (
+                  <small className="text-muted">Counts the current book value plus payouts still due before the goal date.</small>
+                )}
               </div>
               <div className="form-group">
                 <label>Select Investment(s)</label>

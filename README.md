@@ -49,6 +49,7 @@ FinBoard (this repository: Investment Tracker) is a comprehensive personal finan
 ### Loan Tracking
 - **Home Loans** — Full lifecycle management: EMI recording, prepayments, floating rate changes, amortization schedule, under-construction support (tranche disbursements, pre-EMI interest), and auto-recalculation.
 - **Personal Loans** — EMI recording, prepayments, rate changes, amortization schedule, and processing fee tracking.
+- **Overdrafts** — Interest-only credit lines: record withdrawals, interest payments and principal repayments whenever you like; see outstanding, available limit, utilization and interest due (accrued daily). Counted as a liability in net worth.
 
 ### Analytics & Intelligence
 - **Dashboard** — Portfolio summary with XIRR, asset allocation, risk metrics (equity/debt ratio, risk score, diversification, concentration risk, loan-to-asset ratio), upcoming payouts, loan and credit card summaries, and rebalancing suggestions.
@@ -58,7 +59,7 @@ FinBoard (this repository: Investment Tracker) is a comprehensive personal finan
 - **Benchmark Comparison** — Nifty 50 and Sensex levels with 1Y/3Y/5Y returns (absolute and annualised) via Yahoo Finance, cached hourly; chart periods 1m–5y.
 - **Tax Center** — Per-member old vs new regime comparison for FY 2025-26 and FY 2026-27 (Income-tax Act, 2025 section numbers shown alongside the old ones), using each member's income plus the interest, dividends, rent, capital gains and deductions (80C incl. PPF, 80CCD, 80D self/parents, 24(b), 80TTA/TTB) from the assets attributed to them. Applies clubbing (spouse, minor child) by default, with switches to turn either off and see tax as if each person were taxed on what is in their name (flagged as not how the law works), 87A rebate with marginal relief, surcharge, cess and senior-citizen slabs. Shows the recommended regime, savings, break-even deductions and household suggestions (regime switch, unused deductions, employer NPS, HRA, parents' 80D, joint home loan, LTCG harvesting, holding deposits with low-income members). A "Where to invest" advisor ranks family members by post-tax return for a new FD, debt/equity fund, ELSS, PPF, SSY, SCSS, NPS or bond. Estimates only — not tax advice.
 - **Net Worth Tracking** — Real-time net worth (assets minus liabilities), daily snapshots via scheduler, and historical trend charts.
-- **Financial Goals** — Set targets with amount/date (optionally inflation-adjusted), link investments with allocation % (max 100% per investment across goals), and see on-track status, projected completion date, shortfall and extra monthly investment needed based on your actual SIP/PF/NPS contributions.
+- **Financial Goals** — Set targets with amount/date (optionally inflation-adjusted), link investments (including alternate investments: book value plus payouts due before the target date) with allocation % (max 100% per investment across goals), and see on-track status, projected completion date, shortfall and extra monthly investment needed based on your actual SIP/PF/NPS contributions.
 
 ### Platform Features
 - **Authentication** — Email/password signup, JWT login, forgot/reset password, change password, admin role with user management and view-as capability.
@@ -314,6 +315,17 @@ All endpoints are prefixed with `/api/v1`. Authenticated routes require `Authori
 | POST   | `/personal-loans/:id/rate-change`     | Record interest rate change           |
 | GET    | `/personal-loans/:id/amortization`    | Get amortization schedule             |
 
+### Overdrafts
+| Method | Endpoint                              | Description                                         |
+|--------|---------------------------------------|-----------------------------------------------------|
+| GET    | `/overdrafts`                         | List overdrafts                                     |
+| POST   | `/overdrafts`                         | Add an overdraft (optional opening balance)         |
+| GET    | `/overdrafts/:id`                     | Get overdraft by ID                                 |
+| PUT    | `/overdrafts/:id`                     | Update details or status                            |
+| DELETE | `/overdrafts/:id`                     | Delete overdraft                                    |
+| POST   | `/overdrafts/:id/transactions`        | Record a withdrawal, repayment or interest payment  |
+| DELETE | `/overdrafts/:id/transactions/:txnId` | Delete a transaction                                |
+
 ### NPS
 | Method | Endpoint                        | Description                  |
 |--------|---------------------------------|------------------------------|
@@ -327,7 +339,7 @@ All endpoints are prefixed with `/api/v1`. Authenticated routes require `Authori
 ### Alternate Investments
 `/vehicle-rentals/...` remains as an alias of every route below for older app builds.
 
-Monthly payouts fall on the **5th**. Vehicle and other investments start on the 5th of the month after purchase. Livestock billing starts **15 calendar days after purchase**, and each billing month is paid on the following 5th. Partial billing months are prorated by calendar days. Fixed-term livestock covers the entire billing term, so two partial months can mean one extra installment. A fixed-term agreement ends, and any pending buyback is due, on its final scheduled payout date.
+Monthly payouts fall on the **5th**. Vehicles are billed from the **purchase date**, and livestock from **15 calendar days after purchase**; each billing month is paid on the following 5th, and partial billing months are prorated by calendar days. A fixed term is counted from the billing start, so two partial months mean one extra installment. Other investments start on the 5th of the month after purchase. A fixed-term agreement ends, and any pending buyback is due, on its final scheduled payout date.
 
 The API derives `payout_start_date`; a legacy value sent by a client is ignored. To update stored active schedules on rollout, take a database backup, set `MONGO_URI` and `DB_NAME` explicitly, and run `go run ./cmd/migrate_alt_payouts` from the backend directory. Review the dry run, then repeat with `-apply` during a maintenance window. The migration preserves recorded receipts and skips completed schedules. It is safe to rerun.
 
@@ -439,6 +451,7 @@ The API derives `payout_start_date`; a legacy value sent by a client is ignored.
 | `provident_fund_entries`| PF accounts with yearly contribution entries      |
 | `home_loans`            | Home loan records with EMI/prepayment history     |
 | `personal_loans`        | Personal loan records with EMI history            |
+| `overdrafts`            | Overdraft accounts with their transactions        |
 | `nps_accounts`          | NPS accounts with contributions                   |
 | `vehicle_rentals`       | Alternate investments (EV leasing, livestock, ...) with payouts; name kept from before the rename |
 | `credit_cards`          | Credit cards with statements and EMIs             |

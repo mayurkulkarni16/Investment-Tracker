@@ -21,6 +21,7 @@ type Container struct {
 	StockHandler               *handlers.StockHandler
 	HomeLoanHandler            *handlers.HomeLoanHandler
 	PersonalLoanHandler        *handlers.PersonalLoanHandler
+	OverdraftHandler           *handlers.OverdraftHandler
 	ProjectionHandler          *handlers.ProjectionHandler
 	DashboardHandler           *handlers.DashboardHandler
 	NPSHandler                 *handlers.NPSHandler
@@ -68,6 +69,7 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 	stockRepo := repository.NewStockRepo(db)
 	homeLoanRepo := repository.NewHomeLoanRepo(db)
 	personalLoanRepo := repository.NewPersonalLoanRepo(db)
+	overdraftRepo := repository.NewOverdraftRepo(db)
 	npsRepo := repository.NewNPSRepo(db)
 	creditCardRepo := repository.NewCreditCardRepo(db)
 	goalRepo := repository.NewGoalRepo(db)
@@ -105,6 +107,7 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 	altInvestmentService := services.NewAlternateInvestmentService(altInvestmentRepo)
 	creditCardService := services.NewCreditCardService(creditCardRepo)
 	goalService := services.NewGoalService(goalRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo, sipRepo)
+	goalService.SetAlternateInvestmentRepo(altInvestmentRepo)
 	netWorthService := services.NewNetWorthService(netWorthRepo, mfRepo, stockRepo, fdRepo, pfRepo, npsRepo, bondRepo, homeLoanRepo, personalLoanRepo, creditCardRepo, altInvestmentRepo)
 	sipService := services.NewSIPService(sipRepo, mfRepo)
 	notificationService := services.NewNotificationService(notificationRepo, homeLoanRepo, personalLoanRepo, fdRepo, bondRepo, sipRepo, creditCardRepo, altInvestmentRepo, goalService)
@@ -124,6 +127,9 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 	goldService := services.NewGoldService(goldRepo, priceFetcher)
 	propertyService := services.NewPropertyService(propertyRepo, homeLoanRepo)
 	netWorthService.SetPersonalFinanceRepos(bankRepo, goldRepo, propertyRepo, insuranceRepo)
+	netWorthService.SetOverdraftRepo(overdraftRepo)
+	dashboardService.SetOverdraftRepo(overdraftRepo)
+	cashflowService.SetOverdraftRepo(overdraftRepo)
 	exportService.SetPersonalFinanceRepos(bankRepo, goldRepo, propertyRepo, insuranceRepo)
 	taxService.SetInsuranceRepo(insuranceRepo)
 	taxService.SetIncomeRepos(propertyRepo, altInvestmentRepo)
@@ -155,6 +161,7 @@ func New(db *mongo.Database, cfg *config.Config) *Container {
 		StockHandler:               handlers.NewStockHandler(stockService),
 		HomeLoanHandler:            handlers.NewHomeLoanHandler(homeLoanService),
 		PersonalLoanHandler:        handlers.NewPersonalLoanHandler(personalLoanService),
+		OverdraftHandler:           handlers.NewOverdraftHandler(services.NewOverdraftService(overdraftRepo)),
 		ProjectionHandler:          handlers.NewProjectionHandler(projectionService),
 		DashboardHandler:           handlers.NewDashboardHandler(dashboardService),
 		NPSHandler:                 handlers.NewNPSHandler(npsService),

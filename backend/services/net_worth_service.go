@@ -26,6 +26,7 @@ type NetWorthService struct {
 	goldRepo          *repository.GoldRepo
 	propertyRepo      *repository.PropertyRepo
 	insuranceRepo     *repository.InsuranceRepo
+	overdraftRepo     *repository.OverdraftRepo
 }
 
 func NewNetWorthService(
@@ -60,6 +61,11 @@ func NewNetWorthService(
 // holdings so they count towards net worth.
 func (s *NetWorthService) SetPersonalFinanceRepos(bank *repository.BankAccountRepo, gold *repository.GoldRepo, property *repository.PropertyRepo, insurance *repository.InsuranceRepo) {
 	s.bankRepo, s.goldRepo, s.propertyRepo, s.insuranceRepo = bank, gold, property, insurance
+}
+
+// SetOverdraftRepo counts drawn overdraft balances as liabilities.
+func (s *NetWorthService) SetOverdraftRepo(repo *repository.OverdraftRepo) {
+	s.overdraftRepo = repo
 }
 
 func nonEmpty(values ...string) string {
@@ -157,6 +163,13 @@ func (s *NetWorthService) ListItems(ctx context.Context, userID string) []models
 			add("personal_loan", l.ID.Hex(), l.LenderName+" loan", "Personal Loans", l.OutstandingPrincipal, true)
 		}
 	}
+	if s.overdraftRepo != nil {
+		overdrafts, _ := s.overdraftRepo.GetAll(ctx, userID)
+		for i := range overdrafts {
+			ComputeOverdraft(&overdrafts[i], now)
+			add("overdraft", overdrafts[i].ID.Hex(), overdrafts[i].LenderName+" overdraft", "Overdrafts", overdrafts[i].Outstanding, true)
+		}
+	}
 	cards, _ := s.creditCardRepo.GetAll(ctx, userID)
 	for _, c := range cards {
 		if c.Status == "active" {
@@ -213,6 +226,7 @@ func (s *NetWorthService) TakeSnapshot(ctx context.Context, userID string) (*mod
 		HomeLoans:             current.Liabilities["Home Loans"],
 		PersonalLoans:         current.Liabilities["Personal Loans"],
 		CreditCardOutstanding: current.Liabilities["Credit Cards"],
+		OtherLiabilities:      current.Liabilities["Overdrafts"],
 		TotalLiabilities:      current.TotalLiabilities,
 		NetWorth:              current.NetWorth,
 	}
