@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { isAxiosError } from 'axios';
 import { Link } from 'react-router-dom';
 import { ledgerApi, type LedgerAccount, type LedgerContext, type LedgerDraft, type LedgerEntry } from '../api/ledger';
 import { useAuth } from '../context/AuthContext';
@@ -8,7 +9,7 @@ import {
   type DuplicateMatch,
 } from '../utils/ledgerMatching.mjs';
 import { localDate, manualSourceKey, parseSms, smsFingerprint, toPaise } from '../utils/smsParser.mjs';
-import { BankSms, hasAndroidSms } from '../native/sms';
+import { BankSms, hasAndroidSms, type SmsScanCursor } from '../native/sms';
 import './LedgerPage.css';
 
 const money = (paise: number) => (paise / 100).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
@@ -238,27 +239,64 @@ export default function LedgerPage() {
     if (!consent || isViewOnly || !ready || !scanValid) return;
     setBusy(true); setError(''); setNotice(''); setScanSummary('Scanning messages...');
     let queued = 0;
+    let existing = 0;
     let skipped = 0;
+    let failed = 0;
+    let scanned = 0;
     let unlinked = 0;
     let unassigned = 0;
+    const summary = () => `Checked ${scanned} inbox messages: ${queued} accepted for review, ${existing} already imported, ${skipped} skipped, ${failed} failed.`;
     try {
-      const result = await BankSms.scan(scanMode === 'date' ? { days: 90, sinceMs: scanFromMs } : { days });
-      for (const message of result.messages) {
-        const parsed = parseSms(message);
-        if (!parsed.draft) { skipped++; continue; }
-        const attributed = suggest({ ...parsed.draft, source_key: await smsFingerprint(message) });
-        const saved = (await ledgerApi.create(attributed.draft)).data;
-        queued++;
-        if (!saved.linked_account_id) unlinked++;
-        if (!saved.profile_id) unassigned++;
-      }
+      const knownKeys = new Set(entries.map(entry => entry.source_key));
+      const options = scanMode === 'date' ? { days: 90, sinceMs: scanFromMs } : { days };
+      let cursor: SmsScanCursor | undefined;
+      do {
+        const page = await BankSms.scan({ ...options, cursor });
+        if (!Number.isInteger(page.scanned) || page.scanned < page.messages.length) {
+          throw new Error('This Android app version does not support the full SMS scan. Update the app and retry.');
+        }
+        const omitted = page.scanned - page.messages.length;
+        scanned += omitted;
+        skipped += omitted;
+        for (const message of page.messages) {
+          scanned++;
+          let parsed: ReturnType<typeof parseSms>;
+          try {
+            parsed = parseSms(message);
+          } catch {
+            failed++;
+            continue;
+          }
+          if (!parsed.draft) { skipped++; continue; }
+          const source_key = await smsFingerprint(message);
+          if (knownKeys.has(source_key)) { existing++; continue; }
+          const attributed = suggest({ ...parsed.draft, source_key });
+          try {
+            const saved = (await ledgerApi.create(attributed.draft)).data;
+            knownKeys.add(source_key);
+            if (saved.status === 'pending') {
+              queued++;
+              if (!saved.linked_account_id) unlinked++;
+              if (!saved.profile_id) unassigned++;
+            } else {
+              existing++;
+            }
+          } catch (err) {
+            failed++;
+            // Continue if this draft alone was rejected; stop on auth, network or service errors.
+            if (!isAxiosError(err) || ![400, 422].includes(err.response?.status ?? 0)) throw err;
+          }
+        }
+        setScanSummary(`Scanning… ${summary()}`);
+        cursor = page.nextCursor;
+      } while (cursor);
       setStatus('pending'); setMonth(''); setMemberFilter('all'); setAccountFilter('all');
-      const summary = `Found ${result.messages.length} bank messages: ${queued} queued as pending for review, ${skipped} not recognized.${result.truncated ? ' Scan limit reached: choose a later start date.' : ''}`;
-      setScanSummary(summary);
-      setNotice(`${summary} Existing imports are kept, not duplicated. ${unlinked} could not be linked to one account; ${unassigned} have no suggested member. Review the account, member and possible duplicates on each pending record.`);
+      setScanSummary(summary());
+      setNotice(`${unlinked} pending alerts could not be linked to one account; ${unassigned} have no suggested member. Review the account, member and possible duplicates on each pending record.`);
+      if (failed) setError('Some messages could not be parsed or saved. The scan continued; use manual entry for any missing transactions.');
     } catch (err) {
-      const message = `${queued} alerts processed before scan stopped. ${apiErrorMessage(err, errorText(err))} Retry is safe for identical SMS records.`;
-      setError(message); setScanSummary(message);
+      setError(`${apiErrorMessage(err, errorText(err))} Retry is safe for identical SMS records.`);
+      setScanSummary(`Scan stopped before completing the window. ${summary()}`);
     } finally { setBusy(false); refresh(); }
   };
 
@@ -395,9 +433,9 @@ export default function LedgerPage() {
 
         <section className="card">
           <h2>Bank / credit-card SMS import</h2>
-          <p>Initial templates for HDFC, ICICI, Axis, SBI, OneCard and YES BANK. Parsing stays on this device. Only structured fields, SMS receipt time and a fingerprint are sent to your backend, not SMS bodies. Sender names are not proof of authenticity.</p>
+          <p>Recognizes common Indian bank, card, UPI and transfer SMS. App notifications and RCS are not scanned. Parsing stays on this device. Only structured fields, SMS receipt time and a fingerprint are sent to your backend, not SMS bodies. Sender names are not proof of authenticity.</p>
           {hasAndroidSms && <div className="ledger-import">
-            <label className="ledger-consent"><input type="checkbox" checked={consent} disabled={busy || !ready} onChange={e => setConsent(e.target.checked)} /> I allow this scan to read supported bank senders from my SMS inbox and save supported alerts as pending records to my account. OTPs and unrelated messages are excluded.</label>
+            <label className="ledger-consent"><input type="checkbox" checked={consent} disabled={busy || !ready} onChange={e => setConsent(e.target.checked)} /> I allow this scan to check my SMS inbox on this device and save recognized transaction alerts as pending records to my account. OTPs and unrelated messages are excluded.</label>
             <div className="form-row">
               <div className="form-group"><label htmlFor="scan-mode">Scan messages</label>
                 <select id="scan-mode" value={scanMode} onChange={e => setScanMode(e.target.value === 'days' ? 'days' : 'date')}>

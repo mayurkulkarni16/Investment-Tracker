@@ -19,16 +19,15 @@ var testNow = date(2026, time.January, 10)
 func ridojiRequest() models.CreateAlternateInvestmentRequest {
 	return models.CreateAlternateInvestmentRequest{
 		Provider:             "Ridoji",
-		AssetName:         "EV Scooty",
+		AssetName:            "EV Scooty",
 		Units:                2,
 		UnitPrice:            63000,
 		GSTPercent:           5,
 		PurchaseDate:         "2026-01-10",
-		PayoutStartDate:      "2026-02-10",
 		TenureMonths:         48,
 		MonthlyPayoutPerUnit: 3500,
 		BuybackPercent:       10,
-		Identifiers:  []string{" dl3s ab 1234 ", ""},
+		Identifiers:          []string{" dl3s ab 1234 ", ""},
 	}
 }
 
@@ -57,16 +56,20 @@ func TestApplyAlternateInvestmentRequestComputesAmounts(t *testing.T) {
 	if len(v.Payouts) != 48 || v.Payouts[0].Amount != 7000 {
 		t.Fatalf("schedule = %d payouts of %v, want 48 of 7000", len(v.Payouts), v.Payouts[0].Amount)
 	}
-	if !v.Payouts[47].ScheduledDate.Equal(date(2030, time.January, 10)) {
-		t.Errorf("last payout = %v, want 2030-01-10", v.Payouts[47].ScheduledDate)
+	if !v.Payouts[0].ScheduledDate.Equal(date(2026, time.February, 5)) ||
+		!v.Payouts[47].ScheduledDate.Equal(date(2030, time.January, 5)) {
+		t.Errorf("first/last payout = %v / %v, want 2026-02-05 / 2030-01-05", v.Payouts[0].ScheduledDate, v.Payouts[47].ScheduledDate)
 	}
 }
 
-func TestApplyAlternateInvestmentRequestRejectsPayoutBeforePurchase(t *testing.T) {
+func TestAlternateInvestmentIgnoresLegacyPayoutStartAndStartsNextMonth(t *testing.T) {
 	req := ridojiRequest()
+	req.AssetType = models.AltAssetOther
+	req.PurchaseDate = "2026-11-02"
 	req.PayoutStartDate = "2025-12-01"
-	if err := applyAlternateInvestmentRequest(&models.AlternateInvestment{}, req); err == nil {
-		t.Fatal("expected error when payouts start before purchase")
+	v := newRental(t, req)
+	if want := date(2026, time.December, 5); !v.PayoutStartDate.Equal(want) || !v.Payouts[0].ScheduledDate.Equal(want) {
+		t.Fatalf("first payout = %v (%v), want %v", v.PayoutStartDate, v.Payouts[0].ScheduledDate, want)
 	}
 }
 
@@ -88,26 +91,26 @@ func TestAddMonthsClampedHandlesMonthEnd(t *testing.T) {
 
 func TestComputeAlternateInvestmentOverdueAndNext(t *testing.T) {
 	v := newRental(t, ridojiRequest())
-	// Payouts on 10 Feb, 10 Mar, 10 Apr. Receive Feb only; evaluate on 12 Apr.
+	// Payouts on 5 Feb, 5 Mar, 5 Apr. Receive Feb only; evaluate on 10 Apr.
 	recv := date(2026, time.February, 11)
 	v.Payouts[0].Status = models.PayoutReceived
 	v.Payouts[0].ReceivedDate = &recv
 	v.Payouts[0].ReceivedAmount = 7000
 
-	ComputeAlternateInvestment(v, date(2026, time.April, 12))
+	ComputeAlternateInvestment(v, date(2026, time.April, 10))
 
 	if v.PayoutsReceivedCount != 1 || v.TotalPayoutsReceived != 7000 {
 		t.Errorf("received = %d / %v", v.PayoutsReceivedCount, v.TotalPayoutsReceived)
 	}
-	// March is >5 days late -> overdue; April (2 days late) is still within grace.
+	// March is >5 days late -> overdue; April (exactly 5 days late) is still within grace.
 	if v.OverdueCount != 1 || v.OverdueAmount != 7000 {
 		t.Errorf("overdue = %d / %v, want 1 / 7000", v.OverdueCount, v.OverdueAmount)
 	}
 	if !v.Payouts[1].IsOverdue || v.Payouts[2].IsOverdue {
 		t.Errorf("overdue flags = %v %v, want true false", v.Payouts[1].IsOverdue, v.Payouts[2].IsOverdue)
 	}
-	if v.NextPayoutDate == nil || !v.NextPayoutDate.Equal(date(2026, time.May, 10)) {
-		t.Errorf("next payout = %v, want 2026-05-10", v.NextPayoutDate)
+	if v.NextPayoutDate == nil || !v.NextPayoutDate.Equal(date(2026, time.May, 5)) {
+		t.Errorf("next payout = %v, want 2026-05-05", v.NextPayoutDate)
 	}
 	if v.Status != models.AltInvestmentActive {
 		t.Errorf("status = %v", v.Status)
@@ -201,7 +204,6 @@ func girCowRequest() models.CreateAlternateInvestmentRequest {
 		Units:                1,
 		UnitPrice:            200000,
 		PurchaseDate:         "2026-11-09",
-		PayoutStartDate:      "2026-12-09",
 		TenureMonths:         0,
 		MonthlyPayoutPerUnit: 20000,
 		ValuationMethod:      models.AltValuationAtCost,
@@ -225,7 +227,7 @@ func TestOpenEndedLivestockScheduleAndMetrics(t *testing.T) {
 	now := date(2026, time.November, 9)
 	v := newOpenEnded(t, girCowRequest(), now)
 
-	// 9 Dec 2026 .. 9 Nov 2027: everything up to 12 months past today.
+	// 5 Dec 2026 .. 5 Nov 2027: everything up to 12 months past today.
 	if len(v.Payouts) != 12 {
 		t.Fatalf("payouts = %d, want 12", len(v.Payouts))
 	}
@@ -234,6 +236,11 @@ func TestOpenEndedLivestockScheduleAndMetrics(t *testing.T) {
 	}
 
 	ComputeAlternateInvestment(v, now)
+	if v.BillingStartDate == nil || !v.BillingStartDate.Equal(date(2026, time.November, 24)) ||
+		!v.Payouts[0].ScheduledDate.Equal(date(2026, time.December, 5)) ||
+		v.Payouts[0].Amount != 4666.67 || v.Payouts[1].Amount != 20000 {
+		t.Fatalf("billing start %v; first two payouts: %+v", v.BillingStartDate, v.Payouts[:2])
+	}
 	if !v.OpenEnded || v.Status != models.AltInvestmentActive {
 		t.Errorf("open_ended = %v, status = %v", v.OpenEnded, v.Status)
 	}
@@ -260,7 +267,7 @@ func TestOpenEndedScheduleExtendsAndKeepsReceipts(t *testing.T) {
 
 	ComputeAlternateInvestment(v, date(2027, time.June, 9))
 
-	// Now runs to 9 Jun 2028: Dec 2026 .. Jun 2028 = 19 payouts.
+	// Now runs through 5 Jun 2028: Dec 2026 .. Jun 2028 = 19 payouts.
 	if len(v.Payouts) != 19 {
 		t.Fatalf("payouts = %d, want 19", len(v.Payouts))
 	}
@@ -281,11 +288,81 @@ func TestPendingAltPayoutsBetweenContinuesOpenEnded(t *testing.T) {
 	ComputeAlternateInvestment(v, now)
 
 	// (9 Nov 2026, 9 Nov 2028] holds 24 monthly payouts, 12 beyond the generated schedule.
-	if got := pendingAltPayoutsBetween(v, now, now.AddDate(2, 0, 0)); got != 24*20000 {
-		t.Errorf("pending payouts over 2 years = %v, want %v", got, 24*20000)
+	if got := pendingAltPayoutsBetween(v, now, now.AddDate(2, 0, 0)); math.Abs(got-(23*20000+4666.67)) > 0.001 {
+		t.Errorf("pending payouts over 2 years = %v, want 464666.67", got)
 	}
-	if r := promisedAltReturn(v, now); r < 200 || r > 300 {
-		t.Errorf("promised return = %v%%, want ~240%% (20k/month on 2L held at cost)", r)
+	if r := promisedAltReturn(v, now); r < 180 || r > 240 {
+		t.Errorf("promised return = %v%%, want 180-240%% with the first payout prorated", r)
+	}
+}
+
+func TestFixedLivestockPayoutsCoverEntireBillingTerm(t *testing.T) {
+	cases := []struct {
+		purchase, start, first, last string
+		tenure, count                int
+		firstAmount, lastAmount      float64
+	}{
+		{"2026-11-22", "2026-12-07", "2027-01-05", "2028-01-05", 12, 13, 16129.03, 3870.97},
+		{"2026-11-16", "2026-12-01", "2027-01-05", "2027-12-05", 12, 12, 20000, 20000},
+		{"2028-02-14", "2028-02-29", "2028-03-05", "2028-04-05", 1, 2, 689.66, 18064.52},
+		{"2026-01-16", "2026-01-31", "2026-02-05", "2026-03-05", 1, 2, 645.16, 19285.71},
+	}
+	for _, tc := range cases {
+		t.Run(tc.purchase, func(t *testing.T) {
+			req := girCowRequest()
+			req.PurchaseDate, req.TenureMonths, req.BuybackPercent = tc.purchase, tc.tenure, 10
+			v := newRental(t, req)
+			ComputeAlternateInvestment(v, testNow)
+			if got := len(v.Payouts); got != tc.count {
+				t.Fatalf("payout count = %d, want %d", got, tc.count)
+			}
+			first, last := v.Payouts[0], v.Payouts[tc.count-1]
+			const layout = "2006-01-02"
+			if v.BillingStartDate == nil || v.BillingStartDate.Format(layout) != tc.start ||
+				first.ScheduledDate.Format(layout) != tc.first || first.Amount != tc.firstAmount ||
+				last.ScheduledDate.Format(layout) != tc.last || last.Amount != tc.lastAmount ||
+				!v.AgreementEndDate.Equal(last.ScheduledDate) {
+				t.Fatalf("billing start %v; first/last payouts %+v / %+v; agreement end %v", v.BillingStartDate, first, last, v.AgreementEndDate)
+			}
+			wantTotal := round2(tc.firstAmount + tc.lastAmount + float64(tc.count-2)*20000)
+			if v.ExpectedTotalPayout != wantTotal || pendingAltPayoutsBetween(v, first.ScheduledDate.AddDate(0, 0, -1), first.ScheduledDate) != tc.firstAmount {
+				t.Fatalf("total = %v, want %v; first installment must be projected in its own period", v.ExpectedTotalPayout, wantTotal)
+			}
+		})
+	}
+}
+
+func TestAltScheduleUpgradePreservesLegacyReceiptAndCanonicalEnd(t *testing.T) {
+	req := ridojiRequest()
+	req.TenureMonths = 2
+	v := newRental(t, req)
+	v.ScheduleVersion, v.PayoutStartDate = 0, date(2026, time.January, 10)
+	v.Payouts[0].ScheduledDate = v.PayoutStartDate
+	last := v.Payouts[1]
+	last.ScheduledDate, last.Status, last.ReceivedAmount = date(2026, time.February, 10), models.PayoutReceived, 6150
+	last.Amount = 6800
+	v.Payouts[1] = last // Missing actual date: cashflows fall back to the historical scheduled date.
+	oldPendingID := v.Payouts[0].PayoutID
+	if changed, err := UpgradeAlternateInvestmentSchedule(v, testNow); err != nil || !changed {
+		t.Fatalf("upgrade = %t, %v", changed, err)
+	}
+	ComputeAlternateInvestment(v, testNow)
+	wantEnd := date(2026, time.March, 5)
+	if v.Payouts[1] != last || v.Payouts[0].PayoutID != oldPendingID ||
+		!v.Payouts[0].ScheduledDate.Equal(date(2026, time.February, 5)) || !v.AgreementEndDate.Equal(wantEnd) {
+		t.Fatalf("upgraded payouts = %+v, agreement end = %v", v.Payouts, v.AgreementEndDate)
+	}
+	flows := AlternateInvestmentCashflows(v)
+	if len(flows) != 2 || !flows[1].Date.Equal(last.ScheduledDate) || flows[1].Amount != 6150 {
+		t.Fatalf("historical cashflows changed: %+v", flows)
+	}
+	if changed, err := UpgradeAlternateInvestmentSchedule(v, testNow); err != nil || changed {
+		t.Fatalf("second upgrade = %t, %v", changed, err)
+	}
+	resetAltPayout(v, 1)
+	if p := v.Payouts[1]; !p.ScheduledDate.Equal(wantEnd) || p.PayoutID != last.PayoutID || p.Amount != 7000 ||
+		p.Status != models.PayoutPending || p.ReceivedDate != nil || p.ReceivedAmount != 0 {
+		t.Fatalf("reset installment = %+v", p)
 	}
 }
 

@@ -69,11 +69,13 @@ ledger records are not automatically changed; link and assign them when reviewin
 Both people using one login can see, edit and delete all household data. Family
 profiles and the device preference are not separate accounts or access controls.
 
-The scan is limited to 5,000 examined inbox messages / 500 matching bank messages
-per run. A visible truncation notice requests a shorter scan window. Parser
-coverage is conservative: issuer support does not mean every sender alias or SMS
-template is understood. Unsupported messages are counted and not guessed.
-Use manual entry for them, or paste a supported message to preview it.
+The scan checks the entire selected inbox window (up to 90 days) in pages and
+reports how many messages were checked, accepted, already imported, skipped or
+failed. It recognizes common Indian bank, credit/debit card, UPI and bank
+transfer SMS, including bank alerts for payments made through Google Pay, Navi,
+Kiwi or CRED. It does not read their app notifications or RCS. No issuer or app
+is guaranteed to send an SMS or use a recognized template for every transaction.
+Use manual entry for missing alerts, or paste a message to preview it.
 
 SMS bodies are read temporarily on-device, parsed locally and not stored by the
 app or uploaded to the API. The backend stores structured financial fields,

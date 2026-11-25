@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
+	"investment-tracker/repository"
 	"investment-tracker/services"
 
 	"github.com/gin-gonic/gin"
@@ -10,13 +12,15 @@ import (
 
 // respondError maps service errors to HTTP status codes: not found (including
 // records owned by another user and malformed IDs) -> 404, invalid input -> 400,
-// anything else -> 500.
+// concurrent alternate-investment updates -> 409, anything else -> 500.
 func respondError(c *gin.Context, err error) {
 	switch {
 	case services.IsNotFound(err):
 		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 	case services.IsInvalidInput(err):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	case errors.Is(err, repository.ErrAlternateInvestmentChanged):
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}

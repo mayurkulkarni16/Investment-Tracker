@@ -186,7 +186,9 @@ func (s *NotificationService) GenerateNotifications(ctx context.Context, userID 
 				DedupeKey:     dedupeKey("rental_overdue", vr.ID.Hex(), latestOverdue),
 			})
 		}
-		if !vr.OpenEnded && vr.BuybackAmount > 0 && vr.BuybackStatus == models.PayoutPending && !vr.AgreementEndDate.Before(now) && !vr.AgreementEndDate.After(now.AddDate(0, 0, 30)) {
+		today := altCalendarDate(now)
+		end := altCalendarDate(vr.AgreementEndDate)
+		if !vr.OpenEnded && vr.BuybackAmount > 0 && vr.BuybackStatus == models.PayoutPending && !end.Before(today) && !end.After(today.AddDate(0, 0, 30)) {
 			generated = append(generated, models.Notification{
 				Type:          "rental_buyback",
 				Title:         "Investment Agreement Ending",

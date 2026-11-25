@@ -5,6 +5,7 @@ import {
 } from '../api/alternateInvestments';
 import type { AlternateInvestment, AltPayout, AltAssetType, AltValuationMethod, CreateAlternateInvestmentRequest } from '../types';
 import { formatCurrency, formatDate, formatPercent, toInputDate, statusLabel } from '../utils/format';
+import { impliedAnnualReturn, previewAltSchedule, roundPayout } from '../utils/alternateInvestmentSchedule';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
@@ -55,7 +56,7 @@ const TYPE_DEFAULTS: Record<AltAssetType, Pick<CreateAlternateInvestmentRequest,
 
 const emptyForm: CreateAlternateInvestmentRequest = {
   asset_type: 'vehicle', provider: '', asset_name: '', units: 1, unit_price: 0, other_charges: 0,
-  purchase_date: '', payout_start_date: '', monthly_payout_per_unit: 0, manual_value: 0,
+  purchase_date: '', monthly_payout_per_unit: 0, manual_value: 0,
   daily_yield_litres: 0, price_per_litre: 0, identifiers: [], agreement_number: '', notes: '',
   ...TYPE_DEFAULTS.vehicle,
 };
@@ -66,24 +67,28 @@ interface Preset {
   values: Partial<CreateAlternateInvestmentRequest> & { asset_type: AltAssetType };
 }
 
-// Brochure figures, used only to pre-fill the form. Operators change the rate
-// offered to new investors, so each saved investment keeps its own terms.
-const EZU_NOTE = 'EZU Electric brochure (Nov 2026), price incl. GST. Tenure and buyback are not stated in the brochure; take them from your agreement.';
-const AMRUTHA_NOTE = 'Amrutha Farms brochure (Nov 2026). No fixed term is stated, so this is open-ended and held at cost.';
+const EZU_NOTE = 'Enter the price (incl. GST), monthly payout, tenure and buyback from your EZU Electric agreement.';
+const RIDOJI_NOTE = 'Enter the price (incl. GST), monthly payout, tenure and buyback from your Ridoji agreement.';
+const AMRUTHA_NOTE = 'Enter current prices and monthly payout. The Amrutha Farms brochure (Nov 2026) does not state a fixed term, so this is open-ended and held at cost.';
 const PRESETS: Preset[] = [
-  { label: 'EZU Electric · 2 vehicles', note: EZU_NOTE, values: { asset_type: 'vehicle', provider: 'EZU Electric', asset_name: 'EV Scooter', units: 2, unit_price: 68000, gst_percent: 0, monthly_payout_per_unit: 4000 } },
-  { label: 'EZU Electric · 5 vehicles', note: EZU_NOTE, values: { asset_type: 'vehicle', provider: 'EZU Electric', asset_name: 'EV Scooter', units: 5, unit_price: 67000, gst_percent: 0, monthly_payout_per_unit: 4400 } },
-  { label: 'EZU Electric · 10 vehicles', note: EZU_NOTE, values: { asset_type: 'vehicle', provider: 'EZU Electric', asset_name: 'EV Scooter', units: 10, unit_price: 66000, gst_percent: 0, monthly_payout_per_unit: 4700 } },
-  { label: 'EZU Electric · 20 vehicles', note: EZU_NOTE, values: { asset_type: 'vehicle', provider: 'EZU Electric', asset_name: 'EV Scooter', units: 20, unit_price: 66000, gst_percent: 0, monthly_payout_per_unit: 4700 } },
+  {
+    label: 'EZU Electric', note: EZU_NOTE,
+    values: { asset_type: 'vehicle', provider: 'EZU Electric', asset_name: 'EV Scooter', gst_percent: 5 },
+  },
+  { label: 'Ridoji', note: RIDOJI_NOTE, values: { asset_type: 'vehicle', provider: 'Ridoji', asset_name: '', gst_percent: 5 } },
   {
     label: 'Amrutha Farms · Gir cow', note: AMRUTHA_NOTE,
-    values: { asset_type: 'livestock', provider: 'Amrutha Farms', asset_name: 'Gir', units: 1, unit_price: 200000, gst_percent: 0, monthly_payout_per_unit: 20000, tenure_months: 0, buyback_percent: 0, valuation_method: 'at_cost', daily_yield_litres: 15, price_per_litre: 100 },
+    values: { asset_type: 'livestock', provider: 'Amrutha Farms', asset_name: 'Gir', units: 1, gst_percent: 0, tenure_months: 0, buyback_percent: 0, valuation_method: 'at_cost', daily_yield_litres: 15 },
   },
   {
     label: 'Amrutha Farms · Jersey cow', note: AMRUTHA_NOTE,
-    values: { asset_type: 'livestock', provider: 'Amrutha Farms', asset_name: 'Jersey', units: 1, unit_price: 300000, gst_percent: 0, monthly_payout_per_unit: 35000, tenure_months: 0, buyback_percent: 0, valuation_method: 'at_cost', daily_yield_litres: 30, price_per_litre: 60 },
+    values: { asset_type: 'livestock', provider: 'Amrutha Farms', asset_name: 'Jersey', units: 1, gst_percent: 0, tenure_months: 0, buyback_percent: 0, valuation_method: 'at_cost', daily_yield_litres: 30 },
   },
 ];
+
+// The form takes the GST-inclusive price; the API stores the ex-GST unit price.
+const exGstPrice = (inclGst: number, gstPercent: number) => inclGst / (1 + gstPercent / 100);
+const inclGstPrice = (exGst: number, gstPercent: number) => Math.round(exGst * (1 + gstPercent / 100) * 100) / 100;
 
 const VALUATION_LABELS: Record<AltValuationMethod, string> = {
   straight_line: 'Straight-line down to the buyback value',
@@ -97,21 +102,12 @@ const todayInput = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-// Annualised IRR of: pay `cost` now, receive `monthly` for `months` months, then `terminal`.
-function impliedAnnualReturn(cost: number, monthly: number, months: number, terminal: number): number | null {
-  if (cost <= 0 || monthly <= 0 || months <= 0) return null;
-  const pv = (r: number) => {
-    let s = 0;
-    for (let i = 1; i <= months; i++) s += monthly / Math.pow(1 + r, i);
-    return s + terminal / Math.pow(1 + r, months);
-  };
-  let lo = -0.5, hi = 1;
-  for (let k = 0; k < 200; k++) {
-    const mid = (lo + hi) / 2;
-    if (pv(mid) > cost) lo = mid; else hi = mid;
-  }
-  return (Math.pow(1 + lo, 12) - 1) * 100;
-}
+const payoutCurrency = new Intl.NumberFormat('en-IN', {
+  style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 2,
+});
+const calendarDateFormat = new Intl.DateTimeFormat('en-IN', {
+  day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC',
+});
 
 type PayoutState = 'received' | 'overdue' | 'due' | 'upcoming';
 
@@ -135,7 +131,7 @@ interface ReceiptDraft {
 const formFromInvestment = (v: AlternateInvestment): CreateAlternateInvestmentRequest => ({
   asset_type: v.asset_type || 'vehicle', provider: v.provider, asset_name: v.asset_name, units: v.units,
   unit_price: v.unit_price, gst_percent: v.gst_percent, other_charges: v.other_charges,
-  purchase_date: toInputDate(v.purchase_date), payout_start_date: toInputDate(v.payout_start_date),
+  purchase_date: toInputDate(v.purchase_date),
   tenure_months: v.tenure_months, monthly_payout_per_unit: v.monthly_payout_per_unit,
   buyback_percent: v.buyback_percent, valuation_method: v.valuation_method || 'straight_line',
   manual_value: v.manual_value || 0, daily_yield_litres: v.daily_yield_litres || 0, price_per_litre: v.price_per_litre || 0,
@@ -152,6 +148,7 @@ export default function AlternateInvestmentsPage() {
   const [form, setForm] = useState<CreateAlternateInvestmentRequest>(emptyForm);
   const [idText, setIdText] = useState('');
   const [presetNote, setPresetNote] = useState('');
+  const [priceInclGst, setPriceInclGst] = useState(0);
   const [typeFilter, setTypeFilter] = useState<AltAssetType | 'all'>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<ReceiptDraft | null>(null);
@@ -168,34 +165,50 @@ export default function AlternateInvestmentsPage() {
   const openAdd = () => {
     const assetType = typeFilter === 'all' ? 'vehicle' : typeFilter;
     setForm({ ...emptyForm, asset_type: assetType, ...TYPE_DEFAULTS[assetType] });
-    setIdText(''); setPresetNote(''); setEditing('new');
+    setIdText(''); setPresetNote(''); setPriceInclGst(0); setEditing('new');
   };
 
   const openEdit = (v: AlternateInvestment) => {
     setForm(formFromInvestment(v));
     setIdText((v.identifiers || []).join(', '));
     setPresetNote('');
+    setPriceInclGst(inclGstPrice(v.unit_price, v.gst_percent));
     setEditing(v);
   };
 
   // Starts a new investment with the same terms. Dates, identifiers and the
   // agreement number are cleared, since they belong to the original agreement.
   const openDuplicate = (v: AlternateInvestment) => {
-    setForm({ ...formFromInvestment(v), purchase_date: '', payout_start_date: '', identifiers: [], agreement_number: '' });
+    setForm({ ...formFromInvestment(v), purchase_date: '', identifiers: [], agreement_number: '' });
     setIdText('');
     setPresetNote('Copied from an existing investment. Check the rate and dates against the new agreement.');
+    setPriceInclGst(inclGstPrice(v.unit_price, v.gst_percent));
     setEditing('new');
   };
 
   const changeAssetType = (assetType: AltAssetType) => {
-    setForm({ ...form, asset_type: assetType, ...(editing === 'new' ? TYPE_DEFAULTS[assetType] : {}) });
+    const next = { ...form, asset_type: assetType, ...(editing === 'new' ? TYPE_DEFAULTS[assetType] : {}) };
+    setForm({ ...next, unit_price: exGstPrice(priceInclGst, next.gst_percent) });
   };
 
   const applyPreset = (index: string) => {
     const preset = PRESETS[Number(index)];
-    if (!preset) return;
-    setForm({ ...form, ...TYPE_DEFAULTS[preset.values.asset_type], ...preset.values });
+    if (!preset || index === '') return;
+    setForm({
+      ...form, ...TYPE_DEFAULTS[preset.values.asset_type], ...preset.values,
+      unit_price: 0, monthly_payout_per_unit: 0, price_per_litre: 0,
+    });
+    setPriceInclGst(0);
     setPresetNote(preset.note);
+  };
+
+  const changePriceInclGst = (price: number) => {
+    setPriceInclGst(price);
+    setForm({ ...form, unit_price: exGstPrice(price, form.gst_percent) });
+  };
+
+  const changeGstPercent = (gstPercent: number) => {
+    setForm({ ...form, gst_percent: gstPercent, unit_price: exGstPrice(priceInclGst, gstPercent) });
   };
 
   const setOpenEnded = (openEnded: boolean) => {
@@ -271,7 +284,7 @@ export default function AlternateInvestmentsPage() {
     const due = investment.payouts.filter(p => p.status === 'pending' && toInputDate(p.scheduled_date) <= today);
     if (due.length === 0) { toast('No due payouts to mark'); return; }
     const total = due.reduce((s, p) => s + p.amount, 0);
-    if (!await confirm({ message: `Confirm you received all ${due.length} due payout(s) totalling ${formatCurrency(total)} in full, on their scheduled dates?`, confirmLabel: 'Mark received' })) return;
+    if (!await confirm({ message: `Confirm you received all ${due.length} due payout(s) totalling ${payoutCurrency.format(total)} in full, on their scheduled dates?`, confirmLabel: 'Mark received' })) return;
     try {
       const res = await markDueAltPayoutsReceived(investment.id);
       replaceItem(res.data);
@@ -298,13 +311,18 @@ export default function AlternateInvestmentsPage() {
   const openEnded = form.tenure_months === 0;
   const assetCost = form.units * form.unit_price;
   const previewInvestment = assetCost * (1 + form.gst_percent / 100) + form.other_charges;
-  const previewMonthly = form.units * form.monthly_payout_per_unit;
-  const previewPayouts = previewMonthly * form.tenure_months;
-  const previewBuyback = assetCost * form.buyback_percent / 100;
-  // Open-ended: one year of payouts, ending at the year-end book value.
-  const previewIrr = openEnded
-    ? impliedAnnualReturn(previewInvestment, previewMonthly, 12, form.valuation_method === 'manual' ? form.manual_value : previewInvestment)
-    : impliedAnnualReturn(previewInvestment, previewMonthly, form.tenure_months, previewBuyback);
+  const previewMonthly = roundPayout(form.units * form.monthly_payout_per_unit);
+  const previewBuyback = roundPayout(assetCost * form.buyback_percent / 100);
+  const legacyCompleted = editing && editing !== 'new' && editing.status === 'completed' && !editing.schedule_version ? editing : null;
+  const previewSchedule = editing && !legacyCompleted ? previewAltSchedule(form) : null;
+  const firstPayout = previewSchedule?.payouts[0];
+  const lastPayout = previewSchedule?.payouts.at(-1);
+  const previewPayoutTotal = previewSchedule?.payouts.reduce((sum, p) => sum + p.amount, 0);
+  const previewIrr = previewSchedule && lastPayout
+    ? impliedAnnualReturn(roundPayout(previewInvestment), previewSchedule.purchase, previewSchedule.payouts, openEnded
+      ? { date: previewSchedule.yearEnd, amount: form.valuation_method === 'manual' ? form.manual_value : previewInvestment }
+      : { date: lastPayout.date, amount: previewBuyback })
+    : null;
   const previewMilkRevenue = form.asset_type === 'livestock' ? form.units * form.daily_yield_litres * form.price_per_litre * 30 : 0;
 
   return (
@@ -397,7 +415,7 @@ export default function AlternateInvestmentsPage() {
                   {v.overdue_count > 0 && <span className="badge badge-overdue ml-2">{v.overdue_count} overdue</span>}
                 </h3>
                 <div className="text-muted text-md">
-                  {unitsLabel(type, v.units)} · {formatDate(v.purchase_date)} → {v.open_ended ? 'open-ended' : formatDate(v.agreement_end_date)}
+                  {unitsLabel(type, v.units)} · {formatDate(v.purchase_date)} → {v.open_ended ? 'open-ended' : calendarDateFormat.format(new Date(v.agreement_end_date))}
                   {v.agreement_number ? ` · Agreement ${v.agreement_number}` : ''}
                 </div>
               </div>
@@ -422,7 +440,7 @@ export default function AlternateInvestmentsPage() {
               <div><span className="text-muted text-sm">Invested</span><div className="fw-semibold">{formatCurrency(v.investment_amount)}</div></div>
               <div><span className="text-muted text-sm">Monthly Payout</span><div className="fw-semibold">{formatCurrency(v.monthly_payout)} <span className="text-muted text-sm">({formatCurrency(v.monthly_payout_per_unit)}/{ASSET_TYPES[type].unit})</span></div></div>
               <div><span className="text-muted text-sm">Payouts Received</span><div className="fw-semibold">{v.open_ended ? v.payouts_received_count : `${v.payouts_received_count} / ${v.payouts.length}`} · {formatCurrency(v.total_payouts_received)}</div></div>
-              <div><span className="text-muted text-sm">Next Payout</span><div className="fw-semibold">{v.next_payout_date ? formatDate(v.next_payout_date) : '-'}</div></div>
+              <div><span className="text-muted text-sm">Next Payout</span><div className="fw-semibold">{v.next_payout_date ? calendarDateFormat.format(new Date(v.next_payout_date)) : '-'}</div></div>
               <div><span className="text-muted text-sm">Capital Recovered</span><div className="fw-semibold">{(v.capital_recovered_pct || 0).toFixed(1)}%</div></div>
               <div><span className="text-muted text-sm">Break-even<InfoTooltip tip="Months of payouts needed to get the amount invested back." /></span><div className="fw-semibold">{v.break_even_months > 0 ? `${v.break_even_months.toFixed(1)} months` : '-'}</div></div>
               <div><span className="text-muted text-sm">Book Value</span><div className="fw-semibold">{formatCurrency(v.current_value)}</div></div>
@@ -446,6 +464,9 @@ export default function AlternateInvestmentsPage() {
                     <button className="btn btn-sm btn-success" onClick={() => markAllDue(v)}>Mark all due as received ({dueCount})</button>
                   )}
                 </div>
+                {v.billing_start_date && (
+                  <p className="text-muted text-sm mb-2">Billing from {calendarDateFormat.format(new Date(v.billing_start_date))}; payouts on the 5th after each billing month.</p>
+                )}
                 {v.open_ended && <p className="text-muted text-sm mb-2">Open-ended: the schedule always runs 12 months ahead.</p>}
                 <div className="table-container mb-4" style={{ maxHeight: 420, overflowY: 'auto' }}>
                   <table>
@@ -457,14 +478,14 @@ export default function AlternateInvestmentsPage() {
                         return (
                           <tr key={p.payout_id}>
                             <td>{idx + 1}</td>
-                            <td>{formatDate(p.scheduled_date)}</td>
-                            <td className="num">{formatCurrency(p.amount)}</td>
+                            <td>{calendarDateFormat.format(new Date(p.scheduled_date))}</td>
+                            <td className="num">{payoutCurrency.format(p.amount)}</td>
                             <td><span className={`badge ${stateBadge[st]}`}>{st}</span></td>
                             <td>
                               {p.status === 'received' ? (
                                 <>
-                                  {formatCurrency(p.received_amount)} on {formatDate(p.received_date || p.scheduled_date)}
-                                  {short && <span className="badge badge-overdue ml-2">short {formatCurrency(p.amount - p.received_amount)}</span>}
+                                  {payoutCurrency.format(p.received_amount)} on {formatDate(p.received_date || p.scheduled_date)}
+                                  {short && <span className="badge badge-overdue ml-2">short {payoutCurrency.format(p.amount - p.received_amount)}</span>}
                                 </>
                               ) : '-'}
                             </td>
@@ -488,7 +509,7 @@ export default function AlternateInvestmentsPage() {
                         <thead><tr><th>Due</th><th className="num">Amount</th><th>Status</th><th>Received</th><th>Action</th></tr></thead>
                         <tbody>
                           <tr>
-                            <td>{formatDate(v.agreement_end_date)}</td>
+                            <td>{calendarDateFormat.format(new Date(v.agreement_end_date))}</td>
                             <td className="num">{formatCurrency(v.buyback_amount)}</td>
                             <td><span className={`badge badge-${v.buyback_status}`}>{v.buyback_status}</span></td>
                             <td>{v.buyback_status === 'received' ? `${formatCurrency(v.buyback_received)} on ${formatDate(v.buyback_received_date || '')}` : '-'}</td>
@@ -549,12 +570,15 @@ export default function AlternateInvestmentsPage() {
                   <input type="number" min={1} step={1} required value={form.units || ''} onChange={e => setForm({ ...form, units: parseInt(e.target.value) || 0 })} />
                 </div>
                 <div className="form-group">
-                  <label>Price per {meta.unit}, ex-GST (₹)</label>
-                  <input type="number" min={0} step="0.01" required value={form.unit_price || ''} onChange={e => setForm({ ...form, unit_price: parseFloat(e.target.value) || 0 })} />
+                  <label>Price per {meta.unit}, incl. GST (₹)</label>
+                  <input type="number" min={0} step="0.01" required value={priceInclGst || ''} onChange={e => changePriceInclGst(parseFloat(e.target.value) || 0)} />
+                  {form.gst_percent > 0 && form.unit_price > 0 && (
+                    <small className="text-muted">Ex-GST {payoutCurrency.format(Math.round(form.unit_price * 100) / 100)}</small>
+                  )}
                 </div>
                 <div className="form-group">
-                  <label>GST (%)</label>
-                  <input type="number" min={0} max={100} step="0.01" value={form.gst_percent} onChange={e => setForm({ ...form, gst_percent: parseFloat(e.target.value) || 0 })} />
+                  <label>GST Rate (%)</label>
+                  <input type="number" min={0} max={100} step="0.01" value={form.gst_percent} onChange={e => changeGstPercent(parseFloat(e.target.value) || 0)} />
                 </div>
               </div>
               <div className="form-row-3">
@@ -567,8 +591,22 @@ export default function AlternateInvestmentsPage() {
                   <input type="date" required value={form.purchase_date} onChange={e => setForm({ ...form, purchase_date: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label>First Payout Date</label>
-                  <input type="date" required min={form.purchase_date || undefined} value={form.payout_start_date} onChange={e => setForm({ ...form, payout_start_date: e.target.value })} />
+                  <span className="text-muted text-sm">First Payout</span>
+                  {legacyCompleted ? (
+                    <div>{calendarDateFormat.format(new Date(legacyCompleted.payout_start_date))} · Completed schedule</div>
+                  ) : (
+                    <div aria-live="polite">
+                      {firstPayout
+                        ? `${calendarDateFormat.format(firstPayout.date)}${previewMonthly > 0 ? ` · ${payoutCurrency.format(firstPayout.amount)}` : ''}`
+                        : 'Enter the purchase date'}
+                    </div>
+                  )}
+                  {!legacyCompleted && <small className="text-muted">{form.asset_type === 'livestock'
+                    ? 'Billing starts 15 days after purchase. Paid on the 5th after each billing month.'
+                    : 'Paid on the 5th of each month, starting the month after purchase.'}</small>}
+                  {previewSchedule?.billingStart && (
+                    <div className="text-sm">Billing starts {calendarDateFormat.format(previewSchedule.billingStart)}</div>
+                  )}
                 </div>
               </div>
               <div className="form-row-3">
@@ -636,12 +674,15 @@ export default function AlternateInvestmentsPage() {
                   <div className="form-row gap-2">
                     <div>Total investment: <strong>{formatCurrency(previewInvestment)}</strong></div>
                     <div>Monthly payout: <strong>{formatCurrency(previewMonthly)}</strong></div>
-                    {openEnded
-                      ? <div>Payouts per year: <strong>{formatCurrency(previewMonthly * 12)}</strong></div>
-                      : <div>Total payouts ({form.tenure_months} mo): <strong>{formatCurrency(previewPayouts)}</strong></div>}
+                    {previewPayoutTotal !== undefined && (
+                      <div>{openEnded ? 'First year payouts' : `Total payouts (${previewSchedule?.payouts.length} installments)`}: <strong>{payoutCurrency.format(previewPayoutTotal)}</strong></div>
+                    )}
+                    {!openEnded && lastPayout && (
+                      <div>Final payout / agreement end: <strong>{calendarDateFormat.format(lastPayout.date)} · {payoutCurrency.format(lastPayout.amount)}</strong></div>
+                    )}
                     {!openEnded && <div>Buyback: <strong>{formatCurrency(previewBuyback)}</strong></div>}
-                    <div>Money back in: <strong>{(previewInvestment / previewMonthly).toFixed(1)} months</strong></div>
-                    <div>Promised return: <strong>{previewIrr === null ? '-' : `${previewIrr.toFixed(0)}% / year`}</strong></div>
+                    <div>Investment equals <strong>{(previewInvestment / previewMonthly).toFixed(1)} full monthly payouts</strong></div>
+                    <div>Estimated annual return: <strong>{previewIrr === null ? '-' : `${previewIrr.toFixed(0)}% / year`}</strong></div>
                   </div>
                   {previewMilkRevenue > 0 && (
                     <div className="text-muted mt-2">
@@ -671,7 +712,7 @@ export default function AlternateInvestmentsPage() {
             <h2>{receipt.payout ? 'Record Payout Received' : 'Record Buyback Received'}</h2>
             <p className="text-muted text-md mb-3">
               {receipt.payout
-                ? `Scheduled ${formatDate(receipt.payout.scheduled_date)} · ${formatCurrency(receipt.payout.amount)}`
+                ? `Scheduled ${calendarDateFormat.format(new Date(receipt.payout.scheduled_date))} · ${payoutCurrency.format(receipt.payout.amount)}`
                 : `Buyback ${formatCurrency(receipt.investment.buyback_amount)}`}
             </p>
             <form onSubmit={saveReceipt}>
@@ -682,7 +723,7 @@ export default function AlternateInvestmentsPage() {
                 </div>
                 <div className="form-group">
                   <label>Amount Received (₹)</label>
-                  <input type="number" min={0} step="0.01" required value={receipt.amount || ''} onChange={e => setReceipt({ ...receipt, amount: parseFloat(e.target.value) || 0 })} />
+                  <input type="number" min={0} step="0.01" required value={receipt.amount} onChange={e => setReceipt({ ...receipt, amount: parseFloat(e.target.value) || 0 })} />
                 </div>
               </div>
               <div className="modal-actions">

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"investment-tracker/models"
@@ -15,6 +16,8 @@ import (
 type AlternateInvestmentRepo struct {
 	collection *mongo.Collection
 }
+
+var ErrAlternateInvestmentChanged = errors.New("investment changed; refresh and try again")
 
 func NewAlternateInvestmentRepo(db *mongo.Database) *AlternateInvestmentRepo {
 	return &AlternateInvestmentRepo{collection: db.Collection("vehicle_rentals")}
@@ -59,12 +62,52 @@ func (r *AlternateInvestmentRepo) GetByID(ctx context.Context, id primitive.Obje
 }
 
 func (r *AlternateInvestmentRepo) Update(ctx context.Context, v *models.AlternateInvestment) error {
-	v.UpdatedAt = time.Now()
-	res, err := r.collection.ReplaceOne(ctx, scoped(ctx, bson.M{"_id": v.ID}), v)
+	filter := alternateInvestmentRevision(v)
+	v.UpdatedAt = nextAlternateInvestmentRevision(v.UpdatedAt)
+	res, err := r.collection.ReplaceOne(ctx, scoped(ctx, filter), v)
 	if err != nil {
 		return err
 	}
-	return requireMatch(res.MatchedCount)
+	if res.MatchedCount == 0 {
+		return ErrAlternateInvestmentChanged
+	}
+	return nil
+}
+
+// UpdateSchedule applies a migration without replacing any other stored fields.
+func (r *AlternateInvestmentRepo) UpdateSchedule(ctx context.Context, v *models.AlternateInvestment) error {
+	filter := alternateInvestmentRevision(v)
+	filter["schedule_version"] = bson.M{"$in": bson.A{nil, 0}}
+	res, err := r.collection.UpdateOne(ctx, scoped(ctx, filter), bson.M{"$set": bson.M{
+		"schedule_version":  v.ScheduleVersion,
+		"payout_start_date": v.PayoutStartDate,
+		"payouts":           v.Payouts,
+		"updated_at":        nextAlternateInvestmentRevision(v.UpdatedAt),
+	}})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrAlternateInvestmentChanged
+	}
+	return nil
+}
+
+func alternateInvestmentRevision(v *models.AlternateInvestment) bson.M {
+	filter := bson.M{"_id": v.ID, "user_id": v.UserID, "updated_at": v.UpdatedAt}
+	if v.UpdatedAt.IsZero() {
+		filter["updated_at"] = bson.M{"$in": bson.A{nil, v.UpdatedAt}}
+	}
+	return filter
+}
+
+func nextAlternateInvestmentRevision(previous time.Time) time.Time {
+	now := time.Now().Truncate(time.Millisecond)
+	next := previous.Truncate(time.Millisecond).Add(time.Millisecond)
+	if now.Before(next) {
+		return next
+	}
+	return now
 }
 
 func (r *AlternateInvestmentRepo) Delete(ctx context.Context, id primitive.ObjectID) error {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"investment-tracker/models"
 	"investment-tracker/repository"
@@ -228,6 +229,23 @@ func (s *BackupService) Restore(ctx context.Context, userID string, data []byte)
 				result.CollectionsRestored++
 			}
 			continue
+		}
+
+		if t.key == "vehicle_rentals" {
+			now := time.Now()
+			var upgradeErr error
+			for _, item := range items {
+				// This restore target decodes only alternate investments.
+				v := item.(*models.AlternateInvestment)
+				if _, err := UpgradeAlternateInvestmentSchedule(v, now); err != nil {
+					upgradeErr = fmt.Errorf("investment %s: %w", v.ID.Hex(), err)
+					break
+				}
+			}
+			if upgradeErr != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("Failed to prepare %s: %v", t.key, upgradeErr))
+				continue
+			}
 		}
 
 		docs, err := ownedDocs(items, userID)

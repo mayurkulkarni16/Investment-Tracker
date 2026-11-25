@@ -19,19 +19,15 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 
-import java.util.Locale;
-import java.util.regex.Pattern;
-
 @CapacitorPlugin(name = "BankSms", permissions = {
     @Permission(alias = "sms", strings = {Manifest.permission.READ_SMS})
 })
 public class BankSmsPlugin extends Plugin {
-    private static final Pattern SENDERS = Pattern.compile(
-        "^(?:[A-Z0-9]{2}-)?(?:HDFCBK|HDFCBANK|ICICIB|ICICIBANK|AXISBK|AXISBANK|SBIINB|SBIBNK|SBICRD|SBICARD|SBIPSB|SBIUPI|ONECRD|ONECARD|ONCRD|YESBNK|YESBANK)(?:-[A-Z])?$"
-    );
-    private static final Pattern EXCLUDED = Pattern.compile(
-        "\\b(?:OTP|one[- ]time password|verification code|offer|pre[- ]approved)\\b", Pattern.CASE_INSENSITIVE
-    );
+    static final int PAGE_SIZE = 100;
+    static final String WINDOW = Telephony.Sms.DATE + " >= ? AND " + Telephony.Sms.DATE + " <= ?";
+    static final String AFTER = " AND (" + Telephony.Sms.DATE + " < ? OR (" + Telephony.Sms.DATE
+        + " = ? AND " + Telephony.Sms._ID + " < ?))";
+    static final String ORDER = Telephony.Sms.DATE + " DESC, " + Telephony.Sms._ID + " DESC";
 
     @PluginMethod
     public void scan(PluginCall call) {
@@ -59,47 +55,66 @@ public class BankSmsPlugin extends Plugin {
     private void readInbox(PluginCall call) {
         getBridge().execute(() -> {
             int days = call.getInt("days", 7);
-            long since = System.currentTimeMillis() - days * 86_400_000L;
+            JSObject previous = call.getObject("cursor");
+            long now = System.currentTimeMillis();
+            long end = previous == null ? now : previous.optLong("until", -1);
+            long afterDate = previous == null ? 0 : previous.optLong("date", -1);
+            long afterId = previous == null ? 0 : previous.optLong("id", -1);
+            if (end < 0 || end > now || afterDate < 0 || afterDate > end || afterId < 0) {
+                call.reject("Invalid SMS scan cursor. Start a new scan.");
+                return;
+            }
+            long since = end - days * 86_400_000L;
             Long sinceMs = call.getLong("sinceMs");
             if (sinceMs != null) since = Math.max(sinceMs, since);
-            JSArray messages = new JSArray();
-            int scanned = 0;
-            boolean truncated = false;
+            String start = Long.toString(since);
+            String until = Long.toString(end);
+            String[] args = previous == null ? new String[]{start, until} : new String[]{
+                start, until, Long.toString(afterDate), Long.toString(afterDate), Long.toString(afterId)
+            };
             try (Cursor cursor = getContext().getContentResolver().query(
                 Telephony.Sms.Inbox.CONTENT_URI,
-                new String[]{Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE},
-                Telephony.Sms.DATE + " >= ?", new String[]{Long.toString(since)},
-                Telephony.Sms.DATE + " DESC"
+                new String[]{Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE, Telephony.Sms._ID},
+                WINDOW + (previous == null ? "" : AFTER), args, ORDER
             )) {
                 if (cursor == null) {
                     call.reject("Android did not provide access to the SMS inbox.");
                     return;
                 }
-                while (cursor.moveToNext()) {
-                    if (++scanned > 5000 || messages.length() >= 500) {
-                        truncated = true;
-                        break;
-                    }
-                    String sender = cursor.getString(0);
-                    if (sender == null || !SENDERS.matcher(sender.toUpperCase(Locale.ROOT)).matches()) continue;
-                    String body = cursor.getString(1);
-                    if (body == null || EXCLUDED.matcher(body).find()) continue;
-                    JSObject message = new JSObject();
-                    message.put("sender", sender);
-                    message.put("body", body);
-                    message.put("receivedAt", cursor.getLong(2));
-                    messages.put(message);
-                }
-                JSObject result = new JSObject();
-                result.put("messages", messages);
-                result.put("truncated", truncated);
-                call.resolve(result);
+                call.resolve(readPage(cursor, end));
             } catch (SecurityException error) {
                 call.reject("SMS permission was revoked. Re-enable access or use manual entry.", error);
             } catch (SQLException | IllegalArgumentException | IllegalStateException error) {
                 call.reject("Could not read the SMS inbox. Retry or use manual entry.", error);
             }
         });
+    }
+
+    static JSObject readPage(Cursor cursor, long until) {
+        JSArray messages = new JSArray();
+        int scanned = 0;
+        long date = 0;
+        long id = 0;
+        while (scanned < PAGE_SIZE && cursor.moveToNext()) {
+            scanned++;
+            date = cursor.getLong(2);
+            id = cursor.getLong(3);
+            String sender = cursor.getString(0);
+            String body = cursor.getString(1);
+            if (sender == null || body == null || body.length() > 5000) continue;
+            JSObject message = new JSObject();
+            message.put("sender", sender);
+            message.put("body", body);
+            message.put("receivedAt", date);
+            messages.put(message);
+        }
+        JSObject result = new JSObject();
+        result.put("messages", messages);
+        result.put("scanned", scanned);
+        if (scanned == PAGE_SIZE && cursor.moveToNext()) {
+            result.put("nextCursor", new JSObject().put("until", until).put("date", date).put("id", id));
+        }
+        return result;
     }
 
     @PluginMethod

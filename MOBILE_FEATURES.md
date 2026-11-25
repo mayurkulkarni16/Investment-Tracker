@@ -2,7 +2,7 @@
 
 Status: initial implementation plus roadmap. The existing web app and Go API
 remain the shared source of financial data. Chosen target: personal Android APK,
-with initial sender/template support for HDFC, ICICI, Axis, SBI, OneCard and YES BANK.
+with historical SMS import for common Indian bank, card, UPI and transfer alerts.
 
 ## Implemented first slice
 

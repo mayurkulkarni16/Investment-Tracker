@@ -64,10 +64,30 @@ func (s *AlternateInvestmentService) Update(ctx context.Context, id string, req 
 	if err != nil {
 		return nil, err
 	}
+	previous := *v
 	if err := applyAlternateInvestmentRequest(v, req); err != nil {
 		return nil, err
 	}
-	v.Payouts = buildAltPayoutSchedule(v, v.Payouts, time.Now())
+	if previous.ScheduleVersion == 0 && altLegacyCompleted(&previous) {
+		previousType := previous.AssetType
+		if previousType == "" {
+			previousType = models.AltAssetVehicle
+		}
+		if v.AssetType != previousType || !altCalendarDate(v.PurchaseDate).Equal(altCalendarDate(previous.PurchaseDate)) ||
+			v.TenureMonths != previous.TenureMonths || v.MonthlyPayoutPerUnit != previous.MonthlyPayoutPerUnit ||
+			v.Units != previous.Units || v.BuybackPercent != previous.BuybackPercent {
+			return nil, invalidf("cannot change payout terms of a completed legacy schedule")
+		}
+		v.ScheduleVersion, v.PurchaseDate, v.PayoutStartDate = previous.ScheduleVersion, previous.PurchaseDate, previous.PayoutStartDate
+	} else {
+		now := time.Now()
+		for i := altScheduleCount(v, now); v.TenureMonths > 0 && i < len(previous.Payouts); i++ {
+			if previous.Payouts[i].Status == models.PayoutReceived {
+				return nil, invalidf("the new term would remove a recorded payout")
+			}
+		}
+		v.Payouts = buildAltPayoutSchedule(v, previous.Payouts, now)
+	}
 	return s.save(ctx, v)
 }
 
@@ -84,15 +104,19 @@ func (s *AlternateInvestmentService) UpdatePayout(ctx context.Context, id, payou
 	if err != nil {
 		return nil, err
 	}
+	reopenLegacy := v.ScheduleVersion == 0 && altLegacyCompleted(v)
 	for i := range v.Payouts {
 		p := &v.Payouts[i]
 		if p.PayoutID != payoutID {
 			continue
 		}
 		if req.Status == models.PayoutPending {
-			p.Status = models.PayoutPending
-			p.ReceivedDate = nil
-			p.ReceivedAmount = 0
+			resetAltPayout(v, i)
+			if reopenLegacy {
+				if _, err := UpgradeAlternateInvestmentSchedule(v, time.Now()); err != nil {
+					return nil, invalidf("cannot reopen legacy schedule: %v", err)
+				}
+			}
 		} else {
 			date, err := receivedDateOrDefault(req.ReceivedDate, p.ScheduledDate)
 			if err != nil {
@@ -114,10 +138,10 @@ func (s *AlternateInvestmentService) MarkDueReceived(ctx context.Context, id str
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now()
+	now := altCalendarDate(time.Now())
 	for i := range v.Payouts {
 		p := &v.Payouts[i]
-		if p.Status == models.PayoutPending && !p.ScheduledDate.After(now) {
+		if p.Status == models.PayoutPending && !altCalendarDate(p.ScheduledDate).After(now) {
 			d := p.ScheduledDate
 			p.Status = models.PayoutReceived
 			p.ReceivedDate = &d
@@ -133,9 +157,15 @@ func (s *AlternateInvestmentService) UpdateBuyback(ctx context.Context, id strin
 		return nil, err
 	}
 	if req.Status == models.PayoutPending {
+		reopenLegacy := v.ScheduleVersion == 0 && altLegacyCompleted(v)
 		v.BuybackStatus = models.PayoutPending
 		v.BuybackReceivedDate = nil
 		v.BuybackReceived = 0
+		if reopenLegacy {
+			if _, err := UpgradeAlternateInvestmentSchedule(v, time.Now()); err != nil {
+				return nil, invalidf("cannot reopen legacy schedule: %v", err)
+			}
+		}
 	} else {
 		date, err := receivedDateOrDefault(req.ReceivedDate, time.Now())
 		if err != nil {
@@ -176,14 +206,6 @@ func applyAlternateInvestmentRequest(v *models.AlternateInvestment, req models.C
 	if err != nil {
 		return invalidf("invalid purchase_date: %v", err)
 	}
-	payoutStart, err := parseDate(req.PayoutStartDate)
-	if err != nil {
-		return invalidf("invalid payout_start_date: %v", err)
-	}
-	if payoutStart.Before(purchaseDate) {
-		return invalidf("payout_start_date cannot be before purchase_date")
-	}
-
 	assetType := req.AssetType
 	if assetType == "" {
 		assetType = models.AltAssetVehicle
@@ -209,8 +231,8 @@ func applyAlternateInvestmentRequest(v *models.AlternateInvestment, req models.C
 	v.GSTPercent = req.GSTPercent
 	v.OtherCharges = req.OtherCharges
 	v.PurchaseDate = purchaseDate
-	v.PayoutStartDate = payoutStart
 	v.TenureMonths = req.TenureMonths
+	useAltCalendarSchedule(v)
 	v.MonthlyPayoutPerUnit = req.MonthlyPayoutPerUnit
 	v.BuybackPercent = req.BuybackPercent
 	v.ValuationMethod = valuation
@@ -242,34 +264,38 @@ func applyAlternateInvestmentRequest(v *models.AlternateInvestment, req models.C
 	return nil
 }
 
-// buildAltPayoutSchedule generates one payout per month of the tenure, or up to
-// AltOpenEndedLookaheadMonths past now when open-ended. Receipts in previous
-// (by month index) are preserved so editing terms never loses history.
+// buildAltPayoutSchedule generates payouts for the billing term or open-ended
+// horizon. Received slots keep the historical scheduled date used as a cashflow fallback.
 func buildAltPayoutSchedule(v *models.AlternateInvestment, previous []models.AltPayout, now time.Time) []models.AltPayout {
-	n := v.TenureMonths
-	if n <= 0 {
-		n = openEndedPayoutCount(v, now)
+	n := altScheduleCount(v, now)
+	if v.TenureMonths <= 0 && len(previous) > n {
+		n = len(previous)
 	}
-	amount := round2(float64(v.Units) * v.MonthlyPayoutPerUnit)
 	payouts := make([]models.AltPayout, n)
 	for i := range payouts {
-		p := models.AltPayout{
-			PayoutID:      newAltPayoutID(v, i),
-			ScheduledDate: addMonthsClamped(v.PayoutStartDate, i),
-			Amount:        amount,
-			Status:        models.PayoutPending,
-		}
+		var id string
 		if i < len(previous) {
-			p.PayoutID = previous[i].PayoutID
 			if previous[i].Status == models.PayoutReceived {
-				p.Status = models.PayoutReceived
-				p.ReceivedDate = previous[i].ReceivedDate
-				p.ReceivedAmount = previous[i].ReceivedAmount
+				payouts[i] = previous[i]
+				continue
 			}
+			id = previous[i].PayoutID
 		}
-		payouts[i] = p
+		if id == "" {
+			id = newAltPayoutID(v, i)
+		}
+		d, amount := altScheduledPayout(v, i)
+		payouts[i] = models.AltPayout{PayoutID: id, ScheduledDate: d, Amount: amount, Status: models.PayoutPending}
 	}
 	return payouts
+}
+
+func resetAltPayout(v *models.AlternateInvestment, i int) {
+	p := &v.Payouts[i]
+	p.Status, p.ReceivedDate, p.ReceivedAmount = models.PayoutPending, nil, 0
+	if v.ScheduleVersion == models.AltCalendarScheduleVersion {
+		p.ScheduledDate, p.Amount = altScheduledPayout(v, i)
+	}
 }
 
 // newAltPayoutID returns a random ID for fixed schedules. Open-ended schedules
@@ -283,7 +309,7 @@ func newAltPayoutID(v *models.AlternateInvestment, index int) string {
 }
 
 func openEndedPayoutCount(v *models.AlternateInvestment, now time.Time) int {
-	horizon := now.AddDate(0, models.AltOpenEndedLookaheadMonths, 0)
+	horizon := addMonthsClamped(altCalendarDate(now), models.AltOpenEndedLookaheadMonths)
 	n := 0
 	for !addMonthsClamped(v.PayoutStartDate, n).After(horizon) {
 		n++
@@ -317,21 +343,34 @@ func ComputeAlternateInvestment(v *models.AlternateInvestment, now time.Time) {
 	extendOpenEndedSchedule(v, now)
 
 	v.OpenEnded = v.TenureMonths <= 0
+	v.BillingStartDate = nil
+	if v.ScheduleVersion == models.AltCalendarScheduleVersion && v.AssetType == models.AltAssetLivestock {
+		start := altBillingStart(v)
+		v.BillingStartDate = &start
+	}
 	v.MonthlyPayout = round2(float64(v.Units) * v.MonthlyPayoutPerUnit)
 	v.AgreementEndDate = v.PayoutStartDate
 	if n := len(v.Payouts); n > 0 {
 		v.AgreementEndDate = v.Payouts[n-1].ScheduledDate
 	}
+	if !v.OpenEnded && v.ScheduleVersion == models.AltCalendarScheduleVersion {
+		v.AgreementEndDate, _ = altScheduledPayout(v, altScheduleCount(v, now)-1)
+	}
 
 	v.ExpectedTotalPayout, v.TotalPayoutsReceived = 0, 0
 	v.PayoutsReceivedCount, v.OverdueCount, v.OverdueAmount = 0, 0, 0
 	v.NextPayoutDate = nil
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	today := altCalendarDate(now)
 	overdueBefore := today.AddDate(0, 0, -models.AltPayoutOverdueGraceDays)
 
 	for i := range v.Payouts {
 		p := &v.Payouts[i]
-		v.ExpectedTotalPayout += p.Amount
+		if v.ScheduleVersion == models.AltCalendarScheduleVersion {
+			_, amount := altScheduledPayout(v, i)
+			v.ExpectedTotalPayout += amount
+		} else {
+			v.ExpectedTotalPayout += p.Amount
+		}
 		p.IsOverdue = false
 		if p.Status == models.PayoutReceived {
 			v.TotalPayoutsReceived += p.ReceivedAmount
@@ -402,7 +441,6 @@ func altInvestmentBookValue(v *models.AlternateInvestment, now time.Time) float6
 
 // pendingAltPayoutsBetween sums the pending payouts scheduled in (from, to],
 // continuing an open-ended schedule beyond the payouts generated so far.
-// Requires ComputeAlternateInvestment to have set MonthlyPayout.
 func pendingAltPayoutsBetween(v *models.AlternateInvestment, from, to time.Time) float64 {
 	sum := 0.0
 	for _, p := range v.Payouts {
@@ -412,12 +450,12 @@ func pendingAltPayoutsBetween(v *models.AlternateInvestment, from, to time.Time)
 	}
 	if v.TenureMonths <= 0 {
 		for i := len(v.Payouts); ; i++ {
-			d := addMonthsClamped(v.PayoutStartDate, i)
+			d, amount := altScheduledPayout(v, i)
 			if d.After(to) {
 				break
 			}
 			if d.After(from) {
-				sum += v.MonthlyPayout
+				sum += amount
 			}
 		}
 	}

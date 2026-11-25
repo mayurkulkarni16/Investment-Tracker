@@ -13,8 +13,8 @@ FinBoard (this repository: Investment Tracker) is a comprehensive personal finan
 - Link transactions to a saved bank account/card and family member; filter and
   see confirmed totals per member. Each phone can store its own SMS member
   default. Unique account/owner matches are suggested and remain editable.
-- Local SMS parsing plus an opt-in Android inbox scan for initial HDFC, ICICI,
-  Axis, SBI, OneCard and YES BANK templates. Imported records require review.
+- Local parsing and an opt-in Android inbox scan for common Indian bank, card,
+  UPI and transfer SMS from the previous 90 days. Imported records require review.
 - Possible shared-account duplicates are flagged for review, not automatically
   rejected. Same-day matches without SMS timestamps are less certain.
 - This is an initial slice: no background SMS ingestion or automatic statement
@@ -29,7 +29,7 @@ FinBoard (this repository: Investment Tracker) is a comprehensive personal finan
 - **Fixed Deposits** — Cumulative and non-cumulative FDs with maturity amount calculation and auto-renewal tracking.
 - **Provident Fund** — EPF, VPF, and PPF support. Monthly contribution tracking by financial year, employee + employer split, PF passbook PDF import, and interest calculation per EPFO rules.
 - **NPS (National Pension System)** — Tier 1/Tier 2 accounts, contribution tracking, asset allocation (equity/corporate bond/govt securities/alternate), fund manager tracking, and 80CCD tax deduction computation.
-- **Alternate Investments** — Operator-managed assets that pay a fixed monthly amount: EV fleet leasing (e.g. EZU Electric, Ridoji), cow ownership (e.g. Gir/Jersey at Amrutha Farms) and others. Auto-generated monthly payout schedule (fixed tenure or open-ended), manual payout confirmation with overdue alerts, buyback tracking, book value (straight-line to buyback, at cost, or manual), break-even months, milk-yield sanity check for livestock, quick-fill presets, duplicate-as-new (each investment keeps the rate it was agreed at), capital recovered, and XIRR.
+- **Alternate Investments** — Operator-managed assets with user-entered monthly payouts: EV fleet leasing (e.g. EZU Electric, Ridoji), cow ownership (e.g. Gir/Jersey at Amrutha Farms) and others. Auto-generated monthly payout schedule (fixed tenure or open-ended), manual payout confirmation with overdue alerts, buyback tracking, book value (straight-line to buyback, at cost, or manual), break-even months, milk-yield sanity check for livestock, quick-fill presets, duplicate-as-new (each investment keeps the rate it was agreed at), capital recovered, and XIRR.
 - **SIPs** — Systematic investment plan tracking with installment recording, fund linking, frequency/date management, and completion stats.
 - **Credit Cards** — Card management with billing statements, payment tracking, EMI conversions, transaction categorization, credit score history, and utilization monitoring.
 
@@ -326,6 +326,10 @@ All endpoints are prefixed with `/api/v1`. Authenticated routes require `Authori
 
 ### Alternate Investments
 `/vehicle-rentals/...` remains as an alias of every route below for older app builds.
+
+Monthly payouts fall on the **5th**. Vehicle and other investments start on the 5th of the month after purchase. Livestock billing starts **15 calendar days after purchase**, and each billing month is paid on the following 5th. Partial billing months are prorated by calendar days. Fixed-term livestock covers the entire billing term, so two partial months can mean one extra installment. A fixed-term agreement ends, and any pending buyback is due, on its final scheduled payout date.
+
+The API derives `payout_start_date`; a legacy value sent by a client is ignored. To update stored active schedules on rollout, take a database backup, set `MONGO_URI` and `DB_NAME` explicitly, and run `go run ./cmd/migrate_alt_payouts` from the backend directory. Review the dry run, then repeat with `-apply` during a maintenance window. The migration preserves recorded receipts and skips completed schedules. It is safe to rerun.
 
 | Method | Endpoint                                          | Description                                        |
 |--------|---------------------------------------------------|----------------------------------------------------|

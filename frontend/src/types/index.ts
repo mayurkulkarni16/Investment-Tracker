@@ -130,6 +130,7 @@ export interface AlternateInvestment {
   investment_amount: number;
   purchase_date: string;
   payout_start_date: string;
+  schedule_version?: number;
   tenure_months: number; // 0 = open-ended
   monthly_payout_per_unit: number;
   buyback_percent: number;
@@ -149,6 +150,7 @@ export interface AlternateInvestment {
   updated_at: string;
   status: AlternateInvestmentStatus;
   open_ended: boolean;
+  billing_start_date?: string;
   agreement_end_date: string;
   monthly_payout: number;
   expected_total_payout: number;
@@ -174,7 +176,6 @@ export interface CreateAlternateInvestmentRequest {
   gst_percent: number;
   other_charges: number;
   purchase_date: string;
-  payout_start_date: string;
   tenure_months: number;
   monthly_payout_per_unit: number;
   buyback_percent: number;

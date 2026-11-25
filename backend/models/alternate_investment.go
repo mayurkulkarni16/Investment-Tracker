@@ -47,6 +47,8 @@ const AltPayoutOverdueGraceDays = 5
 // an open-ended investment (no fixed tenure) is generated.
 const AltOpenEndedLookaheadMonths = 12
 
+const AltCalendarScheduleVersion = 1
+
 // AltPayout is one scheduled monthly payment from the operator.
 // Payouts are never auto-marked as received; the investor confirms each one so
 // that missed payments surface as overdue.
@@ -73,6 +75,7 @@ type AlternateInvestment struct {
 	InvestmentAmount     float64            `json:"investment_amount" bson:"investment_amount"`
 	PurchaseDate         time.Time          `json:"purchase_date" bson:"purchase_date"`
 	PayoutStartDate      time.Time          `json:"payout_start_date" bson:"payout_start_date"`
+	ScheduleVersion      int                `json:"schedule_version,omitempty" bson:"schedule_version,omitempty"`
 	TenureMonths         int                `json:"tenure_months" bson:"tenure_months"` // 0 = open-ended
 	MonthlyPayoutPerUnit float64            `json:"monthly_payout_per_unit" bson:"monthly_payout_per_unit"`
 	BuybackPercent       float64            `json:"buyback_percent" bson:"buyback_percent"`
@@ -95,6 +98,7 @@ type AlternateInvestment struct {
 	// Computed on read (see services.ComputeAlternateInvestment); not persisted.
 	Status               AlternateInvestmentStatus `json:"status" bson:"-"`
 	OpenEnded            bool                      `json:"open_ended" bson:"-"`
+	BillingStartDate     *time.Time                `json:"billing_start_date,omitempty" bson:"-"`
 	AgreementEndDate     time.Time                 `json:"agreement_end_date" bson:"-"`
 	MonthlyPayout        float64                   `json:"monthly_payout" bson:"-"`
 	ExpectedTotalPayout  float64                   `json:"expected_total_payout" bson:"-"`
@@ -141,7 +145,7 @@ type CreateAlternateInvestmentRequest struct {
 	GSTPercent           float64            `json:"gst_percent" binding:"min=0,max=100"`
 	OtherCharges         float64            `json:"other_charges" binding:"min=0"`
 	PurchaseDate         string             `json:"purchase_date" binding:"required"`
-	PayoutStartDate      string             `json:"payout_start_date" binding:"required"`
+	PayoutStartDate      string             `json:"payout_start_date"` // Legacy clients only; ignored.
 	TenureMonths         int                `json:"tenure_months" binding:"min=0,max=240"`
 	MonthlyPayoutPerUnit float64            `json:"monthly_payout_per_unit" binding:"required,gt=0"`
 	BuybackPercent       float64            `json:"buyback_percent" binding:"min=0,max=100"`

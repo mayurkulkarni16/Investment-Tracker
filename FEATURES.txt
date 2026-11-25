@@ -132,8 +132,11 @@ HOUSEHOLD FINANCE & PLANNING
   - "Mark all due as received", undo, short-payment tracking, buyback tracking
   - Book value: straight-line (purchase cost -> buyback value), held at cost, or entered manually
   - Capital recovered %, break-even months, net return, XIRR; livestock shows stated milk sales vs payout
-  - Quick-fill presets from known brochures, and "Duplicate as new": each investment keeps the rate it was
-    agreed at, so new investments at a different rate don't change existing ones
+  - Quick-fill presets by provider (EZU Electric, Ridoji, Amrutha Farms); prices and payouts are
+    entered for each agreement, with any unit count
+  - "Duplicate as new": each investment keeps the rate it was agreed at, so new investments at a
+    different rate don't change existing ones
+  - Price is entered incl. GST; the ex-GST cost is derived from the GST rate
   - Overdue payout and agreement-end alerts; included in dashboard, net worth, cashflow, projections, tax,
     backup and CSV export
 
