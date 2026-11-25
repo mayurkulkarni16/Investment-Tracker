@@ -148,6 +148,7 @@ export default function AlternateInvestmentsPage() {
   const [form, setForm] = useState<CreateAlternateInvestmentRequest>(emptyForm);
   const [idText, setIdText] = useState('');
   const [presetNote, setPresetNote] = useState('');
+  const [presetIndex, setPresetIndex] = useState('');
   const [priceInclGst, setPriceInclGst] = useState(0);
   const [typeFilter, setTypeFilter] = useState<AltAssetType | 'all'>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -165,7 +166,7 @@ export default function AlternateInvestmentsPage() {
   const openAdd = () => {
     const assetType = typeFilter === 'all' ? 'vehicle' : typeFilter;
     setForm({ ...emptyForm, asset_type: assetType, ...TYPE_DEFAULTS[assetType] });
-    setIdText(''); setPresetNote(''); setPriceInclGst(0); setEditing('new');
+    setIdText(''); setPresetNote(''); setPresetIndex(''); setPriceInclGst(0); setEditing('new');
   };
 
   const openEdit = (v: AlternateInvestment) => {
@@ -182,6 +183,7 @@ export default function AlternateInvestmentsPage() {
     setForm({ ...formFromInvestment(v), purchase_date: '', identifiers: [], agreement_number: '' });
     setIdText('');
     setPresetNote('Copied from an existing investment. Check the rate and dates against the new agreement.');
+    setPresetIndex('');
     setPriceInclGst(inclGstPrice(v.unit_price, v.gst_percent));
     setEditing('new');
   };
@@ -189,9 +191,11 @@ export default function AlternateInvestmentsPage() {
   const changeAssetType = (assetType: AltAssetType) => {
     const next = { ...form, asset_type: assetType, ...(editing === 'new' ? TYPE_DEFAULTS[assetType] : {}) };
     setForm({ ...next, unit_price: exGstPrice(priceInclGst, next.gst_percent) });
+    if (PRESETS[Number(presetIndex)]?.values.asset_type !== assetType) setPresetIndex('');
   };
 
   const applyPreset = (index: string) => {
+    setPresetIndex(index);
     const preset = PRESETS[Number(index)];
     if (!preset || index === '') return;
     setForm({
@@ -546,7 +550,7 @@ export default function AlternateInvestmentsPage() {
                 {editing === 'new' && (
                   <div className="form-group">
                     <label htmlFor="alt-preset">Quick Fill (optional)</label>
-                    <select id="alt-preset" value="" onChange={e => applyPreset(e.target.value)}>
+                    <select id="alt-preset" value={presetIndex} onChange={e => applyPreset(e.target.value)}>
                       <option value="">Choose a known plan…</option>
                       {PRESETS.map((p, i) => <option key={p.label} value={i}>{p.label}</option>)}
                     </select>
@@ -603,8 +607,10 @@ export default function AlternateInvestmentsPage() {
                   )}
                   {!legacyCompleted && <small className="text-muted">{form.asset_type === 'livestock'
                     ? 'Billing starts 15 days after purchase. Paid on the 5th after each billing month.'
-                    : 'Paid on the 5th of each month, starting the month after purchase.'}</small>}
-                  {previewSchedule?.billingStart && (
+                    : form.asset_type === 'vehicle'
+                      ? 'Paid on the 5th of each month for the previous month. The first and last months are pro rata.'
+                      : 'Paid on the 5th of each month, starting the month after purchase.'}</small>}
+                  {form.asset_type === 'livestock' && previewSchedule?.billingStart && (
                     <div className="text-sm">Billing starts {calendarDateFormat.format(previewSchedule.billingStart)}</div>
                   )}
                 </div>

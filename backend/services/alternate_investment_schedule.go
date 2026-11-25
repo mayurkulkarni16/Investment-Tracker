@@ -17,24 +17,51 @@ func altPayoutDay(month time.Time, offset int) time.Time {
 	return time.Date(month.Year(), month.Month()+time.Month(offset), 5, 0, 0, 0, 0, time.UTC)
 }
 
+// altBillingStart is the first billed day: purchase + 15-day cooling period for
+// livestock, the purchase day itself for vehicles and other assets.
 func altBillingStart(v *models.AlternateInvestment) time.Time {
-	return altCalendarDate(v.PurchaseDate).AddDate(0, 0, 15)
+	start := altCalendarDate(v.PurchaseDate)
+	if v.AssetType == models.AltAssetLivestock {
+		return start.AddDate(0, 0, 15)
+	}
+	return start
+}
+
+// altProrated reports whether partial billing months are paid pro rata
+// (livestock and vehicles); other assets pay a flat monthly amount.
+func altProrated(v *models.AlternateInvestment) bool {
+	return v.ScheduleVersion == models.AltCalendarScheduleVersion &&
+		(v.AssetType == models.AltAssetLivestock || v.AssetType == models.AltAssetVehicle || v.AssetType == "")
 }
 
 func useAltCalendarSchedule(v *models.AlternateInvestment) {
 	v.ScheduleVersion = models.AltCalendarScheduleVersion
-	start := v.PurchaseDate
-	if v.AssetType == models.AltAssetLivestock {
-		start = altBillingStart(v)
+	v.PayoutStartDate = altPayoutDay(altBillingStart(v), 1)
+}
+
+// syncAltProratedSchedule rebuilds a fixed prorated schedule whose installment
+// count predates proration (e.g. vehicles saved with flat monthly payouts),
+// keeping received installments. It reports whether the schedule changed.
+func syncAltProratedSchedule(v *models.AlternateInvestment, now time.Time) bool {
+	if v.TenureMonths <= 0 || !altProrated(v) || len(v.Payouts) == altScheduleCount(v, now) {
+		return false
 	}
-	v.PayoutStartDate = altPayoutDay(start, 1)
+	pending := false
+	for _, p := range v.Payouts {
+		pending = pending || p.Status == models.PayoutPending
+	}
+	if !pending {
+		return false
+	}
+	v.Payouts = buildAltPayoutSchedule(v, v.Payouts, now)
+	return true
 }
 
 func altScheduleCount(v *models.AlternateInvestment, now time.Time) int {
 	if v.TenureMonths <= 0 {
 		return openEndedPayoutCount(v, now)
 	}
-	if v.ScheduleVersion == models.AltCalendarScheduleVersion && v.AssetType == models.AltAssetLivestock {
+	if altProrated(v) {
 		start := altBillingStart(v)
 		lastDay := addMonthsClamped(start, v.TenureMonths).AddDate(0, 0, -1)
 		return (lastDay.Year()-start.Year())*12 + int(lastDay.Month()) - int(start.Month()) + 1
@@ -45,7 +72,7 @@ func altScheduleCount(v *models.AlternateInvestment, now time.Time) int {
 func altScheduledPayout(v *models.AlternateInvestment, index int) (time.Time, float64) {
 	d := addMonthsClamped(v.PayoutStartDate, index)
 	monthly := float64(v.Units) * v.MonthlyPayoutPerUnit
-	if v.ScheduleVersion != models.AltCalendarScheduleVersion || v.AssetType != models.AltAssetLivestock {
+	if !altProrated(v) {
 		return d, round2(monthly)
 	}
 

@@ -128,6 +128,9 @@ HOUSEHOLD FINANCE & PLANNING
   - Asset types: vehicle leasing (e.g. EZU Electric, Ridoji), livestock (e.g. Gir/Jersey cows at Amrutha Farms), other
   - Auto-generated monthly payout schedule (units x payout per unit) for a fixed tenure, or open-ended
     (no fixed term: the schedule always runs 12 months ahead)
+  - Payouts fall on the 5th of the following month. Vehicles are prorated from the purchase date, so the
+    first and last months are partial and the term is counted from the purchase date. Livestock billing
+    starts 15 days after purchase and is prorated the same way.
   - Payouts are confirmed manually (date + actual amount); unpaid payouts >5 days late are flagged overdue
   - "Mark all due as received", undo, short-payment tracking, buyback tracking
   - Book value: straight-line (purchase cost -> buyback value), held at cost, or entered manually

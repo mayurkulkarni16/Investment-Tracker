@@ -19,10 +19,17 @@ test('livestock proration uses the actual number of days in February', () => {
   assert.deepEqual(payouts.map(p => [isoDay(p.date), p.amount]), [['2028-03-05', 689.66], ['2028-04-05', 18064.52]]);
 });
 
-test('bikes and other assets do not pay in the month of purchase or prorate', () => {
-  for (const asset_type of ['vehicle', 'other']) {
-    const { billingStart, payouts } = previewAltSchedule({ ...terms, asset_type, purchase_date: '2026-11-02', tenure_months: 2 });
-    assert.equal(billingStart, null);
-    assert.deepEqual(payouts.map(p => [isoDay(p.date), p.amount]), [['2026-12-05', 20000], ['2027-01-05', 20000]]);
-  }
+test('vehicles are prorated from the purchase date to month end, with the term counted from purchase', () => {
+  const { billingStart, payouts } = previewAltSchedule({ ...terms, asset_type: 'vehicle', purchase_date: '2026-10-18', tenure_months: 48, units: 10, monthly_payout_per_unit: 4100 });
+  assert.equal(isoDay(billingStart), '2026-10-18');
+  assert.equal(payouts.length, 49);
+  assert.deepEqual([payouts[0], payouts[1], payouts.at(-1)].map(p => [isoDay(p.date), p.amount]), [
+    ['2026-11-05', 18516.13], ['2026-12-05', 41000], ['2030-11-05', 22483.87],
+  ]);
+});
+
+test('other assets do not pay in the month of purchase or prorate', () => {
+  const { billingStart, payouts } = previewAltSchedule({ ...terms, asset_type: 'other', purchase_date: '2026-11-02', tenure_months: 2 });
+  assert.equal(billingStart, null);
+  assert.deepEqual(payouts.map(p => [isoDay(p.date), p.amount]), [['2026-12-05', 20000], ['2027-01-05', 20000]]);
 });

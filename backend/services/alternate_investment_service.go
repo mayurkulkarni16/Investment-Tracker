@@ -43,6 +43,11 @@ func (s *AlternateInvestmentService) GetAll(ctx context.Context, userID string) 
 	}
 	now := time.Now()
 	for i := range items {
+		if syncAltProratedSchedule(&items[i], now) {
+			if err := s.repo.Update(ctx, &items[i]); err != nil {
+				return nil, err
+			}
+		}
 		ComputeAlternateInvestment(&items[i], now)
 	}
 	return items, nil
@@ -190,6 +195,11 @@ func (s *AlternateInvestmentService) load(ctx context.Context, id string) (*mode
 		return nil, err
 	}
 	extendOpenEndedSchedule(v, time.Now())
+	if syncAltProratedSchedule(v, time.Now()) {
+		if err := s.repo.Update(ctx, v); err != nil {
+			return nil, err
+		}
+	}
 	return v, nil
 }
 
@@ -341,10 +351,11 @@ func ComputeAlternateInvestment(v *models.AlternateInvestment, now time.Time) {
 		v.ValuationMethod = models.AltValuationStraightLine
 	}
 	extendOpenEndedSchedule(v, now)
+	syncAltProratedSchedule(v, now)
 
 	v.OpenEnded = v.TenureMonths <= 0
 	v.BillingStartDate = nil
-	if v.ScheduleVersion == models.AltCalendarScheduleVersion && v.AssetType == models.AltAssetLivestock {
+	if altProrated(v) {
 		start := altBillingStart(v)
 		v.BillingStartDate = &start
 	}

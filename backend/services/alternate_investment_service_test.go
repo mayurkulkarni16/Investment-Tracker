@@ -23,7 +23,7 @@ func ridojiRequest() models.CreateAlternateInvestmentRequest {
 		Units:                2,
 		UnitPrice:            63000,
 		GSTPercent:           5,
-		PurchaseDate:         "2026-01-10",
+		PurchaseDate:         "2026-01-01",
 		TenureMonths:         48,
 		MonthlyPayoutPerUnit: 3500,
 		BuybackPercent:       10,
@@ -329,6 +329,41 @@ func TestFixedLivestockPayoutsCoverEntireBillingTerm(t *testing.T) {
 				t.Fatalf("total = %v, want %v; first installment must be projected in its own period", v.ExpectedTotalPayout, wantTotal)
 			}
 		})
+	}
+}
+
+func TestVehiclePayoutsAreProratedFromPurchaseDate(t *testing.T) {
+	req := ridojiRequest()
+	req.Units, req.MonthlyPayoutPerUnit, req.PurchaseDate = 10, 4100, "2026-10-18"
+	v := newRental(t, req)
+	ComputeAlternateInvestment(v, testNow)
+
+	// 18-31 Oct = 14/31 of 41000; the 48-month term ends 17 Oct 2030 (17/31).
+	if len(v.Payouts) != 49 {
+		t.Fatalf("payouts = %d, want 49", len(v.Payouts))
+	}
+	first, second, last := v.Payouts[0], v.Payouts[1], v.Payouts[48]
+	if !first.ScheduledDate.Equal(date(2026, time.November, 5)) || first.Amount != 18516.13 ||
+		second.Amount != 41000 || !last.ScheduledDate.Equal(date(2030, time.November, 5)) || last.Amount != 22483.87 {
+		t.Fatalf("first/second/last = %+v / %+v / %+v", first, second, last)
+	}
+	if v.BillingStartDate == nil || !v.BillingStartDate.Equal(date(2026, time.October, 18)) ||
+		v.ExpectedTotalPayout != 48*41000 {
+		t.Fatalf("billing start %v, total %v", v.BillingStartDate, v.ExpectedTotalPayout)
+	}
+
+	// A record saved before proration (48 flat installments, first one received) is rebuilt.
+	v.Payouts = v.Payouts[:48]
+	for i := range v.Payouts {
+		v.Payouts[i].Amount = 41000
+	}
+	v.Payouts[0].Status, v.Payouts[0].ReceivedAmount = models.PayoutReceived, 41000
+	if !syncAltProratedSchedule(v, testNow) || len(v.Payouts) != 49 ||
+		v.Payouts[0].ReceivedAmount != 41000 || v.Payouts[48].Amount != 22483.87 {
+		t.Fatalf("legacy vehicle schedule not rebuilt: %d payouts", len(v.Payouts))
+	}
+	if syncAltProratedSchedule(v, testNow) {
+		t.Fatal("an up-to-date schedule must not be rebuilt")
 	}
 }
 

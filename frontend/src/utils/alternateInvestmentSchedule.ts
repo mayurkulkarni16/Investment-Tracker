@@ -25,10 +25,11 @@ export function previewAltSchedule(terms: Pick<CreateAlternateInvestmentRequest,
   if (!Number.isFinite(purchase.getTime())) return null;
   const monthly = terms.units * terms.monthly_payout_per_unit;
   const livestock = terms.asset_type === 'livestock';
+  const prorated = livestock || terms.asset_type === 'vehicle';
   const start = livestock ? new Date(purchase.getTime() + 15 * DAY) : purchase;
   const fixed = terms.tenure_months > 0;
   const months = Math.min(terms.tenure_months, 240);
-  const billingEnd = fixed && livestock ? addMonthsClamped(start, months) : null;
+  const billingEnd = fixed && prorated ? addMonthsClamped(start, months) : null;
   const yearEnd = addMonthsClamped(purchase, 12);
   const payouts: PreviewPayout[] = [];
   for (let i = 0; ; i++) {
@@ -42,9 +43,9 @@ export function previewAltSchedule(terms: Pick<CreateAlternateInvestmentRequest,
     const coveredEnd = Math.min(nextMonth.getTime(), billingEnd?.getTime() ?? Infinity);
     const days = (coveredEnd - coveredStart) / DAY;
     const monthDays = (nextMonth.getTime() - billingMonth.getTime()) / DAY;
-    payouts.push({ date, amount: roundPayout(livestock ? monthly * days / monthDays : monthly) });
+    payouts.push({ date, amount: roundPayout(prorated ? monthly * days / monthDays : monthly) });
   }
-  return { purchase, billingStart: livestock ? start : null, payouts, yearEnd };
+  return { purchase, billingStart: prorated ? start : null, payouts, yearEnd };
 }
 
 export function impliedAnnualReturn(cost: number, purchase: Date, payouts: PreviewPayout[], terminal: PreviewPayout) {
