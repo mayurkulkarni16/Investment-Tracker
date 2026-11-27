@@ -30,17 +30,29 @@ func (s *CorporateBondService) Create(ctx context.Context, userID string, req mo
 		return nil, invalidf("invalid maturity_date: %v", err)
 	}
 
+	faceValue := req.FaceValue
+	if faceValue <= 0 {
+		faceValue = req.InvestmentAmount
+	}
+	payoutDay := req.PayoutDay
+	if payoutDay < 1 {
+		payoutDay = maturityDate.Day()
+	}
+
 	bond := &models.CorporateBond{
 		UserID:             userID,
 		BondName:           req.BondName,
 		Issuer:             req.Issuer,
 		PurchaseDate:       purchaseDate,
 		InvestmentAmount:   req.InvestmentAmount,
+		FaceValue:          faceValue,
 		CouponRate:         req.CouponRate,
+		YieldToMaturity:    req.YieldToMaturity,
 		InterestPayoutFreq: req.InterestPayoutFreq,
+		PayoutDay:          payoutDay,
 		MaturityDate:       maturityDate,
 		MaturityType:       req.MaturityType,
-		RemainingPrincipal: req.InvestmentAmount,
+		RemainingPrincipal: faceValue,
 		Status:             models.BondActive,
 		Notes:              req.Notes,
 	}
@@ -64,7 +76,7 @@ func (s *CorporateBondService) buildPrincipalSchedule(req models.CreateCorporate
 		repayments = append(repayments, models.PrincipalRepayment{
 			RepaymentID:   uuid.New().String(),
 			ScheduledDate: maturityDate,
-			Amount:        req.InvestmentAmount,
+			Amount:        bondFaceValueFromRequest(req),
 			Status:        models.PayoutPending,
 		})
 	} else {
@@ -109,20 +121,21 @@ func (s *CorporateBondService) generateInterestSchedule(bond *models.CorporateBo
 		return events[i].date.Before(events[j].date)
 	})
 
-	currentPrincipal := bond.InvestmentAmount
-
-	// Payouts happen on the maturity date's day-of-month, not the purchase day.
-	// First payout is never in the same month as purchase — always starts from the next month.
-	maturityDay := bond.MaturityDate.Day()
-	payoutDate := time.Date(bond.PurchaseDate.Year(), bond.PurchaseDate.Month()+1, maturityDay, 0, 0, 0, 0, bond.PurchaseDate.Location())
+	currentPrincipal := bondFaceValue(bond)
+	payoutDay := bond.PayoutDay
+	if payoutDay < 1 || payoutDay > 31 {
+		payoutDay = bond.MaturityDate.Day()
+	}
 	eventIdx := 0
 
-	// Track previous date for actual day count calculation
-	prevDate := bond.PurchaseDate
-
-	for !payoutDate.After(bond.MaturityDate) {
+	for period := months; ; period += months {
+		payoutDate := bondDateAtMonthOffset(bond.PurchaseDate, period, payoutDay)
+		if payoutDate.After(bond.MaturityDate) {
+			break
+		}
+		prevDate := bondDateAtMonthOffset(bond.PurchaseDate, period-months, payoutDay)
 		// Check if any principal repayments happened before this payout date
-		for eventIdx < len(events) && !events[eventIdx].date.After(payoutDate) {
+		for eventIdx < len(events) && events[eventIdx].date.Before(payoutDate) {
 			currentPrincipal -= events[eventIdx].amount
 			eventIdx++
 		}
@@ -143,8 +156,10 @@ func (s *CorporateBondService) generateInterestSchedule(bond *models.CorporateBo
 			Status:          models.PayoutPending,
 		})
 
-		prevDate = payoutDate
-		payoutDate = payoutDate.AddDate(0, months, 0)
+		for eventIdx < len(events) && events[eventIdx].date.Equal(payoutDate) {
+			currentPrincipal -= events[eventIdx].amount
+			eventIdx++
+		}
 	}
 
 	return payouts
@@ -204,7 +219,7 @@ func (s *CorporateBondService) recalculateBond(bond *models.CorporateBond) {
 	}
 
 	bond.TotalPrincipalReturned = 0
-	bond.RemainingPrincipal = bond.InvestmentAmount
+	bond.RemainingPrincipal = bondFaceValue(bond)
 	for i := range bond.PrincipalRepayments {
 		if bond.PrincipalRepayments[i].Status == models.PayoutReceived ||
 			!bond.PrincipalRepayments[i].ScheduledDate.After(now) {
@@ -338,6 +353,9 @@ func (s *CorporateBondService) Update(ctx context.Context, id string, req models
 		return nil, err
 	}
 
+	previousInterestPayouts := append([]models.InterestPayout(nil), bond.InterestPayouts...)
+	previousPrincipalRepayments := append([]models.PrincipalRepayment(nil), bond.PrincipalRepayments...)
+
 	purchaseDate, err := parseDate(req.PurchaseDate)
 	if err != nil {
 		return nil, invalidf("invalid purchase_date: %v", err)
@@ -349,27 +367,82 @@ func (s *CorporateBondService) Update(ctx context.Context, id string, req models
 
 	bond.BondName = req.BondName
 	bond.Issuer = req.Issuer
+	faceValue := req.FaceValue
+	if faceValue <= 0 {
+		faceValue = req.InvestmentAmount
+	}
+	payoutDay := req.PayoutDay
+	if payoutDay < 1 {
+		payoutDay = maturityDate.Day()
+	}
+
 	bond.PurchaseDate = purchaseDate
 	bond.InvestmentAmount = req.InvestmentAmount
+	bond.FaceValue = faceValue
 	bond.CouponRate = req.CouponRate
+	bond.YieldToMaturity = req.YieldToMaturity
 	bond.InterestPayoutFreq = req.InterestPayoutFreq
+	bond.PayoutDay = payoutDay
 	bond.MaturityDate = maturityDate
 	bond.MaturityType = req.MaturityType
 	bond.Notes = req.Notes
 
-	// Always rebuild schedules from scratch on update
-	bond.RemainingPrincipal = req.InvestmentAmount
+	// Rebuild schedules while retaining receipts already recorded by the user.
+	bond.RemainingPrincipal = faceValue
 	bond.TotalInterestEarned = 0
 	bond.TotalPrincipalReturned = 0
 	bond.PrincipalRepayments = s.buildPrincipalSchedule(req, maturityDate)
 	bond.InterestPayouts = s.generateInterestSchedule(bond)
-
-	// recalculateBond will auto-mark past payouts as received on next GetAll
+	preserveReceivedInterestPayouts(previousInterestPayouts, bond.InterestPayouts)
+	preserveReceivedPrincipalRepayments(previousPrincipalRepayments, bond.PrincipalRepayments)
+	s.recalculateBond(bond)
+	bond.XIRR = ComputeCorporateBondXIRR(bond)
 
 	if err := s.repo.Update(ctx, bond); err != nil {
 		return nil, err
 	}
 	return bond, nil
+}
+
+func preserveReceivedInterestPayouts(previous, current []models.InterestPayout) {
+	for i := 0; i < len(previous) && i < len(current); i++ {
+		if previous[i].Status == models.PayoutReceived {
+			current[i].Status = models.PayoutReceived
+			current[i].ReceivedDate = previous[i].ReceivedDate
+		}
+	}
+}
+
+func preserveReceivedPrincipalRepayments(previous, current []models.PrincipalRepayment) {
+	for i := 0; i < len(previous) && i < len(current); i++ {
+		if previous[i].Status == models.PayoutReceived {
+			current[i].Status = models.PayoutReceived
+			current[i].ReceivedDate = previous[i].ReceivedDate
+		}
+	}
+}
+
+func bondFaceValueFromRequest(req models.CreateCorporateBondRequest) float64 {
+	if req.FaceValue > 0 {
+		return req.FaceValue
+	}
+	return req.InvestmentAmount
+}
+
+func bondFaceValue(bond *models.CorporateBond) float64 {
+	if bond.FaceValue > 0 {
+		return bond.FaceValue
+	}
+	return bond.InvestmentAmount
+}
+
+func bondDateAtMonthOffset(anchor time.Time, monthOffset, day int) time.Time {
+	first := time.Date(anchor.Year(), anchor.Month()+time.Month(monthOffset), 1, 0, 0, 0, 0, anchor.Location())
+	lastDay := first.AddDate(0, 1, -1).Day()
+	if day > lastDay {
+		day = lastDay
+	}
+	return time.Date(first.Year(), first.Month(), day, 0, 0, 0, 0, anchor.Location())
 }
 
 func frequencyToMonths(freq models.PayoutFrequency) int {

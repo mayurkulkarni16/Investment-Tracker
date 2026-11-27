@@ -62,8 +62,11 @@ type CorporateBond struct {
 	Issuer                 string               `json:"issuer" bson:"issuer"`
 	PurchaseDate           time.Time            `json:"purchase_date" bson:"purchase_date"`
 	InvestmentAmount       float64              `json:"investment_amount" bson:"investment_amount"`
+	FaceValue              float64              `json:"face_value" bson:"face_value"`
 	CouponRate             float64              `json:"coupon_rate" bson:"coupon_rate"`
+	YieldToMaturity        float64              `json:"yield_to_maturity" bson:"yield_to_maturity"`
 	InterestPayoutFreq     PayoutFrequency      `json:"interest_payout_frequency" bson:"interest_payout_frequency"`
+	PayoutDay              int                  `json:"payout_day" bson:"payout_day"`
 	MaturityDate           time.Time            `json:"maturity_date" bson:"maturity_date"`
 	MaturityType           MaturityType         `json:"maturity_type" bson:"maturity_type"`
 	PrincipalRepayments    []PrincipalRepayment `json:"principal_repayments" bson:"principal_repayments"`
@@ -88,8 +91,11 @@ type CreateCorporateBondRequest struct {
 	Issuer              string                    `json:"issuer" binding:"required"`
 	PurchaseDate        string                    `json:"purchase_date" binding:"required"`
 	InvestmentAmount    float64                   `json:"investment_amount" binding:"required"`
+	FaceValue           float64                   `json:"face_value" binding:"min=0"`
 	CouponRate          float64                   `json:"coupon_rate" binding:"min=0,max=100"` // 0 = zero-coupon
+	YieldToMaturity     float64                   `json:"yield_to_maturity" binding:"min=0,max=100"`
 	InterestPayoutFreq  PayoutFrequency           `json:"interest_payout_frequency" binding:"required"`
+	PayoutDay           int                       `json:"payout_day" binding:"min=0,max=31"`
 	MaturityDate        string                    `json:"maturity_date" binding:"required"`
 	MaturityType        MaturityType              `json:"maturity_type" binding:"required"`
 	PrincipalRepayments []PrincipalRepaymentInput `json:"principal_repayments"`

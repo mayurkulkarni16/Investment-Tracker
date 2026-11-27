@@ -86,7 +86,9 @@ HOUSEHOLD FINANCE & PLANNING
 
 3c. Corporate Bonds
   - CRUD for bond holdings
-  - Auto-generated interest payout schedules (monthly/quarterly/biannually/annually)
+  - Separate investment cost, face value, coupon rate and reference YTM
+  - Auto-generated ACT/365 interest schedules on a fixed payout day (monthly/quarterly/biannually/annually)
+  - Estimated TDS and net interest shown alongside gross interest
   - Principal repayment schedules (bullet or staggered maturity)
   - Mark interest/principal payouts as received
   - Dynamic recalculation when principal reduces (staggered bonds)

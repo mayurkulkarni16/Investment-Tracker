@@ -9,6 +9,14 @@ import { ChevronDown, Pencil, Trash2, Plus } from 'lucide-react';
 import RowActions from '../components/RowActions';
 import { FilterChips, PageSkeleton } from '../components/ui';
 
+const BOND_TDS_ESTIMATE_RATE = 0.1;
+const formatBondPayment = (amount: number) => new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+}).format(amount);
+
 export default function CorporateBondsPage() {
   const { isViewOnly, viewAsUserId } = useAuth();
   const [bonds, setBonds] = useState<CorporateBond[]>([]);
@@ -22,12 +30,14 @@ export default function CorporateBondsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [form, setForm] = useState<CreateCorporateBondRequest>({
     bond_name: '', issuer: '', purchase_date: '', investment_amount: 0,
-    coupon_rate: 0, interest_payout_frequency: 'quarterly', maturity_date: '',
+    face_value: 0, coupon_rate: 0, yield_to_maturity: 0,
+    interest_payout_frequency: 'quarterly', payout_day: 10, maturity_date: '',
     maturity_type: 'bullet', principal_repayments: [],
   });
   const [editForm, setEditForm] = useState<CreateCorporateBondRequest>({
     bond_name: '', issuer: '', purchase_date: '', investment_amount: 0,
-    coupon_rate: 0, interest_payout_frequency: 'quarterly', maturity_date: '',
+    face_value: 0, coupon_rate: 0, yield_to_maturity: 0,
+    interest_payout_frequency: 'quarterly', payout_day: 10, maturity_date: '',
     maturity_type: 'bullet', principal_repayments: [],
   });
   const [repayments, setRepayments] = useState<PrincipalRepaymentInput[]>([]);
@@ -48,7 +58,7 @@ export default function CorporateBondsPage() {
       }
       await createCorporateBond(data);
       setShowAdd(false);
-      setForm({ bond_name: '', issuer: '', purchase_date: '', investment_amount: 0, coupon_rate: 0, interest_payout_frequency: 'quarterly', maturity_date: '', maturity_type: 'bullet', principal_repayments: [] });
+      setForm({ bond_name: '', issuer: '', purchase_date: '', investment_amount: 0, face_value: 0, coupon_rate: 0, yield_to_maturity: 0, interest_payout_frequency: 'quarterly', payout_day: 10, maturity_date: '', maturity_type: 'bullet', principal_repayments: [] });
       setRepayments([]);
       toast('Bond added');
       load();
@@ -67,8 +77,11 @@ export default function CorporateBondsPage() {
       issuer: bond.issuer,
       purchase_date: toInputDate(bond.purchase_date),
       investment_amount: bond.investment_amount,
+      face_value: bond.face_value || bond.investment_amount,
       coupon_rate: bond.coupon_rate,
+      yield_to_maturity: bond.yield_to_maturity || 0,
       interest_payout_frequency: bond.interest_payout_frequency,
+      payout_day: bond.payout_day || new Date(bond.maturity_date).getDate(),
       maturity_date: toInputDate(bond.maturity_date),
       maturity_type: bond.maturity_type,
       notes: bond.notes,
@@ -220,8 +233,11 @@ export default function CorporateBondsPage() {
 
             <div className="card-grid mt-3">
               <div><span className="text-muted text-sm">Investment</span><div className="fw-semibold">{formatCurrency(bond.investment_amount)}</div></div>
+              <div><span className="text-muted text-sm">Face Value</span><div className="fw-semibold">{formatCurrency(bond.face_value || bond.investment_amount)}</div></div>
               <div><span className="text-muted text-sm">Coupon Rate</span><div className="fw-semibold">{bond.coupon_rate}%</div></div>
+              <div><span className="text-muted text-sm">YTM</span><div className="fw-semibold">{bond.yield_to_maturity ? `${bond.yield_to_maturity}%` : '-'}</div></div>
               <div><span className="text-muted text-sm">Frequency</span><div className="fw-semibold">{bond.interest_payout_frequency}</div></div>
+              <div><span className="text-muted text-sm">Payout Day</span><div className="fw-semibold">{bond.payout_day || new Date(bond.maturity_date).getDate()} of month</div></div>
               <div><span className="text-muted text-sm">Maturity</span><div className="fw-semibold">{formatDate(bond.maturity_date)} ({bond.maturity_type})</div></div>
               <div><span className="text-muted text-sm">Remaining Principal</span><div className="fw-semibold">{formatCurrency(bond.remaining_principal)}</div></div>
               <div><span className="text-muted text-sm">Total Interest Earned</span><div className="fw-semibold text-success">{formatCurrency(bond.total_interest_earned)}</div></div>
@@ -233,13 +249,15 @@ export default function CorporateBondsPage() {
                 <h4 className="mb-2">Interest Payouts</h4>
                 <div className="table-container mb-4">
                   <table>
-                    <thead><tr><th>Date</th><th className="num">Principal at Time</th><th className="num">Amount</th><th>Status</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Date</th><th className="num">Principal at Time</th><th className="num">Interest</th><th className="num">Est. TDS (10%)</th><th className="num">Est. Net</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody>
                       {(bond.interest_payouts || []).map(p => (
                         <tr key={p.payout_id}>
                           <td>{formatDate(p.scheduled_date)}</td>
                           <td className="num">{formatCurrency(p.principal_at_time)}</td>
-                          <td className="num">{formatCurrency(p.amount)}</td>
+                          <td className="num">{formatBondPayment(p.amount)}</td>
+                          <td className="num">{formatBondPayment(p.amount * BOND_TDS_ESTIMATE_RATE)}</td>
+                          <td className="num">{formatBondPayment(p.amount * (1 - BOND_TDS_ESTIMATE_RATE))}</td>
                           <td><span className={`badge badge-${p.status}`}>{statusLabel(p.status)}</span></td>
                           <td>
                             {!isViewOnly && p.status === 'pending' && <button className="btn btn-sm btn-success" onClick={() => handleMarkReceived(bond.id, p.payout_id)}>Mark Received</button>}
@@ -290,21 +308,32 @@ export default function CorporateBondsPage() {
                   <input required value={form.issuer} onChange={e => setForm({ ...form, issuer: e.target.value })} />
                 </div>
               </div>
-              <div className="form-row">
+              <div className="form-row-3">
                 <div className="form-group">
                   <label>Purchase Date</label>
                   <input type="date" required value={form.purchase_date} onChange={e => setForm({ ...form, purchase_date: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label>Investment Amount (₹)</label>
+                  <label>Investment Cost (₹)</label>
                   <input type="number" step="0.01" required value={form.investment_amount || ''} onChange={e => setForm({ ...form, investment_amount: parseFloat(e.target.value) })} />
+                </div>
+                <div className="form-group">
+                  <label>Face Value / Principal (₹)</label>
+                  <input type="number" step="0.01" min={0} required value={form.face_value || ''} onChange={e => setForm({ ...form, face_value: parseFloat(e.target.value) || 0 })} />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Coupon Rate (%)</label>
+                  <input type="number" step="0.0001" min={0} placeholder="0 for zero-coupon" value={form.coupon_rate || ''} onChange={e => setForm({ ...form, coupon_rate: parseFloat(e.target.value) || 0 })} />
+                </div>
+                <div className="form-group">
+                  <label>YTM (reference %)</label>
+                  <input type="number" step="0.01" min={0} placeholder="Optional; shown for reference" value={form.yield_to_maturity || ''} onChange={e => setForm({ ...form, yield_to_maturity: parseFloat(e.target.value) || 0 })} />
+                  <small className="text-muted">Reference only; the app calculates XIRR from payouts received.</small>
                 </div>
               </div>
               <div className="form-row-3">
-                <div className="form-group">
-                  <label>Coupon Rate (%)</label>
-                  <input type="number" step="0.01" min={0} placeholder="0 for zero-coupon" value={form.coupon_rate || ''} onChange={e => setForm({ ...form, coupon_rate: parseFloat(e.target.value) || 0 })} />
-                </div>
                 <div className="form-group">
                   <label>Interest Payout</label>
                   <select value={form.interest_payout_frequency} onChange={e => setForm({ ...form, interest_payout_frequency: e.target.value as PayoutFrequency })}>
@@ -313,6 +342,10 @@ export default function CorporateBondsPage() {
                     <option value="biannually">Biannually</option>
                     <option value="annually">Annually</option>
                   </select>
+                </div>
+                <div className="form-group">
+                  <label>Payout Day of Month</label>
+                  <input type="number" min={1} max={31} required value={form.payout_day} onChange={e => setForm({ ...form, payout_day: parseInt(e.target.value, 10) || 1 })} />
                 </div>
                 <div className="form-group">
                   <label>Maturity Date</label>
@@ -383,21 +416,32 @@ export default function CorporateBondsPage() {
                   <input required value={editForm.issuer} onChange={e => setEditForm({ ...editForm, issuer: e.target.value })} />
                 </div>
               </div>
-              <div className="form-row">
+              <div className="form-row-3">
                 <div className="form-group">
                   <label>Purchase Date</label>
                   <input type="date" required value={editForm.purchase_date} onChange={e => setEditForm({ ...editForm, purchase_date: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label>Investment Amount (₹)</label>
+                  <label>Investment Cost (₹)</label>
                   <input type="number" step="0.01" required value={editForm.investment_amount || ''} onChange={e => setEditForm({ ...editForm, investment_amount: parseFloat(e.target.value) })} />
+                </div>
+                <div className="form-group">
+                  <label>Face Value / Principal (₹)</label>
+                  <input type="number" step="0.01" min={0} required value={editForm.face_value || ''} onChange={e => setEditForm({ ...editForm, face_value: parseFloat(e.target.value) || 0 })} />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Coupon Rate (%)</label>
+                  <input type="number" step="0.0001" min={0} placeholder="0 for zero-coupon" value={editForm.coupon_rate || ''} onChange={e => setEditForm({ ...editForm, coupon_rate: parseFloat(e.target.value) || 0 })} />
+                </div>
+                <div className="form-group">
+                  <label>YTM (reference %)</label>
+                  <input type="number" step="0.01" min={0} placeholder="Optional; shown for reference" value={editForm.yield_to_maturity || ''} onChange={e => setEditForm({ ...editForm, yield_to_maturity: parseFloat(e.target.value) || 0 })} />
+                  <small className="text-muted">Reference only; the app calculates XIRR from payouts received.</small>
                 </div>
               </div>
               <div className="form-row-3">
-                <div className="form-group">
-                  <label>Coupon Rate (%)</label>
-                  <input type="number" step="0.01" min={0} placeholder="0 for zero-coupon" value={editForm.coupon_rate || ''} onChange={e => setEditForm({ ...editForm, coupon_rate: parseFloat(e.target.value) || 0 })} />
-                </div>
                 <div className="form-group">
                   <label>Interest Payout</label>
                   <select value={editForm.interest_payout_frequency} onChange={e => setEditForm({ ...editForm, interest_payout_frequency: e.target.value as PayoutFrequency })}>
@@ -406,6 +450,10 @@ export default function CorporateBondsPage() {
                     <option value="biannually">Biannually</option>
                     <option value="annually">Annually</option>
                   </select>
+                </div>
+                <div className="form-group">
+                  <label>Payout Day of Month</label>
+                  <input type="number" min={1} max={31} required value={editForm.payout_day} onChange={e => setEditForm({ ...editForm, payout_day: parseInt(e.target.value, 10) || 1 })} />
                 </div>
                 <div className="form-group">
                   <label>Maturity Date</label>

@@ -25,7 +25,7 @@ FinBoard (this repository: Investment Tracker) is a comprehensive personal finan
 ### Investment Tracking
 - **Mutual Funds** — Add funds by AMFI scheme code with auto NAV fetching. CAS PDF import, ELSS lock-in tracking, SIP/purchase/redemption transactions, and 80C tax saving calculation.
 - **Stocks** — Live prices via Yahoo Finance, auto-refreshed every 60s during market hours (Mon–Fri 9:15 AM – 3:30 PM IST). Buy/sell transactions, dividends, average cost, P&L, and day change.
-- **Corporate Bonds** — Track coupon payments and principal repayments (bullet or staggered). Mark payouts as received, auto-generated interest schedules, and dynamic recalculation on principal reduction.
+- **Corporate Bonds** — Track purchase cost separately from face value, coupon rate and reference YTM, with bullet or staggered principal repayments. Interest schedules use actual/365 day counts on a fixed payout day, with estimated TDS and net interest shown separately.
 - **Fixed Deposits** — Cumulative and non-cumulative FDs with maturity amount calculation and auto-renewal tracking.
 - **Provident Fund** — EPF, VPF, and PPF support. Monthly contribution tracking by financial year, employee + employer split, PF passbook PDF import, and interest calculation per EPFO rules.
 - **NPS (National Pension System)** — Tier 1/Tier 2 accounts, contribution tracking, asset allocation (equity/corporate bond/govt securities/alternate), fund manager tracking, and 80CCD tax deduction computation.

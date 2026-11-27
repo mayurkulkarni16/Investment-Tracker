@@ -82,8 +82,11 @@ export interface CorporateBond {
   issuer: string;
   purchase_date: string;
   investment_amount: number;
+  face_value: number;
   coupon_rate: number;
+  yield_to_maturity: number;
   interest_payout_frequency: PayoutFrequency;
+  payout_day: number;
   maturity_date: string;
   maturity_type: MaturityType;
   principal_repayments: PrincipalRepayment[];
@@ -199,8 +202,11 @@ export interface CreateCorporateBondRequest {
   issuer: string;
   purchase_date: string;
   investment_amount: number;
+  face_value: number;
   coupon_rate: number;
+  yield_to_maturity: number;
   interest_payout_frequency: PayoutFrequency;
+  payout_day: number;
   maturity_date: string;
   maturity_type: MaturityType;
   principal_repayments?: PrincipalRepaymentInput[];
